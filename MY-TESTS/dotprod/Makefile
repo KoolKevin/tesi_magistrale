@@ -5,7 +5,7 @@ HEADERS = -Hvdsp_vector_c
 OPT = -O2
 AUTOVEC = -fvectorize -fslp-vectorize -ffast-math
 
-SRCS = main.c vec_sum.c
+SRCS = main.c dotp.c
 TARGET = a.out
 
 all: $(TARGET)
