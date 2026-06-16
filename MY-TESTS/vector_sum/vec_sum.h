@@ -10,4 +10,9 @@ void vectorized_vec_sum(__vccm int* restrict a,
                         __vccm int* restrict c, 
                         int n);
 
+void autovectorized_vec_sum(__vccm int* restrict a,
+                            __vccm int* restrict b,
+                            __vccm int* restrict c,
+                            int n);
+
 #endif // #ifdef VEC_SUM_H

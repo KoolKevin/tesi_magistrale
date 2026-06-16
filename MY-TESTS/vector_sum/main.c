@@ -66,6 +66,20 @@ int main() {
         printf("a[%d]=%d, b[%d]=%d, c[%d]=%d\n", i, a[i], i, b[i], i, c[i]);
     }
 
+    /******** versione autovettorizzata ********/
+    printf("Versione autovettorizzata\n");
+
+    start = clock();
+    autovectorized_vec_sum(a, b, c, N);
+    end = clock();   
+    double time_autovectorized = ((double)(end-start) / CLOCKS_PER_SEC)*1000; // in ms
+    printf("Tempo di esecuzione di autovectorized_vec_sum: %.2fms\n", time_autovectorized);
+    printf("Speedup: %.2f\n", time_scalar/time_autovectorized);
+    printf("Primi 5 elementi della somma:\n");
+    for (int i = 0; i < 5; i++) {
+        printf("a[%d]=%d, b[%d]=%d, c[%d]=%d\n", i, a[i], i, b[i], i, c[i]);
+    }
+
 /*
     // Liberazione della memoria allocata
     free(a);
