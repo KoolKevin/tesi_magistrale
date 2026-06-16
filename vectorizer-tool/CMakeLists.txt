@@ -1,0 +1,134 @@
+cmake_minimum_required(VERSION 3.20.0)
+project(standalone-dialect LANGUAGES CXX C)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON) # per intellisense
+
+set(CMAKE_BUILD_WITH_INSTALL_NAME_DIR ON) # roba per macOS
+
+# c++17 a default ma è anche parametrizzabile con -D
+set(CMAKE_CXX_STANDARD 17 CACHE STRING "C++ standard to conform to")
+
+# Usa mold come linker se disponibile
+find_program(MOLD_LINKER mold)
+if(MOLD_LINKER)
+  add_link_options(-fuse-ld=mold)
+  message(STATUS "Using mold linker: ${MOLD_LINKER}")
+else()
+  message(STATUS "mold linker not found, using default")
+endif()
+
+set(LIT_PATH /home/kevin/llvm-project/build/bin/llvm-lit)
+set(LLVM_EXTERNAL_LIT ${LIT_PATH} CACHE STRING "path per llvm-lit")
+message(STATUS "Using llvm-lit in: ${LIT_PATH}")
+
+
+### INCLUDIAMO LE INFORMAZIONI DI BUILD ESPORTATE DA LLVM E MLIR ###
+
+
+# controlliamo se stiamo facendo una build out-of-tree o meno
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+  set(EXTERNAL_PROJECT_BUILD FALSE)
+
+  # Normalmente basterebbe il find_package() sotto. Tuttavia, ho installato
+  # polygeist e find_package() va a guardare prima li rispetto a /usr/local/
+  # dove è presente la configurazione corretta. Settando le variabili diciamo a
+  # CMake di guardare PRIMA in /usr/local
+  set(MLIR_DIR "/usr/local/lib/cmake/mlir" CACHE PATH "Path to MLIRConfig.cmake")
+  set(LLVM_DIR "/usr/local/lib/cmake/llvm" CACHE PATH "Path to LLVMConfig.cmake")
+
+  # carichiamo le informazioni di mlir e (transitivamente) di llvm.
+  # in particolare:
+  # - popoliamo le variabili MLIR_CMAKE_DIR e LLVM_CMAKE_DIR dove
+  #   sono state esportate le informazioni di build (/usr/local/lib/cmake/...)
+  # - popoliamo le variabili LLVM_INCLUDE_DIRS e MLIR_INCLUDE_DIRS dove sono
+  #   presenti gli header
+  find_package(MLIR REQUIRED CONFIG)
+
+  # Define the default argument to use by `lit` when testing.
+  set(LLVM_LIT_ARGS "-sv" CACHE STRING "Default options for lit")
+
+  message(STATUS "Using MLIRConfig.cmake in: ${MLIR_DIR}")
+  message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
+
+  # Definizione delle directory di output, non so chi utilizza queste variabili,
+  # ma qualcuno lo farà. (CMAKE_BINARY_DIR è una variabile builtin, settata da
+  # project(), che punta alla root della cartella di build)
+  set(LLVM_RUNTIME_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/bin)
+  set(LLVM_LIBRARY_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/lib)
+  set(MLIR_BINARY_DIR ${CMAKE_BINARY_DIR})
+
+  # CMAKE_MODULE_PATH è una lista di percorsi dove CMake va a cercare i file con
+  # estensione cmake. Aggiungendo questi percorsi al CMAKE_MODULE_PATH, permetti
+  # al comando include() di trovare script specifici (come quelli per TableGen).
+  list(APPEND CMAKE_MODULE_PATH "${MLIR_CMAKE_DIR}")
+  list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
+
+  # include() cerca un file chiamato NomeFile.cmake nel CMAKE_MODULE_PATH e lo
+  # esegue. I file inclusi contengono definizioni di funzioni e configurazioni.
+  # Ad esempio, include(AddMLIR) definisce la funzione add_mlir_dialect(...).
+  # Le configurazioni includono variabili e quant'altro (non mi interessa)
+  include(TableGen)             # Permette di usare add_public_tablegen_target
+  include(AddLLVM)              # Fornisce macro come add_llvm_library
+  include(AddMLIR)              # Fornisce macro come add_mlir_dialect
+  include(HandleLLVMOptions)    # Configura i flag del compilatore (warning, ottimizzazioni) in linea con LLVM
+else()
+  set(EXTERNAL_PROJECT_BUILD TRUE)
+  # Build via external projects mechanism
+  set(LLVM_RUNTIME_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/bin)
+  set(LLVM_LIBRARY_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/tools/Standalone/lib)
+
+  set(MLIR_BINARY_DIR ${CMAKE_BINARY_DIR})
+  set(MLIR_MAIN_SRC_DIR ${LLVM_MAIN_SRC_DIR}/../mlir)
+  set(MLIR_INCLUDE_DIR ${MLIR_MAIN_SRC_DIR}/include)
+  set(MLIR_GENERATED_INCLUDE_DIR ${LLVM_BINARY_DIR}/tools/mlir/include)
+  set(MLIR_INCLUDE_DIRS "${MLIR_INCLUDE_DIR};${MLIR_GENERATED_INCLUDE_DIR}")
+
+  list(APPEND CMAKE_MODULE_PATH "${MLIR_MAIN_SRC_DIR}/cmake/modules")
+  list(APPEND CMAKE_MODULE_PATH "${LLVM_MAIN_SRC_DIR}/cmake/modules")
+endif()
+
+
+
+### SETTIAMO DOVE CERCARE HEADER E LIBRERIE ###
+
+
+# Qui stai creando degli "alias" per i percorsi del tuo progetto:
+# - PROJECT_SOURCE_DIR: cartella dove risiede il codice (dove risiede il CML)
+# - PROJECT_BINARY_DIR: cartella dove stai compilando (./build/)
+# (le variabili PROJECT sono popolate automaticamente come CMAKE_BINARY_DIR)
+set(STANDALONE_SOURCE_DIR ${PROJECT_SOURCE_DIR})
+set(STANDALONE_BINARY_DIR ${PROJECT_BINARY_DIR})
+
+# include_directories aggiunge i percorsi al flag -I del compilatore
+include_directories(${LLVM_INCLUDE_DIRS})               # header llvm
+include_directories(${MLIR_INCLUDE_DIRS})               # header mlir
+include_directories(${STANDALONE_SOURCE_DIR}/include)   # miei header file
+include_directories(${STANDALONE_BINARY_DIR}/include)   # generati da tablegen
+
+# link_directories aggiunge i percorsi al flag -L del compilatore
+# qua puntiamo a ./llvm-project/build/lib/
+link_directories(${LLVM_BUILD_LIBRARY_DIR})
+
+# questo aggiunge i flag -D del preprocessore con cui LLVM e MLIR sono stati
+# compilati. Servono per far si che gli header file che il mio progetto esterno
+# definiscano un'ABI compatibile con quella delle librerie con cui linko
+add_definitions(${LLVM_DEFINITIONS})
+
+
+
+### IMPORTIAMO LE CARTELLE CHE DEFINISCONO COME BUILDARE I PEZZI DEL PROGETTO ###
+
+
+# importante importare prima include di lib dato che include contiene anche
+# i file .td che genereranno i file .cpp.inc utilizzati dentro lib/
+add_subdirectory(include)
+add_subdirectory(lib)
+
+
+
+# variabile configurabile per includere i test o meno
+option(INCLUDE_TESTS "Enable tests" ON)
+if(INCLUDE_TESTS)
+  add_subdirectory(test)
+endif()
+
+add_subdirectory(standalone-opt) # main
