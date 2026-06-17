@@ -2,10 +2,10 @@ CC = ccac
 ARCH = -tcf=ev71_vfpu
 
 HEADERS = -Hvdsp_vector_c
-OPT = -O2
+OPT = -O1
 AUTOVEC = -fvectorize -fslp-vectorize -ffast-math
 
-SRCS = main.c vec_sum.c
+SRCS = main.c matmul.c
 TARGET = a.out
 
 all: $(TARGET)

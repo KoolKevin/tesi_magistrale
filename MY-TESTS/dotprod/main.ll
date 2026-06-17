@@ -28,60 +28,31 @@ vector.body.preheader:                            ; preds = %entry
   br label %vector.body
 
 if.then:                                          ; preds = %entry
-  %puts63 = call i32 @puts(ptr nonnull dereferenceable(1) @str)
+  %puts64 = call i32 @puts(ptr nonnull dereferenceable(1) @str)
   br label %cleanup
 
-vector.body:                                      ; preds = %vector.body, %vector.body.preheader
-  %index = phi i32 [ 0, %vector.body.preheader ], [ %index.next.1, %vector.body ]
+vector.body:                                      ; preds = %vector.body.preheader, %vector.body
+  %index = phi i32 [ %index.next, %vector.body ], [ 0, %vector.body.preheader ]
   %2 = getelementptr inbounds i32, ptr addrspace(4) %0, i32 %index
   store <16 x i32> <i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1>, ptr addrspace(4) %2, align 16, !tbaa !3
-  %3 = getelementptr inbounds i32, ptr addrspace(4) %2, i32 16
+  %3 = getelementptr inbounds i32, ptr addrspace(4) %1, i32 %index
   store <16 x i32> <i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1>, ptr addrspace(4) %3, align 16, !tbaa !3
-  %4 = getelementptr inbounds i32, ptr addrspace(4) %2, i32 32
-  store <16 x i32> <i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1>, ptr addrspace(4) %4, align 16, !tbaa !3
-  %5 = getelementptr inbounds i32, ptr addrspace(4) %2, i32 48
-  store <16 x i32> <i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1>, ptr addrspace(4) %5, align 16, !tbaa !3
-  %6 = getelementptr inbounds i32, ptr addrspace(4) %1, i32 %index
-  store <16 x i32> <i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1>, ptr addrspace(4) %6, align 16, !tbaa !3
-  %7 = getelementptr inbounds i32, ptr addrspace(4) %6, i32 16
-  store <16 x i32> <i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1>, ptr addrspace(4) %7, align 16, !tbaa !3
-  %8 = getelementptr inbounds i32, ptr addrspace(4) %6, i32 32
-  store <16 x i32> <i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1>, ptr addrspace(4) %8, align 16, !tbaa !3
-  %9 = getelementptr inbounds i32, ptr addrspace(4) %6, i32 48
-  store <16 x i32> <i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1>, ptr addrspace(4) %9, align 16, !tbaa !3
-  %index.next = add nuw nsw i32 %index, 64
-  %10 = getelementptr inbounds i32, ptr addrspace(4) %0, i32 %index.next
-  store <16 x i32> <i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1>, ptr addrspace(4) %10, align 16, !tbaa !3
-  %11 = getelementptr inbounds i32, ptr addrspace(4) %10, i32 16
-  store <16 x i32> <i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1>, ptr addrspace(4) %11, align 16, !tbaa !3
-  %12 = getelementptr inbounds i32, ptr addrspace(4) %10, i32 32
-  store <16 x i32> <i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1>, ptr addrspace(4) %12, align 16, !tbaa !3
-  %13 = getelementptr inbounds i32, ptr addrspace(4) %10, i32 48
-  store <16 x i32> <i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1>, ptr addrspace(4) %13, align 16, !tbaa !3
-  %14 = getelementptr inbounds i32, ptr addrspace(4) %1, i32 %index.next
-  store <16 x i32> <i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1>, ptr addrspace(4) %14, align 16, !tbaa !3
-  %15 = getelementptr inbounds i32, ptr addrspace(4) %14, i32 16
-  store <16 x i32> <i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1>, ptr addrspace(4) %15, align 16, !tbaa !3
-  %16 = getelementptr inbounds i32, ptr addrspace(4) %14, i32 32
-  store <16 x i32> <i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1>, ptr addrspace(4) %16, align 16, !tbaa !3
-  %17 = getelementptr inbounds i32, ptr addrspace(4) %14, i32 48
-  store <16 x i32> <i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1>, ptr addrspace(4) %17, align 16, !tbaa !3
-  %index.next.1 = add nuw nsw i32 %index, 128
-  %18 = icmp eq i32 %index.next.1, 1024
-  br i1 %18, label %for.cond.cleanup, label %vector.body, !llvm.loop !7
+  %index.next = add nuw i32 %index, 16
+  %4 = icmp eq i32 %index.next, 1024
+  br i1 %4, label %for.cond.cleanup, label %vector.body, !llvm.loop !7
 
 for.cond.cleanup:                                 ; preds = %vector.body
   %call4 = call i32 @clock() #4
-  %19 = addrspacecast ptr addrspace(4) %0 to ptr
-  %20 = addrspacecast ptr addrspace(4) %1 to ptr
-  %call5 = call i32 @dotp(ptr noundef %19, ptr noundef %20, i32 noundef 1024) #4
+  %5 = addrspacecast ptr addrspace(4) %0 to ptr
+  %6 = addrspacecast ptr addrspace(4) %1 to ptr
+  %call5 = call i32 @dotp(ptr noundef %5, ptr noundef %6, i32 noundef 1024) #4
   %call6 = call i32 @clock() #4
   %sub = sub nsw i32 %call6, %call4
   %conv = sitofp i32 %sub to double
   %call7 = call i32 @_timer_clocks_per_sec() #4
   %conv8 = uitofp i32 %call7 to double
-  %21 = fmul fast double %conv, 1.000000e+03
-  %mul = fdiv fast double %21, %conv8
+  %7 = fmul fast double %conv, 1.000000e+03
+  %mul = fdiv fast double %7, %conv8
   %call9 = call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.3, double noundef nofpclass(nan inf) %mul)
   %call10 = call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.4, i32 noundef %call5)
   %putchar = call i32 @putchar(i32 10)
@@ -93,26 +64,27 @@ for.cond.cleanup:                                 ; preds = %vector.body
   %conv17 = sitofp i32 %sub16 to double
   %call18 = call i32 @_timer_clocks_per_sec() #4
   %conv19 = uitofp i32 %call18 to double
-  %22 = fmul fast double %conv17, 1.000000e+03
-  %mul21 = fdiv fast double %22, %conv19
+  %8 = fmul fast double %conv17, 1.000000e+03
+  %mul21 = fdiv fast double %8, %conv19
   %call22 = call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.7, double noundef nofpclass(nan inf) %mul21)
   %div23 = fdiv fast double %mul, %mul21
   %call24 = call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.8, double noundef nofpclass(nan inf) %div23)
   %call25 = call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.4, i32 noundef %call14)
-  %puts64 = call i32 @puts(ptr nonnull dereferenceable(1) @str.11)
-  %call27 = call i32 @clock() #4
-  %call28 = call i32 @autovectorized_dotp(ptr addrspace(4) noundef nonnull %0, ptr addrspace(4) noundef nonnull %1, i32 noundef 1024) #4
-  %call29 = call i32 @clock() #4
-  %sub30 = sub nsw i32 %call29, %call27
-  %conv31 = sitofp i32 %sub30 to double
-  %call32 = call i32 @_timer_clocks_per_sec() #4
-  %conv33 = uitofp i32 %call32 to double
-  %23 = fmul fast double %conv31, 1.000000e+03
-  %mul35 = fdiv fast double %23, %conv33
-  %call36 = call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.10, double noundef nofpclass(nan inf) %mul35)
-  %div37 = fdiv fast double %mul, %mul35
-  %call38 = call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.8, double noundef nofpclass(nan inf) %div37)
-  %call39 = call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.4, i32 noundef %call28)
+  %putchar65 = call i32 @putchar(i32 10)
+  %puts66 = call i32 @puts(ptr nonnull dereferenceable(1) @str.11)
+  %call28 = call i32 @clock() #4
+  %call29 = call i32 @autovectorized_dotp(ptr addrspace(4) noundef nonnull %0, ptr addrspace(4) noundef nonnull %1, i32 noundef 1024) #4
+  %call30 = call i32 @clock() #4
+  %sub31 = sub nsw i32 %call30, %call28
+  %conv32 = sitofp i32 %sub31 to double
+  %call33 = call i32 @_timer_clocks_per_sec() #4
+  %conv34 = uitofp i32 %call33 to double
+  %9 = fmul fast double %conv32, 1.000000e+03
+  %mul36 = fdiv fast double %9, %conv34
+  %call37 = call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.10, double noundef nofpclass(nan inf) %mul36)
+  %div38 = fdiv fast double %mul, %mul36
+  %call39 = call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.8, double noundef nofpclass(nan inf) %div38)
+  %call40 = call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.4, i32 noundef %call29)
   br label %cleanup
 
 cleanup:                                          ; preds = %for.cond.cleanup, %if.then
@@ -155,7 +127,8 @@ attributes #4 = { nounwind }
 !4 = !{!"int", !5, i64 0}
 !5 = !{!"omnipotent char", !6, i64 0}
 !6 = !{!"Simple C/C++ TBAA"}
-!7 = distinct !{!7, !8, !9, !10}
+!7 = distinct !{!7, !8, !9, !9, !10, !11}
 !8 = !{!"llvm.loop.mustprogress"}
-!9 = !{!"llvm.loop.isvectorized", i32 1}
-!10 = !{!"llvm.loop.unroll.runtime.disable"}
+!9 = !{!"llvm.loop.unroll.disable"}
+!10 = !{!"llvm.loop.isvectorized", i32 1}
+!11 = !{!"llvm.loop.unroll.runtime.disable"}

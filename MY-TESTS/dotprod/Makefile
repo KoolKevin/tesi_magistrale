@@ -2,7 +2,7 @@ CC = ccac
 ARCH = -tcf=ev71_vfpu
 
 HEADERS = -Hvdsp_vector_c
-OPT = -O2
+OPT = -O1
 AUTOVEC = -fvectorize -fslp-vectorize -ffast-math
 
 SRCS = main.c dotp.c
