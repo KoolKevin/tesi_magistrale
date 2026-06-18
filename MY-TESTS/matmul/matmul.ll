@@ -77,7 +77,7 @@ for.body:                                         ; preds = %for.body.preheader,
 }
 
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind willreturn memory(argmem: readwrite)
-define dso_local void @matmul(ptr nocapture noundef readonly %A, ptr nocapture noundef readonly %B, ptr nocapture noundef %C, i32 noundef %M, i32 noundef %K, i32 noundef %N) local_unnamed_addr #1 {
+define dso_local void @matmul(ptr nocapture noundef readonly %A, ptr nocapture noundef readonly %B, ptr nocapture noundef %C, i32 noundef %M, i32 noundef %N, i32 noundef %K) local_unnamed_addr #1 {
 entry:
   %cmp40 = icmp sgt i32 %M, 0
   br i1 %cmp40, label %for.body.lr.ph, label %for.cond.cleanup
@@ -138,13 +138,13 @@ for.body8:                                        ; preds = %for.body8.lr.ph, %f
 }
 
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind willreturn memory(none)
-define dso_local void @vectorized_matmul(ptr addrspace(4) noalias nocapture noundef %A, ptr addrspace(4) noalias nocapture noundef %B, ptr addrspace(4) noalias nocapture noundef %C, i32 noundef %M, i32 noundef %K, i32 noundef %N) local_unnamed_addr #2 {
+define dso_local void @vectorized_matmul(ptr addrspace(4) noalias nocapture noundef %A, ptr addrspace(4) noalias nocapture noundef %B, ptr addrspace(4) noalias nocapture noundef %C, i32 noundef %M, i32 noundef %N, i32 noundef %K) local_unnamed_addr #2 {
 entry:
   ret void
 }
 
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind willreturn memory(argmem: readwrite)
-define dso_local void @autovectorized_matmul(ptr addrspace(4) noalias nocapture noundef readonly %A, ptr addrspace(4) noalias nocapture noundef readonly %B, ptr addrspace(4) noalias nocapture noundef %C, i32 noundef %M, i32 noundef %K, i32 noundef %N) local_unnamed_addr #1 {
+define dso_local void @autovectorized_matmul(ptr addrspace(4) noalias nocapture noundef readonly %A, ptr addrspace(4) noalias nocapture noundef readonly %B, ptr addrspace(4) noalias nocapture noundef %C, i32 noundef %M, i32 noundef %N, i32 noundef %K) local_unnamed_addr #1 {
 entry:
   %cmp40 = icmp sgt i32 %M, 0
   br i1 %cmp40, label %for.body.lr.ph, label %for.cond.cleanup

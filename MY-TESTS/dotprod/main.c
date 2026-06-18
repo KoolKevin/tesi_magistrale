@@ -9,8 +9,6 @@
 #define N 1024
 
 int main() {
-    printf("%s\n", "hello");
-
     __vccm int* a = __vccm_alloca(N * sizeof(int));
     __vccm int* b = __vccm_alloca(N * sizeof(int));
     if (!a || !b) {
@@ -37,6 +35,7 @@ int main() {
     printf("\n");
 
 	/******** versione vettorizzata ********/
+/*
     printf("Vettorizzo su %d lane\n", _VDSP_NUM_32BIT_LANES);
 
     start = clock();
@@ -46,7 +45,7 @@ int main() {
     printf("Tempo di esecuzione vectorized: %.2fms\n", time_vectorized);
     printf("Speedup: %.2f\n", time_scalar/time_vectorized);
     printf("Risultato: %d\n", c);
-
+*/
     /******** versione autovettorizzata ********/
 
     printf("\n");

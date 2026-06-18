@@ -6,12 +6,10 @@ target triple = "arc-pc-unknown-gnu"
 @.str.1 = private unnamed_addr constant [6 x i8] c"hello\00", align 1
 @.str.3 = private unnamed_addr constant [29 x i8] c"Tempo di esecuzione: %.2fms\0A\00", align 1
 @.str.4 = private unnamed_addr constant [15 x i8] c"Risultato: %d\0A\00", align 1
-@.str.6 = private unnamed_addr constant [23 x i8] c"Vettorizzo su %d lane\0A\00", align 1
-@.str.7 = private unnamed_addr constant [40 x i8] c"Tempo di esecuzione vectorized: %.2fms\0A\00", align 1
+@.str.7 = private unnamed_addr constant [47 x i8] c"Tempo di esecuzione di autovectorized: %.2fms\0A\00", align 1
 @.str.8 = private unnamed_addr constant [15 x i8] c"Speedup: %.2f\0A\00", align 1
-@.str.10 = private unnamed_addr constant [47 x i8] c"Tempo di esecuzione di autovectorized: %.2fms\0A\00", align 1
 @str = private unnamed_addr constant [39 x i8] c"Errore nell'allocazione della memoria.\00", align 1
-@str.11 = private unnamed_addr constant [26 x i8] c"Versione autovettorizzata\00", align 1
+@str.9 = private unnamed_addr constant [26 x i8] c"Versione autovettorizzata\00", align 1
 
 ; Function Attrs: nounwind
 define dso_local i32 @main() local_unnamed_addr #0 {
@@ -28,7 +26,7 @@ vector.body.preheader:                            ; preds = %entry
   br label %vector.body
 
 if.then:                                          ; preds = %entry
-  %puts64 = call i32 @puts(ptr nonnull dereferenceable(1) @str)
+  %puts43 = call i32 @puts(ptr nonnull dereferenceable(1) @str)
   br label %cleanup
 
 vector.body:                                      ; preds = %vector.body.preheader, %vector.body
@@ -56,35 +54,21 @@ for.cond.cleanup:                                 ; preds = %vector.body
   %call9 = call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.3, double noundef nofpclass(nan inf) %mul)
   %call10 = call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.4, i32 noundef %call5)
   %putchar = call i32 @putchar(i32 10)
-  %call12 = call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.6, i32 noundef 16)
-  %call13 = call i32 @clock() #4
-  %call14 = call i32 @vectorized_dotp(ptr addrspace(4) noundef nonnull %0, ptr addrspace(4) noundef nonnull %1, i32 noundef 1024) #4
-  %call15 = call i32 @clock() #4
-  %sub16 = sub nsw i32 %call15, %call13
-  %conv17 = sitofp i32 %sub16 to double
-  %call18 = call i32 @_timer_clocks_per_sec() #4
-  %conv19 = uitofp i32 %call18 to double
-  %8 = fmul fast double %conv17, 1.000000e+03
-  %mul21 = fdiv fast double %8, %conv19
-  %call22 = call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.7, double noundef nofpclass(nan inf) %mul21)
-  %div23 = fdiv fast double %mul, %mul21
-  %call24 = call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.8, double noundef nofpclass(nan inf) %div23)
-  %call25 = call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.4, i32 noundef %call14)
-  %putchar65 = call i32 @putchar(i32 10)
-  %puts66 = call i32 @puts(ptr nonnull dereferenceable(1) @str.11)
-  %call28 = call i32 @clock() #4
-  %call29 = call i32 @autovectorized_dotp(ptr addrspace(4) noundef nonnull %0, ptr addrspace(4) noundef nonnull %1, i32 noundef 1024) #4
-  %call30 = call i32 @clock() #4
-  %sub31 = sub nsw i32 %call30, %call28
-  %conv32 = sitofp i32 %sub31 to double
-  %call33 = call i32 @_timer_clocks_per_sec() #4
-  %conv34 = uitofp i32 %call33 to double
-  %9 = fmul fast double %conv32, 1.000000e+03
-  %mul36 = fdiv fast double %9, %conv34
-  %call37 = call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.10, double noundef nofpclass(nan inf) %mul36)
-  %div38 = fdiv fast double %mul, %mul36
-  %call39 = call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.8, double noundef nofpclass(nan inf) %div38)
-  %call40 = call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.4, i32 noundef %call29)
+  %putchar44 = call i32 @putchar(i32 10)
+  %puts45 = call i32 @puts(ptr nonnull dereferenceable(1) @str.9)
+  %call14 = call i32 @clock() #4
+  %call15 = call i32 @autovectorized_dotp(ptr addrspace(4) noundef nonnull %0, ptr addrspace(4) noundef nonnull %1, i32 noundef 1024) #4
+  %call16 = call i32 @clock() #4
+  %sub17 = sub nsw i32 %call16, %call14
+  %conv18 = sitofp i32 %sub17 to double
+  %call19 = call i32 @_timer_clocks_per_sec() #4
+  %conv20 = uitofp i32 %call19 to double
+  %8 = fmul fast double %conv18, 1.000000e+03
+  %mul22 = fdiv fast double %8, %conv20
+  %call23 = call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.7, double noundef nofpclass(nan inf) %mul22)
+  %div24 = fdiv fast double %mul, %mul22
+  %call25 = call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.8, double noundef nofpclass(nan inf) %div24)
+  %call26 = call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.4, i32 noundef %call15)
   br label %cleanup
 
 cleanup:                                          ; preds = %for.cond.cleanup, %if.then
@@ -100,8 +84,6 @@ declare i32 @clock() local_unnamed_addr #2
 declare i32 @dotp(ptr noundef, ptr noundef, i32 noundef) local_unnamed_addr #2
 
 declare i32 @_timer_clocks_per_sec() local_unnamed_addr #2
-
-declare i32 @vectorized_dotp(ptr addrspace(4) noundef, ptr addrspace(4) noundef, i32 noundef) local_unnamed_addr #2
 
 declare i32 @autovectorized_dotp(ptr addrspace(4) noundef, ptr addrspace(4) noundef, i32 noundef) local_unnamed_addr #2
 
