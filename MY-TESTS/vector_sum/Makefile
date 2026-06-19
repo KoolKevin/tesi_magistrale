@@ -4,13 +4,14 @@ ARCH = -tcf=ev71_vfpu
 HEADERS = -Hvdsp_vector_c
 OPT = -O3
 AUTOVEC = -fvectorize -fslp-vectorize -ffast-math
+DEBUG_FLAGS = -Rpass=loop-vectorize -Rpass-missed=loop-vectorize -Rpass-analysis=loop-vectorize
 
 SRCS = main.c vec_sum.c
 TARGET = a.out
 
-all: $(TARGET)
+all: build
 
-$(TARGET): $(SRCS)
+build: $(SRCS)
 	$(CC) $(ARCH) $(HEADERS) $(OPT) $(SRCS) -o $(TARGET)
 
 run: $(TARGET)
@@ -31,6 +32,9 @@ llvm-auto: $(SRCS)
 auto:
 	@echo "Build con autovettorizzazione..."
 	$(CC) $(ARCH) $(HEADERS) $(OPT) $(AUTOVEC) $(SRCS) -o $(TARGET)
+
+auto-debug: $(SRCS)
+	$(CC) $(ARCH) $(HEADERS) $(OPT) $(AUTOVEC) $(DEBUG_FLAGS) $(SRCS) -o $(TARGET)
 
 clean:
 	@cmd /c del /f /q $(TARGET) *.ll *.s *.o 2>nul || rm -f $(TARGET) *.ll *.s 2>/dev/null
