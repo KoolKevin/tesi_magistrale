@@ -1,6 +1,7 @@
 #include "vec_sum.h"
 
 void vec_sum(int* a, int* b, int* c, int n) {
+    #pragma clang loop vectorize(disable)
 	for(int i = 0; i < n; i++)
 		c[i] = a[i] + b[i];
 }
@@ -24,7 +25,13 @@ void vectorized_vec_sum(__vccm int* restrict a,
         vvst(vc, &c[i*lanes]);
     }
 
-    // TODO: Gestione del resto, aggiungi un loop scalare per gli ultimi elementi.
+    // Commentiamolo via dato che complica troppo l'output
+    // // loop scalare per la gestione degli ultimi elementi
+    // int start = num_vectors*lanes;
+    // int end = start + n%lanes;
+    // for (int i = start; i < end; i++) {
+	// 	c[i] = a[i] + b[i];
+    // }
 }
 
 void autovectorized_vec_sum(__vccm int* restrict a,

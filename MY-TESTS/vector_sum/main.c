@@ -10,8 +10,6 @@
 
 
 int main() {
-    printf("%s\n", "hello");
-
 /*
 	// malloc allocates into "scalar memory"
 	// depending on the linker script specification, this can
@@ -66,6 +64,8 @@ int main() {
         printf("a[%d]=%d, b[%d]=%d, c[%d]=%d\n", i, a[i], i, b[i], i, c[i]);
     }
 
+    printf("\n");
+
     /******** versione autovettorizzata ********/
     printf("Versione autovettorizzata\n");
 
@@ -79,13 +79,6 @@ int main() {
     for (int i = 0; i < 5; i++) {
         printf("a[%d]=%d, b[%d]=%d, c[%d]=%d\n", i, a[i], i, b[i], i, c[i]);
     }
-
-/*
-    // Liberazione della memoria allocata
-    free(a);
-    free(b);
-    free(c);
-*/
 
     return 0;
 }
