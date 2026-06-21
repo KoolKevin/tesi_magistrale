@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20.0)
-project(standalone-dialect LANGUAGES CXX C)
+project(vekt LANGUAGES CXX C)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON) # per intellisense
 
 set(CMAKE_BUILD_WITH_INSTALL_NAME_DIR ON) # roba per macOS
@@ -95,14 +95,14 @@ endif()
 # - PROJECT_SOURCE_DIR: cartella dove risiede il codice (dove risiede il CML)
 # - PROJECT_BINARY_DIR: cartella dove stai compilando (./build/)
 # (le variabili PROJECT sono popolate automaticamente come CMAKE_BINARY_DIR)
-set(STANDALONE_SOURCE_DIR ${PROJECT_SOURCE_DIR})
-set(STANDALONE_BINARY_DIR ${PROJECT_BINARY_DIR})
+set(VEKT_SOURCE_DIR ${PROJECT_SOURCE_DIR})
+set(VEKT_BINARY_DIR ${PROJECT_BINARY_DIR})
 
 # include_directories aggiunge i percorsi al flag -I del compilatore
 include_directories(${LLVM_INCLUDE_DIRS})               # header llvm
 include_directories(${MLIR_INCLUDE_DIRS})               # header mlir
-include_directories(${STANDALONE_SOURCE_DIR}/include)   # miei header file
-include_directories(${STANDALONE_BINARY_DIR}/include)   # generati da tablegen
+include_directories(${VEKT_SOURCE_DIR}/include)   # miei header file
+include_directories(${VEKT_BINARY_DIR}/include)   # generati da tablegen
 
 # link_directories aggiunge i percorsi al flag -L del compilatore
 # qua puntiamo a ./llvm-project/build/lib/
@@ -131,4 +131,4 @@ if(INCLUDE_TESTS)
   add_subdirectory(test)
 endif()
 
-add_subdirectory(standalone-opt) # main
+add_subdirectory(vekt-opt) # main

@@ -20,22 +20,22 @@ configure_lit_site_cfg(
 )
 
 # dipendenze che devono esserci prima di lanciare i test
-set(STANDALONE_TEST_DEPENDS
+set(VEKT_TEST_DEPENDS
     # FileCheck count not # questo non dovrebbe essere commentato ma ho una broken build di llvm che non voglio aggiustare
-        standalone-opt
+        vekt-opt
         )
 
 if(MLIR_ENABLE_BINDINGS_PYTHON)
-  list(APPEND STANDALONE_TEST_DEPENDS StandalonePythonModules)
+  list(APPEND VEKT_TEST_DEPENDS StandalonePythonModules)
 endif()
 
 # definiamo il target per lanciare i test
-add_lit_testsuite(check-standalone "Running the standalone regression tests"
+add_lit_testsuite(check-vekt "Running the vekt regression tests"
         ${CMAKE_CURRENT_BINARY_DIR}
-        DEPENDS ${STANDALONE_TEST_DEPENDS}
+        DEPENDS ${VEKT_TEST_DEPENDS}
         )
 
 # questo infila il target in una "target-folder" chiamata Tests (don't care)
-set_target_properties(check-standalone PROPERTIES FOLDER "Tests")
+set_target_properties(check-vekt PROPERTIES FOLDER "Tests")
 # questa è altra pulizia che non mi interessa
-add_lit_testsuites(STANDALONE ${CMAKE_CURRENT_SOURCE_DIR} DEPENDS ${STANDALONE_TEST_DEPENDS})
+add_lit_testsuites(VEKT ${CMAKE_CURRENT_SOURCE_DIR} DEPENDS ${VEKT_TEST_DEPENDS})
