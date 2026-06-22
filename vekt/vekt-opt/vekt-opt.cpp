@@ -2,6 +2,7 @@
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/InitAllDialects.h"
 #include "mlir/InitAllPasses.h"
+#include "mlir/Pass/PassManager.h"
 #include "mlir/Support/FileUtilities.h"
 #include "mlir/Tools/mlir-opt/MlirOptMain.h"
 #include "mlir/Transforms/Passes.h"
@@ -33,7 +34,7 @@ int main(int argc, char **argv) {
 
         // lower to llvm
         pm.addPass(mlir::createLowerAffinePass());
-        pm.addPass(mlir::createSCFToControlFlowPass());
+        pm.addPass(mlir::createConvertSCFToCFPass());
         // NB: una memref NON è solo un puntatore, è una struct con 5 campi
         // - allocated pointer: puntatore restituito da malloc o altro
         //   allocator che bisognerà passare a free.
