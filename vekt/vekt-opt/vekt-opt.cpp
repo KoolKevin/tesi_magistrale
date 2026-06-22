@@ -27,22 +27,47 @@ int main(int argc, char **argv) {
   mlir::PassPipelineRegistration<>(
       "vekt16", "naive vectorization", [](mlir::OpPassManager &pm) {
         pm.addPass(mlir::createCanonicalizerPass());
-
-        mlir::affine::AffineVectorizeOptions opts;
-        opts.vectorSizes = {16};
-        pm.addPass(mlir::affine::createAffineVectorize(opts));
+        mlir::affine::AffineVectorizeOptions vectorizeOpts;
+        vectorizeOpts.vectorSizes = {16};
+        pm.addPass(mlir::affine::createAffineVectorize(vectorizeOpts));
 
         // lower to llvm
         pm.addPass(mlir::createLowerAffinePass());
         pm.addPass(mlir::createSCFToControlFlowPass());
+        // NB: una memref NON è solo un puntatore, è una struct con 5 campi
+        // - allocated pointer: puntatore restituito da malloc o altro
+        //   allocator che bisognerà passare a free.
+        //   - Non è sempre l'indirizzo dell'elemento [0]!
+        //   - Es:
+        //     - buffer con header/metadati iniziali
+        //     - slice su buffer esistente
+        // - aligned pointer: indirizzo dell'elemento [0] allineato in base a
+        //   come richiesto.
+        // - offset: la differenza tra allocated pointer e aligned pointer
+        // - sizes: un array di interi grande quanto il rango del tensore
+        //   contenente le sue dimensioni
+        // - strides: un array grande quanto il rango del tensore contenente un
+        // intero per dimensione che rappresenta la distanza (in elementi) tra
+        // elementi adiacenti in quella dimensione.
+        //   - Es: for a contiguous row-major array the strides are
+        //   [size[1]*size[2]*..., size[2]*..., ..., 1]
+        //
+        // Tutto questo per arrivare a dire che, se faccio un lowering senza
+        // specificare nulla, le memref vengono espanse nei loro 5 campi. Nel
+        // caso delle funzioni, questo modifica le firme e rompe l'ABI con i
+        // chiamanti. Devo usare quindi usare l'opzione sotto
+        mlir::ConvertFuncToLLVMPassOptions funcToLLVMOpts;
+        // FIXME: NON STA FUNZIONANDO!!! Il lowering fallisce per motivi
+        // misteriosi. Per adesso lascio stare e uso un wrapper lato chiamante
+        funcToLLVMOpts.useBarePtrCallConv = false;
+        pm.addPass(mlir::createConvertFuncToLLVMPass(funcToLLVMOpts));
+
         pm.addPass(mlir::createConvertControlFlowToLLVMPass());
         pm.addPass(mlir::createConvertVectorToLLVMPass());
         pm.addPass(mlir::createArithToLLVMConversionPass());
-        pm.addPass(mlir::createConvertFuncToLLVMPass());
         pm.addPass(mlir::createUBToLLVMConversionPass());
-
-        pm.addPass(mlir::createReconcileUnrealizedCastsPass());
         pm.addPass(mlir::createFinalizeMemRefToLLVMConversionPass());
+        pm.addPass(mlir::createReconcileUnrealizedCastsPass());
 
         // cleanup
         pm.addPass(mlir::createCanonicalizerPass());
