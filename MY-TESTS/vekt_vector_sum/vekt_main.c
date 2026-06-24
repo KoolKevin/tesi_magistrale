@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <stdint.h>
 
 #include <arc_vector.h>
 
@@ -12,10 +13,15 @@ void init_vector(int *a, int dim, int value) {
   }
 }
 
-extern void vekt_vec_sum(int* a_alloc, int* a_align, long a_offset, long a_size, long a_stride,
-                    int* b_alloc, int* b_align, long b_offset, long b_size, long b_stride,
-                    int* c_alloc, int* c_align, long c_offset, long c_size, long c_stride,
-                    int n);
+// NON CI POSSO CREDERE. Prima stavo usando long al posto di int64_t in questa dichiarazione. A quanto pare
+// un long della PPU è grande 32 bit. Questo è il motivo per cui non funzionava niente! Stavo rompendo l'ABI.
+// Ho dovuto aggiungere a mano chiamate a printf dentro all'ir per accorgermi che gli argomenti non stavano venendo
+// passati correttamente.
+// Questo commento è la testimonianza della mia sofferenza
+extern void vekt_vec_sum(int* a_alloc, int* a_align, int64_t a_offset, int64_t a_size, int64_t a_stride,
+                    int* b_alloc, int* b_align, int64_t b_offset, int64_t b_size, int64_t b_stride,
+                    int* c_alloc, int* c_align, int64_t c_offset, int64_t c_size, int64_t c_stride,
+                    int32_t n);
 
 void vekt_vec_sum_wrapper(int* a, int* b, int* c, int n) {
     vekt_vec_sum(
@@ -105,6 +111,8 @@ int main() {
 
     /******** versione vekt-vettorizzata ********/
     printf("Versione vekt-vettorizzata\n");
+
+    printf("\tpuntatori array: %p, %p, %p\n", a, b, c);
 
     init_vector(c, N, -1);
 

@@ -14,8 +14,14 @@ all: build
 build: $(SRCS)
 	$(CC) $(ARCH) $(HEADERS) $(OPT) $(SRCS) -o $(TARGET)
 
+debug: $(SRCS)
+	$(CC) $(ARCH) $(HEADERS) -g $(SRCS) -o $(TARGET)
+
 run: $(TARGET)
 	runac $(ARCH) $(TARGET)
+
+run-debugger: $(TARGET)
+	mdb $(ARCH) $(TARGET)
 
 ass: $(SRCS)
 	$(CC) $(ARCH) $(HEADERS) $(OPT) -S $(SRCS)
