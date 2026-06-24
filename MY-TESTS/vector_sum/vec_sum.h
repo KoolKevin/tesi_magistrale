@@ -3,6 +3,8 @@
 
 #include <arc_vector.h>
 
+void init_vector(int *a, int dim, int value);
+
 void vec_sum(int* a, int* b, int* c, int n);
 
 void vectorized_vec_sum(__vccm int* restrict a, 

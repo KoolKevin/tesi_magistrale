@@ -1,5 +1,11 @@
 #include "vec_sum.h"
 
+void init_vector(int *a, int dim, int value) {
+  for (int i = 0; i < dim; i++) {
+    a[i] = value;
+  }
+}
+
 void vec_sum(int* a, int* b, int* c, int n) {
     #pragma clang loop vectorize(disable)
 	for(int i = 0; i < n; i++)

@@ -2,9 +2,9 @@ CC = ccac
 ARCH = -tcf=ev71_vfpu
 
 HEADERS = -Hvdsp_vector_c
-OPT = -O3
+OPT = -O2
 AUTOVEC = -fvectorize -fslp-vectorize -ffast-math
-DEBUG_FLAGS = -Rpass=loop-vectorize -Rpass-missed=loop-vectorize -Rpass-analysis=loop-vectorize
+AUTOVECTORIZATION_DEBUG_FLAGS = -Rpass=loop-vectorize -Rpass-missed=loop-vectorize -Rpass-analysis=loop-vectorize
 
 SRCS = main.c vec_sum.c
 TARGET = a.out
@@ -13,9 +13,15 @@ all: build
 
 build: $(SRCS)
 	$(CC) $(ARCH) $(HEADERS) $(OPT) $(SRCS) -o $(TARGET)
+	
+debug: $(SRCS)
+	$(CC) $(ARCH) $(HEADERS) -g $(SRCS) -o $(TARGET)
 
 run: $(TARGET)
 	runac $(ARCH) $(TARGET)
+
+run-debugger: $(TARGET)
+	mdb $(ARCH) $(TARGET)
 
 ass: $(SRCS)
 	$(CC) $(ARCH) $(HEADERS) $(OPT) -S $(SRCS)
@@ -34,7 +40,7 @@ auto:
 	$(CC) $(ARCH) $(HEADERS) $(OPT) $(AUTOVEC) $(SRCS) -o $(TARGET)
 
 auto-debug: $(SRCS)
-	$(CC) $(ARCH) $(HEADERS) $(OPT) $(AUTOVEC) $(DEBUG_FLAGS) $(SRCS) -o $(TARGET)
+	$(CC) $(ARCH) $(HEADERS) $(OPT) $(AUTOVEC) $(AUTOVECTORIZATION_DEBUG_FLAGS) $(SRCS) -o $(TARGET)
 
 clean:
 	@cmd /c del /f /q $(TARGET) *.ll *.s *.o 2>nul || rm -f $(TARGET) *.ll *.s 2>/dev/null

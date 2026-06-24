@@ -8,33 +8,17 @@
 
 #define N 1024
 
+__vccm int a[N];
+__vccm int b[N];
+__vccm int c[N];
 
 int main() {
-/*
-	// malloc allocates into "scalar memory"
-	// depending on the linker script specification, this can
-	// be the CSM or the LMU
-    int* a = (int*)malloc(N * sizeof(int));
-    int* b = (int*)malloc(N * sizeof(int));
-    int* c = (int*)malloc(N * sizeof(int));
-    if (!a || !b || !c) {
-        printf("Errore nell'allocazione della memoria.\n");
-        return 1;
-    }
-*/
-    __vccm int* a = __vccm_alloca(N * sizeof(int));
-    __vccm int* b = __vccm_alloca(N * sizeof(int));
-    __vccm int* c = __vccm_alloca(N * sizeof(int));
-    if (!a || !b || !c) {
-        printf("Errore nell'allocazione della memoria.\n");
-        return 1;
-    }
     // Inizializzazione degli array con valori casuali
     for (int i = 0; i < N; i++) {
         a[i] = i+1;
         b[i] = i+1;
     }
-
+    init_vector(c, N, -1);
 
     /******** versione scalare ********/
 
@@ -53,6 +37,8 @@ int main() {
 	/******** versione vettorizzata ********/
     printf("Vettorizzo su %d lane\n", _VDSP_NUM_32BIT_LANES);
 
+    init_vector(c, N, -1);
+
     start = clock();
     vectorized_vec_sum(a, b, c, N);
     end = clock();   
@@ -68,6 +54,8 @@ int main() {
 
     /******** versione autovettorizzata ********/
     printf("Versione autovettorizzata\n");
+
+    init_vector(c, N, -1);
 
     start = clock();
     autovectorized_vec_sum(a, b, c, N);

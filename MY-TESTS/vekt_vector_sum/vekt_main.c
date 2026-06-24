@@ -6,6 +6,11 @@
 
 #define N 1024
 
+void init_vector(int *a, int dim, int value) {
+  for (int i = 0; i < dim; i++) {
+    a[i] = value;
+  }
+}
 
 extern void vekt_vec_sum(int* a_alloc, int* a_align, long a_offset, long a_size, long a_stride,
                     int* b_alloc, int* b_align, long b_offset, long b_size, long b_stride,
@@ -54,20 +59,17 @@ void vectorized_vec_sum(__vccm int* restrict a,
     }
 }
 
+__vccm int a[N];
+__vccm int b[N];
+__vccm int c[N];
+
 int main() {
-    __vccm int* a = __vccm_alloca(N * sizeof(int));
-    __vccm int* b = __vccm_alloca(N * sizeof(int));
-    __vccm int* c = __vccm_alloca(N * sizeof(int));
-    if (!a || !b || !c) {
-        printf("Errore nell'allocazione della memoria.\n");
-        return 1;
-    }
     // Inizializzazione degli array con valori casuali
     for (int i = 0; i < N; i++) {
         a[i] = i+1;
         b[i] = i+1;
     }
-
+    init_vector(c, N, -1);
 
     /******** versione scalare ********/
 
@@ -86,6 +88,8 @@ int main() {
 	/******** versione vettorizzata ********/
     printf("Vettorizzo su %d lane\n", _VDSP_NUM_32BIT_LANES);
 
+    init_vector(c, N, -1);
+
     start = clock();
     vectorized_vec_sum(a, b, c, N);
     end = clock();   
@@ -101,6 +105,8 @@ int main() {
 
     /******** versione vekt-vettorizzata ********/
     printf("Versione vekt-vettorizzata\n");
+
+    init_vector(c, N, -1);
 
     start = clock();
     vekt_vec_sum_wrapper(a, b, c, N);

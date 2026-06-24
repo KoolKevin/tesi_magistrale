@@ -34,7 +34,9 @@ define void @vekt_vec_sum(ptr %0, ptr %1, i64 %2, i64 %3, i64 %4, ptr %5, ptr %6
   %41 = shufflevector <16 x i32> %40, <16 x i32> poison, <16 x i32> zeroinitializer
   %42 = icmp sgt <16 x i32> %41, <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
   %43 = getelementptr i32, ptr %1, i64 %31
-  %44 = call <16 x i32> @llvm.masked.load.v16i32.p0(ptr align 4 %43, <16 x i1> %42, <16 x i32> poison)
+  ; modifico a mano la signature dell'intrinseco per vedere se funziona qualcosa
+  ; %44 = call <16 x i32> @llvm.masked.load.v16i32.p0(ptr align 4 %43, <16 x i1> %42, <16 x i32> poison)
+  %44 = call <16 x i32> @llvm.masked.load.v16i32.p0(ptr %43, i32 4, <16 x i1> %42, <16 x i32> poison)
   %45 = extractvalue { ptr, ptr, i64, [1 x i64], [1 x i64] } %24, 3
   %46 = alloca [1 x i64], i64 1, align 8
   store [1 x i64] %45, ptr %46, align 4
@@ -46,7 +48,9 @@ define void @vekt_vec_sum(ptr %0, ptr %1, i64 %2, i64 %3, i64 %4, ptr %5, ptr %6
   %52 = shufflevector <16 x i32> %51, <16 x i32> poison, <16 x i32> zeroinitializer
   %53 = icmp sgt <16 x i32> %52, <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
   %54 = getelementptr i32, ptr %6, i64 %31
-  %55 = call <16 x i32> @llvm.masked.load.v16i32.p0(ptr align 4 %54, <16 x i1> %53, <16 x i32> poison)
+  ; modifico a mano la signature dell'intrinseco per vedere se funziona qualcosa
+  ; %55 = call <16 x i32> @llvm.masked.load.v16i32.p0(ptr align 4 %54, <16 x i1> %53, <16 x i32> poison)
+  %55 = call <16 x i32> @llvm.masked.load.v16i32.p0(ptr %54, i32 4, <16 x i1> %53, <16 x i32> poison)
   %56 = add <16 x i32> %44, %55
   %57 = extractvalue { ptr, ptr, i64, [1 x i64], [1 x i64] } %20, 3
   %58 = alloca [1 x i64], i64 1, align 8
@@ -59,7 +63,9 @@ define void @vekt_vec_sum(ptr %0, ptr %1, i64 %2, i64 %3, i64 %4, ptr %5, ptr %6
   %64 = shufflevector <16 x i32> %63, <16 x i32> poison, <16 x i32> zeroinitializer
   %65 = icmp sgt <16 x i32> %64, <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
   %66 = getelementptr i32, ptr %11, i64 %31
-  call void @llvm.masked.store.v16i32.p0(<16 x i32> %56, ptr align 4 %66, <16 x i1> %65)
+  ; modifico a mano la signature dell'intrinseco per vedere se funziona qualcosa
+  ; call void @llvm.masked.store.v16i32.p0(<16 x i32> %56, ptr align 4 %66, <16 x i1> %65)
+  call void @llvm.masked.store.v16i32.p0(<16 x i32> %56, ptr %66, i32 4, <16 x i1> %65)
   %67 = add i64 %31, 16
   br label %30
 
@@ -68,10 +74,10 @@ define void @vekt_vec_sum(ptr %0, ptr %1, i64 %2, i64 %3, i64 %4, ptr %5, ptr %6
 }
 
 ; Function Attrs: nocallback nofree nosync nounwind willreturn memory(argmem: read)
-declare <16 x i32> @llvm.masked.load.v16i32.p0(ptr captures(none), <16 x i1>, <16 x i32>) #0
+declare <16 x i32> @llvm.masked.load.v16i32.p0(ptr, i32 immarg, <16 x i1>, <16 x i32>) #0
 
 ; Function Attrs: nocallback nofree nosync nounwind willreturn memory(argmem: write)
-declare void @llvm.masked.store.v16i32.p0(<16 x i32>, ptr captures(none), <16 x i1>) #1
+declare void @llvm.masked.store.v16i32.p0(<16 x i32>, ptr, i32 immarg, <16 x i1>) #1
 
 attributes #0 = { nocallback nofree nosync nounwind willreturn memory(argmem: read) }
 attributes #1 = { nocallback nofree nosync nounwind willreturn memory(argmem: write) }
