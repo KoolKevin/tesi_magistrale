@@ -62,15 +62,25 @@ int main(int argc, char **argv) {
         // - ho scoperto perchè fallisce... il lowering di memrefs con
         // dimensionoe dinamica non è supportato 😭​
         // https://mlir.llvm.org/doxygen/LLVMCommon_2TypeConverter_8cpp_source.html#l00593
-        // - mi sa che dovrò fare un passo a mano
+        // - mi sa che dovrò fare un passo a mano...
         funcToLLVMOpts.useBarePtrCallConv = false;
         pm.addPass(mlir::createConvertFuncToLLVMPass(funcToLLVMOpts));
-
         pm.addPass(mlir::createConvertControlFlowToLLVMPass());
         pm.addPass(mlir::createConvertVectorToLLVMPass());
         pm.addPass(mlir::createArithToLLVMConversionPass());
         pm.addPass(mlir::createUBToLLVMConversionPass());
+        // questo potrebbe servire nel caso venissero create delle memref-ops
+        // complicate
+        // pm.addPass(mlir::memref::createExpandStridedMetadataPass());
         pm.addPass(mlir::createFinalizeMemRefToLLVMConversionPass());
+        // "Eliminate `unrealized_conversion_cast` operations, commonly
+        // introduced by partial dialect conversions, that TRANSITIVELY convert
+        // a value to another value of the SAME type"
+        // NB: ricorda che quando fai un lowering di un'op, la op-target del
+        // lowering potrebbe non conoscere il tipo degli operandi / produrre un
+        // tipo che le op user non conoscono. Per questo motivo il conversion
+        // framework inserisce delle op di cast temporanee che (se tutto va
+        // bene) dovrebbero essere risolte alla fine del lowering
         pm.addPass(mlir::createReconcileUnrealizedCastsPass());
 
         // cleanup
