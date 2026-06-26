@@ -61,7 +61,7 @@ int main(int argc, char **argv) {
         // FIXME: NON STA FUNZIONANDO!!! Il lowering fallisce per motivi
         // misteriosi. Per adesso lascio stare e uso un wrapper lato chiamante
         // - ho scoperto perchè fallisce... il lowering di memrefs con
-        // dimensionoe dinamica non è supportato 😭​
+        // dimensione dinamica non è supportato 😭​
         // https://mlir.llvm.org/doxygen/LLVMCommon_2TypeConverter_8cpp_source.html#l00593
         // - mi sa che dovrò fare un passo a mano
         funcToLLVMOpts.useBarePtrCallConv = false;
