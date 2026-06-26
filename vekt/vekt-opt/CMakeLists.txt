@@ -1,15 +1,24 @@
+get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
+get_property(conversion_libs GLOBAL PROPERTY MLIR_CONVERSION_LIBS)
+get_property(extension_libs GLOBAL PROPERTY MLIR_EXTENSION_LIBS)
+
 set(LIBS
-    MLIRArithDialect
     MLIROptLib
 
     # non presenti in llvm19
-    # MLIRRegisterAllDialects
-    # MLIRRegisterAllPasses
+    # # MLIRRegisterAllDialects
+    # # MLIRRegisterAllPasses
     MLIRMlirOptMain
+    ${dialect_libs}
+    ${conversion_libs}
+    ${extension_libs}
 
-    # includiamo la libreria creata in lib/ con le sue dipendenze PUBLIC
+    MLIRPass
+    MLIRTransforms
+    MLIRTransformUtils
+
     MLIRStandalone
-  )
+)
 
 # version llvm di add_executable per aggiungere un executable target
 add_llvm_executable(vekt-opt vekt-opt.cpp)

@@ -1,5 +1,12 @@
 cmake_minimum_required(VERSION 3.20.0)
 
+# proviamo a usare il compilatore giusto
+set(CMAKE_C_COMPILER /home/kevin/LLVM-20.1.8-Linux-X64/bin/clang)
+set(CMAKE_CXX_COMPILER /home/kevin/LLVM-20.1.8-Linux-X64/bin/clang++)
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++")
+set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -stdlib=libc++")
+
+
 # se uso un compilatore più moderno ho problemi con la LTO...
 # non so come mai
 set(CMAKE_C_COMPILER "/home/kevin/LLVM-19.1.7-Linux-X64/bin/clang")
@@ -13,6 +20,16 @@ set(CMAKE_BUILD_WITH_INSTALL_NAME_DIR ON) # roba per macOS
 # c++17 a default ma è anche parametrizzabile con -D
 set(CMAKE_CXX_STANDARD 17 CACHE STRING "C++ standard to conform to")
 
+# # Usa mold come linker se disponibile
+# find_program(MOLD_LINKER mold)
+# if(MOLD_LINKER)
+#   add_link_options(-fuse-ld=mold)
+#   message(STATUS "Using mold linker: ${MOLD_LINKER}")
+# else()
+#   message(STATUS "mold linker not found, using default")
+# endif()
+# usiamo lld come linker
+set(LLVM_USE_LINKER "lld" CACHE STRING "")
 # Definiamo il percorso assoluto alla cartella bin del tuo LLVM personalizzato
 set(MY_LLVM_BIN_DIR "/home/kevin/LLVM-19.1.7-Linux-X64/bin")
 # Controlliamo se lld esiste in quel percorso
@@ -37,6 +54,16 @@ message(STATUS "Using llvm-lit in: ${LIT_PATH}")
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
   set(EXTERNAL_PROJECT_BUILD FALSE)
 
+#   # Normalmente basterebbe il find_package() sotto. Tuttavia, ho installato
+#   # polygeist e find_package() va a guardare prima li rispetto a /usr/local/
+#   # dove è presente la configurazione corretta. Settando le variabili diciamo a
+#   # CMake di guardare PRIMA in /usr/local
+#   set(MLIR_DIR "/usr/local/lib/cmake/mlir" CACHE PATH "Path to MLIRConfig.cmake")
+#   set(LLVM_DIR "/usr/local/lib/cmake/llvm" CACHE PATH "Path to LLVMConfig.cmake")
+  # ... questa sembra una maniera migliore di fare la stessa cosa
+  # Add the location of LLVMConfig.cmake to CMake search paths (so that find_package can locate it)
+  set(LT_LLVM_INSTALL_DIR "/home/kevin/LLVM-20.1.8-Linux-X64" CACHE PATH "LLVM installation directory")
+  list(PREPEND CMAKE_PREFIX_PATH "${LT_LLVM_INSTALL_DIR}")
   # questo lo dovrei togliere, ma lo tengo per scaramanzia
 #   # Normalmente basterebbe il find_package() sotto. Tuttavia, ho installato
 #   # polygeist e find_package() va a guardare prima li rispetto a /usr/local/
