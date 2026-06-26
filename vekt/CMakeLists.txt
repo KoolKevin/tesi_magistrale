@@ -1,16 +1,8 @@
 cmake_minimum_required(VERSION 3.20.0)
 
 # proviamo a usare il compilatore giusto
-set(CMAKE_C_COMPILER /home/kevin/LLVM-20.1.8-Linux-X64/bin/clang)
-set(CMAKE_CXX_COMPILER /home/kevin/LLVM-20.1.8-Linux-X64/bin/clang++)
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++")
-set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -stdlib=libc++")
-
-
-# se uso un compilatore più moderno ho problemi con la LTO...
-# non so come mai
-set(CMAKE_C_COMPILER "/home/kevin/LLVM-19.1.7-Linux-X64/bin/clang")
-set(CMAKE_CXX_COMPILER "/home/kevin/LLVM-19.1.7-Linux-X64/bin/clang++")
+set(CMAKE_C_COMPILER "/home/kevin/Scrivania/repos/LLVM17_learning_repo/llvm-project/INSTALL/bin/clang")
+set(CMAKE_CXX_COMPILER "/home/kevin/Scrivania/repos/LLVM17_learning_repo/llvm-project/INSTALL/bin/clang++")
 
 project(vekt LANGUAGES CXX C)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON) # per intellisense
@@ -30,19 +22,8 @@ set(CMAKE_CXX_STANDARD 17 CACHE STRING "C++ standard to conform to")
 # endif()
 # usiamo lld come linker
 set(LLVM_USE_LINKER "lld" CACHE STRING "")
-# Definiamo il percorso assoluto alla cartella bin del tuo LLVM personalizzato
-set(MY_LLVM_BIN_DIR "/home/kevin/LLVM-19.1.7-Linux-X64/bin")
-# Controlliamo se lld esiste in quel percorso
-if(EXISTS "${MY_LLVM_BIN_DIR}/lld")
-  # -fuse-ld=lld dice di usare lld
-  # -B specifica a Clang di cercare i binari (incluso lld) dentro la nostra cartella custom
-  add_link_options("-fuse-ld=lld" "-B${MY_LLVM_BIN_DIR}")
-  message(STATUS "Using custom LLVM lld from: ${MY_LLVM_BIN_DIR}")
-else()
-  message(WARNING "Custom LLD not found in ${MY_LLVM_BIN_DIR}. Falling back to default linker.")
-endif()
 
-set(LIT_PATH /home/kevin/llvm-project/build/bin/llvm-lit)
+set(LIT_PATH "/home/kevin/Scrivania/llvm-project-llvmorg-20.1.8/build/bin/llvm-lit")
 set(LLVM_EXTERNAL_LIT ${LIT_PATH} CACHE STRING "path per llvm-lit")
 message(STATUS "Using llvm-lit in: ${LIT_PATH}")
 
@@ -54,27 +35,9 @@ message(STATUS "Using llvm-lit in: ${LIT_PATH}")
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
   set(EXTERNAL_PROJECT_BUILD FALSE)
 
-#   # Normalmente basterebbe il find_package() sotto. Tuttavia, ho installato
-#   # polygeist e find_package() va a guardare prima li rispetto a /usr/local/
-#   # dove è presente la configurazione corretta. Settando le variabili diciamo a
-#   # CMake di guardare PRIMA in /usr/local
-#   set(MLIR_DIR "/usr/local/lib/cmake/mlir" CACHE PATH "Path to MLIRConfig.cmake")
-#   set(LLVM_DIR "/usr/local/lib/cmake/llvm" CACHE PATH "Path to LLVMConfig.cmake")
   # ... questa sembra una maniera migliore di fare la stessa cosa
   # Add the location of LLVMConfig.cmake to CMake search paths (so that find_package can locate it)
-  set(LT_LLVM_INSTALL_DIR "/home/kevin/LLVM-20.1.8-Linux-X64" CACHE PATH "LLVM installation directory")
-  list(PREPEND CMAKE_PREFIX_PATH "${LT_LLVM_INSTALL_DIR}")
-  # questo lo dovrei togliere, ma lo tengo per scaramanzia
-#   # Normalmente basterebbe il find_package() sotto. Tuttavia, ho installato
-#   # polygeist e find_package() va a guardare prima li rispetto a /usr/local/
-#   # dove è presente la configurazione corretta. Settando le variabili diciamo a
-#   # CMake di guardare PRIMA in /usr/local
-#   set(MLIR_DIR "/usr/local/lib/cmake/mlir" CACHE PATH "Path to MLIRConfig.cmake")
-#   set(LLVM_DIR "/usr/local/lib/cmake/llvm" CACHE PATH "Path to LLVMConfig.cmake")
-
-  # Add the location of LLVMConfig.cmake to CMake search paths (so that
-  # find_package can locate it)
-  set(LT_LLVM_INSTALL_DIR "/home/kevin/LLVM-19.1.7-Linux-X64" CACHE PATH "LLVM installation directory")
+  set(LT_LLVM_INSTALL_DIR "/home/kevin/Scrivania/llvm-project-llvmorg-20.1.8/build/" CACHE PATH "LLVM installation directory")
   list(PREPEND CMAKE_PREFIX_PATH "${LT_LLVM_INSTALL_DIR}")
 
   # carichiamo le informazioni di mlir e (transitivamente) di llvm.
