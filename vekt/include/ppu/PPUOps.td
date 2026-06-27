@@ -1,20 +1,11 @@
-//===- StandaloneOps.td - Standalone dialect ops -----------*- tablegen -*-===//
-//
-// This file is licensed under the Apache License v2.0 with LLVM Exceptions.
-// See https://llvm.org/LICENSE.txt for license information.
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//===----------------------------------------------------------------------===//
+#ifndef PPU_OPS
+#define PPU_OPS
 
-#ifndef STANDALONE_OPS
-#define STANDALONE_OPS
-
-include "Standalone/StandaloneTypes.td"
+include "ppu/PPUDialect.td"
 include "mlir/Interfaces/InferTypeOpInterface.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 
-def Standalone_FooOp : Standalone_Op<"foo", [Pure,
-                                             SameOperandsAndResultType]> {
+def PPU_FooOp : PPU_Op<"foo", [Pure, SameOperandsAndResultType]> {
     let summary = "Illustrates how to define an operation.";
     let description = [{
         The `standalone.foo` operation illustrates how to define a new
@@ -40,4 +31,4 @@ def Standalone_FooOp : Standalone_Op<"foo", [Pure,
     }];
 }
 
-#endif // STANDALONE_OPS
+#endif // PPU_OPS

@@ -17,7 +17,7 @@ set(LIBS
     MLIRTransforms
     MLIRTransformUtils
 
-    MLIRStandalone
+    MLIRPPU
 )
 
 # version llvm di add_executable per aggiungere un executable target

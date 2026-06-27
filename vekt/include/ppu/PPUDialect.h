@@ -12,6 +12,6 @@
 #include "mlir/Bytecode/BytecodeOpInterface.h"
 #include "mlir/IR/Dialect.h"
 
-#include "Standalone/StandaloneOpsDialect.h.inc"
+#include "ppu/PPUOpsDialect.h.inc"
 
 #endif // STANDALONE_STANDALONEDIALECT_H
