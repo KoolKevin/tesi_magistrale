@@ -2,6 +2,7 @@
 add_mlir_dialect_library(MLIRPPU
         PPUDialect.cpp
         PPUOps.cpp
+        PPUPasses.cpp
 
         ADDITIONAL_HEADER_DIRS
         ${PROJECT_SOURCE_DIR}/include/ppu
@@ -10,6 +11,7 @@ add_mlir_dialect_library(MLIRPPU
         # di rilevare modifiche ai file .td da cui si dipende.
         DEPENDS
         MLIRPPUOpsIncGen
+        MLIRPPUPassesIncGen
 
         # PUBLIC: chiunque userà la libreria MLIRPPU (include la libreria
         # in target_link_libraries()) erediterà automaticamente anche il link

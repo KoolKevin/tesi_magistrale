@@ -19,9 +19,13 @@
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 
 #include "ppu/PPUDialect.h"
+#include "ppu/PPUPasses.h"
 
 int main(int argc, char **argv) {
   mlir::registerAllPasses();
+
+  // registriamo i miei passi
+  mlir::ppu::registerPasses();
 
   mlir::PassPipelineRegistration<>(
       "vekt16", "naive vectorization", [](mlir::OpPassManager &pm) {
@@ -98,11 +102,11 @@ int main(int argc, char **argv) {
   registerAllDialects(registry);
   registry.insert<mlir::ppu::PPUDialect>();
 
-
-  // TODO: capisci a cosa serve e a cosa serve questo e tutte le registrazioni sopra
-  // Load our Dialect in this MLIR Context.
-  mlir::MLIRContext context(registry);
-  context.getOrLoadDialect<mlir::ppu::PPUDialect>();
+  //   // TODO: capisci a cosa serve e a cosa serve questo e tutte le
+  //   registrazioni
+  //   // sopra Load our Dialect in this MLIR Context.
+  //   mlir::MLIRContext context(registry);
+  //   context.getOrLoadDialect<mlir::ppu::PPUDialect>();
 
   return mlir::asMainReturnCode(
       mlir::MlirOptMain(argc, argv, "Standalone optimizer driver\n", registry));

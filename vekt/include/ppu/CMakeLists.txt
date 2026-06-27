@@ -1,6 +1,6 @@
 # macro aggiunta da AddMLIR:
 # - cerca un file chiamato PPUOps.td nella cartella corrente.
-# - genera sia gli header (.h.inc) che i sorgenti (.cpp.inc) per le 
+# - genera sia gli header (.h.inc) che i sorgenti (.cpp.inc) per le
 #   operazioni e le definizioni del dialetto
 #   - abbiamo che ops.td include types.td che include dialect.td
 #   - riusciamo a generare tutto specificando solo ops.td per questo motivo
@@ -35,6 +35,6 @@ add_mlir_dialect(PPUOps ppu)
 # - infine, produciamo un target CMake come per le ops.
 #   - NB: aggiungere questo target è fondamentale dato che lo usiamo
 #     quando dichiariamo le dipendenze delle implementazioni (vedi dentro lib/)
-# set(LLVM_TARGET_DEFINITIONS StandalonePasses.td)
-# mlir_tablegen(StandalonePasses.h.inc --gen-pass-decls)
-# add_public_tablegen_target(MLIRStandalonePassesIncGen)
+set(LLVM_TARGET_DEFINITIONS PPUPasses.td)
+mlir_tablegen(PPUPasses.h.inc --gen-pass-decls)
+add_public_tablegen_target(MLIRPPUPassesIncGen)

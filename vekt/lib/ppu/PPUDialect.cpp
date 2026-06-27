@@ -1,7 +1,7 @@
 #include <cstdio>
 
-#include "ppu/PPUOps.h"
 #include "ppu/PPUDialect.h"
+#include "ppu/PPUOps.h"
 
 using namespace mlir;
 using namespace mlir::ppu;
@@ -13,7 +13,6 @@ using namespace mlir::ppu;
 //===----------------------------------------------------------------------===//
 
 void PPUDialect::initialize() {
-
   addOperations<
 #define GET_OP_LIST
 #include "ppu/PPUOps.cpp.inc"

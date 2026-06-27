@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.20.0)
 
 # proviamo a usare il compilatore giusto
-set(CMAKE_C_COMPILER "/home/kevin/Scrivania/repos/LLVM17_learning_repo/llvm-project/INSTALL/bin/clang")
-set(CMAKE_CXX_COMPILER "/home/kevin/Scrivania/repos/LLVM17_learning_repo/llvm-project/INSTALL/bin/clang++")
+# set(CMAKE_C_COMPILER "/home/kevin/Scrivania/repos/LLVM17_learning_repo/llvm-project/INSTALL/bin/clang")
+# set(CMAKE_CXX_COMPILER "/home/kevin/Scrivania/repos/LLVM17_learning_repo/llvm-project/INSTALL/bin/clang++")
 
 project(vekt LANGUAGES CXX C)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON) # per intellisense
@@ -12,18 +12,18 @@ set(CMAKE_BUILD_WITH_INSTALL_NAME_DIR ON) # roba per macOS
 # c++17 a default ma è anche parametrizzabile con -D
 set(CMAKE_CXX_STANDARD 17 CACHE STRING "C++ standard to conform to")
 
-# # Usa mold come linker se disponibile
-# find_program(MOLD_LINKER mold)
-# if(MOLD_LINKER)
-#   add_link_options(-fuse-ld=mold)
-#   message(STATUS "Using mold linker: ${MOLD_LINKER}")
-# else()
-#   message(STATUS "mold linker not found, using default")
-# endif()
+# Usa mold come linker se disponibile
+find_program(MOLD_LINKER mold)
+if(MOLD_LINKER)
+  add_link_options(-fuse-ld=mold)
+  message(STATUS "Using mold linker: ${MOLD_LINKER}")
+else()
+  message(STATUS "mold linker not found, using default")
+endif()
 # usiamo lld come linker
-set(LLVM_USE_LINKER "lld" CACHE STRING "")
+# set(LLVM_USE_LINKER "lld" CACHE STRING "")
 
-set(LIT_PATH "/home/kevin/Scrivania/llvm-project-llvmorg-20.1.8/build/bin/llvm-lit")
+set(LIT_PATH "/home/kevin/llvm-project-20.1.8/build/bin/llvm-lit")
 set(LLVM_EXTERNAL_LIT ${LIT_PATH} CACHE STRING "path per llvm-lit")
 message(STATUS "Using llvm-lit in: ${LIT_PATH}")
 
@@ -37,7 +37,7 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
 
   # ... questa sembra una maniera migliore di fare la stessa cosa
   # Add the location of LLVMConfig.cmake to CMake search paths (so that find_package can locate it)
-  set(LT_LLVM_INSTALL_DIR "/home/kevin/Scrivania/llvm-project-llvmorg-20.1.8/build/" CACHE PATH "LLVM installation directory")
+  set(LT_LLVM_INSTALL_DIR "/home/kevin/llvm-project-20.1.8/build/" CACHE PATH "LLVM installation directory")
   list(PREPEND CMAKE_PREFIX_PATH "${LT_LLVM_INSTALL_DIR}")
 
   # carichiamo le informazioni di mlir e (transitivamente) di llvm.
