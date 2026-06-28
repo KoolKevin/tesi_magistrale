@@ -1,17 +1,9 @@
-//===- StandaloneDialect.h - Standalone dialect -----------------*- C++ -*-===//
-//
-// This file is licensed under the Apache License v2.0 with LLVM Exceptions.
-// See https://llvm.org/LICENSE.txt for license information.
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//===----------------------------------------------------------------------===//
-
-#ifndef STANDALONE_STANDALONEDIALECT_H
-#define STANDALONE_STANDALONEDIALECT_H
+#ifndef PPUDIALECT_H
+#define PPUDIALECT_H
 
 #include "mlir/Bytecode/BytecodeOpInterface.h"
 #include "mlir/IR/Dialect.h"
 
 #include "ppu/PPUOpsDialect.h.inc"
 
-#endif // STANDALONE_STANDALONEDIALECT_H
+#endif // PPUDIALECT_H

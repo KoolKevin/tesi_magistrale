@@ -1,13 +1,5 @@
-//===- StandaloneOps.h - Standalone dialect ops -----------------*- C++ -*-===//
-//
-// This file is licensed under the Apache License v2.0 with LLVM Exceptions.
-// See https://llvm.org/LICENSE.txt for license information.
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//===----------------------------------------------------------------------===//
-
-#ifndef STANDALONE_STANDALONEOPS_H
-#define STANDALONE_STANDALONEOPS_H
+#ifndef PPUOPS_H
+#define PPUOPS_H
 
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Dialect.h"
@@ -18,4 +10,4 @@
 #define GET_OP_CLASSES
 #include "ppu/PPUOps.h.inc"
 
-#endif // STANDALONE_STANDALONEOPS_H
+#endif // PPUOPS_H

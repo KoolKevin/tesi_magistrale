@@ -9,10 +9,14 @@ include "mlir/IR/OpBase.td"
 
 def PPU_Dialect : Dialect {
     // dialect namespace
-    let name = "ppu"; 
-    let summary = "un dialetto che rappresenta gli intrinseci della PPU";
+    let name = "ppu";
+    let summary = "Dialetto che rappresenta gli intrinseci LLVM della PPU";
     let description = [{
-        aggiungi descrizione quando hai completato
+        Questo dialetto modella gli intrinseci LLVM utilizzati dal compilatore
+        Metaware per generare codice vettoriale eseguito dalla Parallel
+        Processing Unit dei microcontrollori della famiglia TC4 di Infineon.
+        Il dialetto ppu è un dialetto di esportazione con cui si vuole uscire da
+        mlir per andare verso llvm-ir.
     }];
     let cppNamespace = "::mlir::ppu";
 
