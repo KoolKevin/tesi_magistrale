@@ -128,8 +128,6 @@ add_definitions(${LLVM_DEFINITIONS})
 add_subdirectory(include)
 add_subdirectory(lib)
 
-
-
 # variabile configurabile per includere i test o meno
 option(INCLUDE_TESTS "Enable tests" ON)
 if(INCLUDE_TESTS)
@@ -137,3 +135,4 @@ if(INCLUDE_TESTS)
 endif()
 
 add_subdirectory(vekt-opt) # main
+add_subdirectory(vekt-translate)
