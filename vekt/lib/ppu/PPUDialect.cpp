@@ -18,7 +18,8 @@ void PPUDialect::initialize() {
 #include "ppu/PPUOps.cpp.inc"
       >();
 
-  printf("-------------------------\n");
-  printf("ppu dialect inizializzato\n");
-  printf("-------------------------\n");
+  // rimuoviamo questo dato che impedisce il piping
+  //   printf("-------------------------\n");
+  //   printf("ppu dialect inizializzato\n");
+  //   printf("-------------------------\n");
 }
