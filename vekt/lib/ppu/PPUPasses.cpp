@@ -17,6 +17,11 @@ namespace mlir::ppu {
 #include "ppu/PPUPasses.h.inc"
 
 namespace {
+
+//===----------------------------------------------------------------------===//
+// PPUSwitchBarFooRewriter
+//===----------------------------------------------------------------------===//
+
 class PPUSwitchBarFooRewriter : public OpRewritePattern<func::FuncOp> {
 public:
   using OpRewritePattern<func::FuncOp>::OpRewritePattern;
@@ -43,6 +48,10 @@ public:
   }
 };
 
+//===----------------------------------------------------------------------===//
+// PPUInsertVecLoad
+//===----------------------------------------------------------------------===//
+
 class PPUInsertVecLoad : public impl::PPUInsertVecLoadBase<PPUInsertVecLoad> {
 public:
   using impl::PPUInsertVecLoadBase<PPUInsertVecLoad>::PPUInsertVecLoadBase;
@@ -56,22 +65,23 @@ public:
 
     // inserisco una funzione fittizia
     builder.setInsertionPointToStart(module.getBody());
-    auto funcType = builder.getFunctionType({}, {});
+    auto i32Type = builder.getI32Type();
+    auto memrefType = MemRefType::get({16}, i32Type);
+    auto vecType = VectorType::get({16}, i32Type);
+    auto funcType = builder.getFunctionType({}, {vecType});
     auto func = builder.create<func::FuncOp>(module.getLoc(),
                                              "test_ppu_vec_load", funcType);
-    Block *entry = func.addEntryBlock();
-    builder.setInsertionPointToStart(entry);
 
     // creo una memref.alloc come argomento per la vec_load
-    auto memrefType = MemRefType::get({16}, builder.getI32Type());
+    Block *entry = func.addEntryBlock();
+    builder.setInsertionPointToStart(entry);
     Value memref = builder.create<memref::AllocOp>(func.getLoc(), memrefType);
 
     // creo la ppu.vec_load
-    auto vecType = VectorType::get({16}, builder.getI32Type());
-    auto _ = builder.create<VecLoadOp>(func.getLoc(), vecType, memref);
+    auto vecLoad = builder.create<VecLoadOp>(func.getLoc(), vecType, memref);
 
     // aggiungo la return op
-    builder.create<func::ReturnOp>(func.getLoc());
+    builder.create<func::ReturnOp>(func.getLoc(), vecLoad.getRes());
   }
 };
 

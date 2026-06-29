@@ -5,6 +5,7 @@ include "ppu/PPUDialect.td"
 
 include "mlir/IR/OpBase.td"
 include "mlir/IR/CommonTypeConstraints.td"
+include "mlir/Dialect/LLVMIR/LLVMOpBase.td"
 
 include "mlir/Interfaces/InferTypeOpInterface.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
@@ -74,7 +75,7 @@ def PPU_VecLoadOp : PPU_Op<"vec_load", [Pure]> {
         ```
     }];
 
-    let arguments = (ins AnyMemRef:$src);
+    let arguments = (ins AnyTypeOf<[AnyMemRef, LLVM_AnyPointer]>:$src);
     let results = (outs AnyVectorOfAnyRank:$res);
 
     // let assemblyFormat = [{
