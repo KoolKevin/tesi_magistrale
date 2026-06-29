@@ -4,7 +4,9 @@
 #include "mlir/Target/LLVMIR/ModuleTranslation.h"
 #include "mlir/Tools/mlir-translate/MlirTranslateMain.h"
 #include "mlir/Tools/mlir-translate/Translation.h"
+
 #include "ppu/PPUDialect.h"
+#include "ppu/PPUToLLVMIRTranslation.h"
 
 // Prima del main viene eseguito questo costruttore per registrare delle lambda
 // invocate da quest'ultimo
@@ -35,7 +37,7 @@ static mlir::TranslateFromMLIRRegistration registration(
       mlir::registerBuiltinDialectTranslation(registry);
       mlir::registerLLVMDialectTranslation(registry);
       // TODO: questa è ancora da implementare
-      // mlir::registerPPUDialectTranslation(registry);
+      mlir::registerPPUDialectTranslation(registry);
     });
 
 int main(int argc, char **argv) {
