@@ -48,6 +48,9 @@ public:
   using impl::PPUInsertVecLoadBase<PPUInsertVecLoad>::PPUInsertVecLoadBase;
 
   void runOnOperation() override {
+    // questo metodo viene implementato dalla base-class OperationPass e
+    // restituisce l'op a cui il passo viene ancorato (moduleOp in questo caso;
+    // guarda la definizione nel file .td)
     ModuleOp module = getOperation();
     OpBuilder builder(module.getContext());
 

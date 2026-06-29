@@ -22,8 +22,8 @@
 #include "ppu/PPUPasses.h"
 
 int main(int argc, char **argv) {
+  // Registra i passi in maniera tale da renderli disponibili al tool
   mlir::registerAllPasses();
-
   // registriamo i miei passi
   mlir::ppu::registerPasses();
 

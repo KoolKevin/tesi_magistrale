@@ -43,7 +43,8 @@ def PPU_FooOp : PPU_Op<"foo", [Pure, SameOperandsAndResultType]> {
 // VecLoadOp
 //===----------------------------------------------------------------------===//
 
-// TODO: completa aggiungendo enumerativi e attributi
+// TODO: completa aggiungendo attributi per la dimensione del registro e
+// dimensione del tipo di dato
 // TODO: capisci meglio come vengono gestiti i tipi di dato. Le load vettoriali
 // della ppu sembrano semplicemente preoccuparsi della dimensione in bit dell'
 // elemento (b, h, w, d), sono poi le istruzioni successive a definire come
@@ -55,8 +56,9 @@ def PPU_FooOp : PPU_Op<"foo", [Pure, SameOperandsAndResultType]> {
 // un _vccm pointer
 def PPU_VecLoadOp : PPU_Op<"vec_load", [Pure]> {
     let summary = "Load di un registro vettoriale della PPU";
+    // TODO: aggiusta anche la descrizione quando completi l'op
     let description = [{
-        Modella questo intrinseco llvm-ir:
+        Per adesso modella ESATTAMENTE questo intrinseco llvm-ir:
 
         `%13 = call <16 x i32> @llvm.arc.vvld.w.v512(ptr addrspace(4) %12)`
 
@@ -67,9 +69,8 @@ def PPU_VecLoadOp : PPU_Op<"vec_load", [Pure]> {
         Esempio:
 
         ```mlir
-        %0 = arith.constant 2 : i32
-        // Apply the foo operation to %0
-        %1 = standalone.foo %0 : i32
+        %alloc = memref.alloc() : memref<16xi32>
+        %0 = "ppu.vec_load"(%alloc) : (memref<16xi32>) -> vector<16xi32>
         ```
     }];
 
@@ -77,9 +78,7 @@ def PPU_VecLoadOp : PPU_Op<"vec_load", [Pure]> {
     let results = (outs AnyVectorOfAnyRank:$res);
 
     // let assemblyFormat = [{
-    //     $src
-    //     attr-dict
-    //     `:` type($src) `->` type($result)
+    //     $src attr-dict `:` type($res)
     // }];
 }
 
