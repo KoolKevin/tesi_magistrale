@@ -21,8 +21,8 @@ static mlir::TranslateFromMLIRRegistration registration(
       llvmModule->print(output, nullptr);
       return mlir::success();
     },
-    // this lambda registers the dialect that need to be know to parse the input
-    // mlir that is being translated
+    // this lambda registers the dialects that need to be known to parse the
+    // input mlir that is being translated
     [](mlir::DialectRegistry &registry) {
       mlir::registerAllDialects(registry);
       registry.insert<mlir::ppu::PPUDialect>();
@@ -31,7 +31,7 @@ static mlir::TranslateFromMLIRRegistration registration(
       // da quanto leggo), la seconda serve per le op del dialetto 'llvm' (la
       // maggior parte).
       //
-      // Interessante notare che queste interfacce estendono (aggiungendo poco)
+      // Interessante notare che queste interfacce estendono
       // 'LLVMTranslationDialectInterface' che il mio dialetto per la ppu deve
       // implementare
       mlir::registerBuiltinDialectTranslation(registry);

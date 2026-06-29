@@ -91,6 +91,12 @@ public:
 
 } // namespace
 
+// Questo metodo registra una callback che viene eseguita quando il dialetto
+// specificato viene caricato nel contesto della traduzione. La callback
+// aggiunge A RUNTIME (strano) l'interfaccia che specifica come tradurre il
+// dialetto in llvm-ir.
+// "This interface is what 'translateModuleToLLVMIR' queries when it walks the
+// ops and needs to know how to convert them to LLVM IR".
 void mlir::registerPPUDialectTranslation(DialectRegistry &registry) {
   registry.addExtension(+[](MLIRContext *ctx, PPUDialect *dialect) {
     dialect->addInterfaces<PPUDialectLLVMIRTranslationInterface>();
