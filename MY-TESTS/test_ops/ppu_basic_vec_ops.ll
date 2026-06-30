@@ -1,5 +1,3 @@
-; NB: ho dovuto aggiungere l'attributo addrspace(4) ai puntatori a mano
-
 ; ModuleID = 'LLVMDialectModule'
 source_filename = "LLVMDialectModule"
 
@@ -10,7 +8,7 @@ define <16 x i32> @test_ppu_vec_ops(ptr addrspace(4) %0) {
   ret <16 x i32> %3
 }
 
-declare <16 x i32> @llvm.arc.vvld.w.v512(ptr addrspace(4)) 
+declare <16 x i32> @llvm.arc.vvld.w.v512(ptr addrspace(4))
 
 declare <16 x i32> @llvm.arc.vvadd.w.v512(<16 x i32>, <16 x i32>)
 
