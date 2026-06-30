@@ -55,6 +55,7 @@ tool_dirs = [config.vekt_tools_dir, config.llvm_tools_dir]
 tools = [
     "mlir-opt",
     "vekt-opt",
+    "vekt-translate",
 ]
 
 llvm_config.add_tool_substitutions(tools, tool_dirs)
