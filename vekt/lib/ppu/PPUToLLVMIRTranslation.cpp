@@ -28,13 +28,7 @@ convertVecLoad(VecLoadOp &vecLoad, llvm::IRBuilderBase &builder,
   // TODO: guarda meglio che cos'è uno scalable vector
   llvm::Type *resultTy =
       llvm::VectorType::get(llvm::Type::getInt32Ty(ctx), 16, false);
-  // TODO: i puntatori utilizzati dai ppu intrinsics dovrebbero fare
-  // riferimento all'address space 4 (vccm). Per adesso creo un puntatore
-  // normale dato che non ho voglia di modificare la mia ir di test.
-  // Dovrei farlo e aggiungere anche un assert che controlla questo attributo
-  // quando faccio lookupValue(vecLoad.getSrc())
-  // llvm::Type *ptrTy = llvm::PointerType::get(ctx, 4);
-  llvm::Type *ptrTy = llvm::PointerType::get(ctx, 0);
+  llvm::Type *ptrTy = llvm::PointerType::get(ctx, 4);
   llvm::FunctionType *funcTy =
       llvm::FunctionType::get(resultTy, {ptrTy}, false);
   // NB: getOrInsertFunction aggiunge la dichiarazione della funzione nel
@@ -54,6 +48,10 @@ convertVecLoad(VecLoadOp &vecLoad, llvm::IRBuilderBase &builder,
   // llvm::Value* corrispondente è già in mappa pronto ad essere recuperato
   // tramite lookupValue() per la costruzione della chiamata
   llvm::Value *ptr = moduleTranslation.lookupValue(vecLoad.getSrc());
+  if (ptrTy != ptr->getType())
+    return vecLoad.emitError("i puntatori usati dalle ppu op devono avere "
+                             "come attributo addrspace = 4");
+
   llvm::CallInst *call = builder.CreateCall(callee, {ptr});
   // aggiungiamo anche il mapping per la chiamata appena creata
   moduleTranslation.mapValue(vecLoad.getRes(), call);
@@ -73,22 +71,22 @@ convertVecStore(VecStoreOp &vecStore, llvm::IRBuilderBase &builder,
   llvm::Type *voidTy = llvm::Type::getVoidTy(ctx);
   llvm::Type *vectorTy =
       llvm::VectorType::get(llvm::Type::getInt32Ty(ctx), 16, false);
-  llvm::Type *ptrTy = llvm::PointerType::get(ctx, 0);
+  llvm::Type *ptrTy = llvm::PointerType::get(ctx, 4);
   llvm::FunctionType *funcTy =
       llvm::FunctionType::get(voidTy, {vectorTy, ptrTy}, false);
   llvm::FunctionCallee callee =
       module->getOrInsertFunction("llvm.arc.vvst.w.v512", funcTy);
-  // ppu.vec_store può accettare sia una memref che un llvm.ptr.  Una memref
-  // dovrebbe essere già stata lowerata prima di arrivare qua dato che non è
-  // traducibile direttamente.
-  if (isa<MemRefType>(vecStore.getDest().getType())) {
+  if (isa<MemRefType>(vecStore.getDest().getType()))
     return vecStore.emitError(
         "l'argomento dest di ppu.vec_store deve essere lowerato a "
         "llvm.ptr prima della traduzione");
-  }
 
   llvm::Value *vec = moduleTranslation.lookupValue(vecStore.getVecToStore());
   llvm::Value *ptr = moduleTranslation.lookupValue(vecStore.getDest());
+  if (ptrTy != ptr->getType())
+    return vecStore.emitError("i puntatori usati dalle ppu op devono avere "
+                              "come attributo addrspace = 4");
+
   builder.CreateCall(callee, {vec, ptr});
 
   return success();
