@@ -3,22 +3,6 @@
 
 include "mlir/Pass/PassBase.td"
 
-def PPUSwitchBarFoo: Pass<"ppu-switch-bar-foo", "::mlir::ModuleOp"> {
-  let summary = "Switches the name of a FuncOp named `bar` to `foo` and folds.";
-  let description = [{
-    Switches the name of a FuncOp named `bar` to `foo` and folds.
-    ```
-    func.func @bar() {
-      return
-    }
-    // Gets transformed to:
-    func.func @foo() {
-      return
-    }
-    ```
-  }];
-}
-
 def PPUInsertVecLoad : Pass<"ppu-insert-vec-load", "::mlir::ModuleOp"> {
   let summary = "Insert a fake ppu.vec_load op for debugging";
   let description = [{
@@ -31,5 +15,28 @@ def PPUInsertVecLoad : Pass<"ppu-insert-vec-load", "::mlir::ModuleOp"> {
     "mlir::func::FuncDialect"
   ];
 }
+
+
+def PPULowerToLLVM : Pass<"ppu-lower-to-llvm", "::mlir::ModuleOp"> {
+  let summary = "lower from vectorized affine form to llvm + ppu dialect";
+  let description = [{
+    ...
+  }];
+
+  let dependentDialects = [
+    "mlir::memref::MemRefDialect",
+    "mlir::arith::ArithDialect",
+    "mlir::vector::VectorDialect",
+    "mlir::func::FuncDialect",
+    "mlir::affine::AffineDialect",
+    "mlir::vector::VectorDialect",
+    "mlir::LLVM::LLVMDialect",
+    "mlir::ub::UBDialect",
+    "mlir::ppu::PPUDialect",
+    "mlir::scf::SCFDialect"
+  ];
+}
+
+
 
 #endif // PPU_PASS

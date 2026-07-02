@@ -34,57 +34,16 @@ int main(int argc, char **argv) {
         vectorizeOpts.vectorSizes = {16};
         pm.addPass(mlir::affine::createAffineVectorize(vectorizeOpts));
 
-        // lower to llvm
-        pm.addPass(mlir::createLowerAffinePass());
-        pm.addPass(mlir::createConvertSCFToCFPass());
-        // NB: una memref NON è solo un puntatore, è una struct con 5 campi
-        // - allocated pointer: puntatore restituito da malloc o altro
-        //   allocator che bisognerà passare a free.
-        //   - Non è sempre l'indirizzo dell'elemento [0]!
-        //   - Es:
-        //     - buffer con header/metadati iniziali
-        //     - slice su buffer esistente
-        // - aligned pointer: indirizzo dell'elemento [0] allineato in base a
-        //   come richiesto.
-        // - offset: la differenza tra allocated pointer e aligned pointer
-        // - sizes: un array di interi grande quanto il rango del tensore
-        //   contenente le sue dimensioni
-        // - strides: un array grande quanto il rango del tensore contenente un
-        // intero per dimensione che rappresenta la distanza (in elementi) tra
-        // elementi adiacenti in quella dimensione.
-        //   - Es: for a contiguous row-major array the strides are
-        //   [size[1]*size[2]*..., size[2]*..., ..., 1]
-        //
-        // Tutto questo per arrivare a dire che, se faccio un lowering senza
-        // specificare nulla, le memref vengono espanse nei loro 5 campi. Nel
-        // caso delle funzioni, questo modifica le firme e rompe l'ABI con i
-        // chiamanti. Devo usare quindi usare l'opzione sotto
-        mlir::ConvertFuncToLLVMPassOptions funcToLLVMOpts;
-        // FIXME: NON STA FUNZIONANDO!!! Il lowering fallisce per motivi
-        // misteriosi. Per adesso lascio stare e uso un wrapper lato chiamante
-        // - ho scoperto perchè fallisce... il lowering di memrefs con
-        // dimensione dinamica non è supportato 😭​
+        // il lowering di memrefs con dimensione dinamica non è ammesso 😭​
         // https://mlir.llvm.org/doxygen/LLVMCommon_2TypeConverter_8cpp_source.html#l00593
-        // - mi sa che dovrò fare un passo a mano...
-        funcToLLVMOpts.useBarePtrCallConv = false;
-        pm.addPass(mlir::createConvertFuncToLLVMPass(funcToLLVMOpts));
-        pm.addPass(mlir::createConvertControlFlowToLLVMPass());
+        // funcToLLVMOpts.useBarePtrCallConv = false;
+        // pm.addPass(mlir::createConvertFuncToLLVMPass(funcToLLVMOpts));
+
+        // uso questo passo invece di aggiungere i suoi pattern in quello sotto
+        // dato che non riesco a farlo funzionare ;)
+        // pm.addPass(mlir::createConvertVectorToPPUPass()); // TODO:
         pm.addPass(mlir::createConvertVectorToLLVMPass());
-        pm.addPass(mlir::createArithToLLVMConversionPass());
-        pm.addPass(mlir::createUBToLLVMConversionPass());
-        // questo potrebbe servire nel caso venissero create delle memref-ops
-        // complicate
-        // pm.addPass(mlir::memref::createExpandStridedMetadataPass());
-        pm.addPass(mlir::createFinalizeMemRefToLLVMConversionPass());
-        // "Eliminate `unrealized_conversion_cast` operations, commonly
-        // introduced by partial dialect conversions, that TRANSITIVELY convert
-        // a value to another value of the SAME type"
-        // NB: ricorda che quando fai un lowering di un'op, la op-target del
-        // lowering potrebbe non conoscere il tipo degli operandi / produrre un
-        // tipo che le op user non conoscono. Per questo motivo il conversion
-        // framework inserisce delle op di cast temporanee che (se tutto va
-        // bene) dovrebbero essere risolte alla fine del lowering
-        pm.addPass(mlir::createReconcileUnrealizedCastsPass());
+        pm.addPass(mlir::ppu::createPPULowerToLLVM());
 
         // cleanup
         pm.addPass(mlir::createCanonicalizerPass());
