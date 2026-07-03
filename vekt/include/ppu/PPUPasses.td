@@ -37,6 +37,19 @@ def PPULowerToLLVM : Pass<"ppu-lower-to-llvm", "::mlir::ModuleOp"> {
   ];
 }
 
+def ConvertVectorToPPU: Pass<"convert-vector-to-ppu", "::mlir::ModuleOp"> {
+  let summary = "lowers vector ops into equivalent ppu ops";
+  let description = [{
+    il lowering introduce
+  }];
+
+  let dependentDialects = [
+    "mlir::memref::MemRefDialect",
+    "mlir::LLVM::LLVMDialect",
+    "mlir::ppu::PPUDialect",
+    "mlir::arith::ArithDialect",
+  ];
+}
 
 
 #endif // PPU_PASS

@@ -36,7 +36,6 @@ static mlir::TranslateFromMLIRRegistration registration(
       // implementare
       mlir::registerBuiltinDialectTranslation(registry);
       mlir::registerLLVMDialectTranslation(registry);
-      // TODO: questa è ancora da implementare
       mlir::registerPPUDialectTranslation(registry);
     });
 

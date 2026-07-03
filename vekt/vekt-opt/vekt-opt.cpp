@@ -41,7 +41,7 @@ int main(int argc, char **argv) {
 
         // uso questo passo invece di aggiungere i suoi pattern in quello sotto
         // dato che non riesco a farlo funzionare ;)
-        // pm.addPass(mlir::createConvertVectorToPPUPass()); // TODO:
+        pm.addPass(mlir::ppu::createConvertVectorToPPU());
         pm.addPass(mlir::createConvertVectorToLLVMPass());
         pm.addPass(mlir::ppu::createPPULowerToLLVM());
 

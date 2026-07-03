@@ -145,7 +145,7 @@ def PPU_VecStoreOp : PPU_Op<"vec_store", []> {
 // lo devo propagare anche io.
 // TODO: vedi se è necessario modellare il 'addrspace(4)' che dice che l'input è
 // un _vccm pointer
-def PPU_VecAddOp : PPU_Op<"vec_add", [Pure]> {
+def PPU_VecAddOp : PPU_Op<"vec_add", [Pure, SameOperandsAndResultType]> {
     let summary = "Somma due registri vettoriali della PPU";
     // TODO: aggiusta anche la descrizione quando completi l'op
     let description = [{
