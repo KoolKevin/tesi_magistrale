@@ -21,6 +21,7 @@
 #include "mlir/Conversion/VectorToSCF/VectorToSCF.h"
 #include "mlir/Dialect/Vector/Transforms/LoweringPatterns.h"
 
+#include "mlir/Transforms/WalkPatternRewriteDriver.h"
 #include "ppu/PPUDialect.h"
 #include "ppu/PPUOps.h"
 #include "ppu/PPUPasses.h"
@@ -110,53 +111,63 @@ public:
 // ConvertVectorToPPU
 //===----------------------------------------------------------------------===//
 
-// TODO: vedi se puoi convertire le memrefs in raw llvm.ptr mediante un
-// TypeConverter
-// class PolyToStandardTypeConverter : public TypeConverter {
-//  public:
-//   PolyToStandardTypeConverter(MLIRContext *ctx) {
-//     addConversion([](Type type) { return type; });
-//     addConversion([ctx](PolynomialType type) -> Type {
-//       int degreeBound = type.getDegreeBound();
-//       IntegerType elementTy =
-//           IntegerType::get(ctx, 32,
-//           IntegerType::SignednessSemantics::Signless);
-//       return RankedTensorType::get({degreeBound}, elementTy);
-//     });
-//   }
-// };
-
-/* conversion pattern custom */
-
 struct ConvertVectorTransferRead
-    : public OpConversionPattern<mlir::vector::TransferReadOp> {
+    : public OpRewritePattern<mlir::vector::TransferReadOp> {
+
   ConvertVectorTransferRead(mlir::MLIRContext *context)
-      : OpConversionPattern<mlir::vector::TransferReadOp>(context) {}
+      : OpRewritePattern<mlir::vector::TransferReadOp>(context) {}
 
-  using OpConversionPattern::OpConversionPattern;
+  using OpRewritePattern::OpRewritePattern;
 
-  LogicalResult
-  matchAndRewrite(mlir::vector::TransferReadOp op, OpAdaptor adaptor,
-                  ConversionPatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(mlir::vector::TransferReadOp op,
+                                PatternRewriter &rewriter) const final {
 
-    // TODO: add address computation with GEP instruction
-    // Recuperiamo il pointer dalla memref e usiamo come argomento per
-    // ppu.vec_load:
-    // %0 = memref.extract_aligned_pointer_as_index %arg : memref<4xf32>->index
-    // %1 = arith.index_cast %0 : index to i64
-    // %2 = llvm.inttoptr %1 : i64 to !llvm.ptr
-    // %3 = ppu.vec_load %2 !llvm.ptr -> vector<16xi32>
+    // Trasformiamo questo:
+    //
+    // %2 =
+    //   vector.transfer_read %arg0[%arg4], %1 : memref<?xi32>, vector<16xi32>
+    //
+    // In questo:
+    //
+    // %intptr =
+    //   memref.extract_aligned_pointer_as_index %arg0 : memref<?xi32> -> index
+    // %1 = arith.index_cast %intptr : index to i64
+    // %2 = llvm.inttoptr %1 : i64 to !llvm.ptr<4>
+    // %3 = arith.index_cast %arg4 : index to i64
+    // %4 = llvm.getelementptr %2[%3] : (!llvm.ptr<4>, i64) -> !llvm.ptr<4>, i32
+    // %5 = "ppu.vec_load"(%4) : (!llvm.ptr<4>) -> vector<16xi32>
+
     auto extractOp = rewriter.create<memref::ExtractAlignedPointerAsIndexOp>(
-        op.getLoc(), adaptor.getSource());
+        op.getLoc(), op.getSource());
     auto indexCastOp = rewriter.create<arith::IndexCastOp>(
         op.getLoc(), rewriter.getI64Type(), extractOp);
     // NB: qua stiamo hardcodando l'addrespace(4) della PPU
     auto PPUPtrTy = LLVM::LLVMPointerType::get(rewriter.getContext(), 4);
-    auto intToPtrOp =
+    auto basePtr =
         rewriter.create<LLVM::IntToPtrOp>(op.getLoc(), PPUPtrTy, indexCastOp);
-    auto vecTy = VectorType::get({16}, rewriter.getI32Type());
+
+    // costruire una GEP è un po' più complicato dato che bisogna gestire indici
+    // potenzialmente multidimensionali
+    auto indices = op.getIndices();
+    // la GEP vuole vuole interi e non index types
+    SmallVector<Value> gepIndices;
+    for (Value idx : indices) {
+      auto castedIdx = rewriter.create<arith::IndexCastOp>(
+          op.getLoc(), rewriter.getI64Type(), idx);
+      gepIndices.push_back(castedIdx);
+    }
+    // recuperiamo il tipo di dato puntato dalla memref
+    Type elemTy = op.getSource().getType().getElementType();
+    Value finalPtr = basePtr;
+    if (!gepIndices.empty()) {
+      auto gepOp = rewriter.create<LLVM::GEPOp>(op.getLoc(), PPUPtrTy, elemTy,
+                                                basePtr, gepIndices);
+      finalPtr = gepOp.getResult();
+    }
+
+    auto vecTy = VectorType::get({16}, elemTy);
     auto ppuVecLoadOp =
-        rewriter.create<ppu::VecLoadOp>(op.getLoc(), vecTy, intToPtrOp);
+        rewriter.create<ppu::VecLoadOp>(op.getLoc(), vecTy, finalPtr);
 
     rewriter.replaceOp(op.getOperation(), ppuVecLoadOp.getRes());
 
@@ -167,63 +178,27 @@ struct ConvertVectorTransferRead
 struct ConvertVectorToPPU : impl::ConvertVectorToPPUBase<ConvertVectorToPPU> {
   using ConvertVectorToPPUBase::ConvertVectorToPPUBase;
 
+  // NB: non sto usando il dialect conversion framework dato che non ho bisogno
+  // di gestire conversioni dei tipi. Similmente non sto utilizzando il greedy
+  // pattern rewriter framework dato che non introduco ops che necessitano a
+  // loro volta di un match&rewrite in stile fixed-point. Utilizzo un semplice
+  // walker che applica i miei pattern
+  // NB: il walker non applica folding o DCE, è quindi una buona idea aggiungere
+  // un passo di canonicalizzazione dopo questo
   void runOnOperation() override {
-    MLIRContext *context = &getContext();
+    MLIRContext *ctx = &getContext();
     ModuleOp module = getOperation();
 
-    ConversionTarget target(*context);
-
-    target.addLegalDialect<ppu::PPUDialect, LLVM::LLVMDialect,
-                           arith::ArithDialect, memref::MemRefDialect>();
-    target.addIllegalOp<vector::TransferReadOp>();
-
-    RewritePatternSet patterns(context);
-    // my pattern takes a context so i need to pass it here aswell. If my
-    // pattern also had a TypeConverter, i would need to specify that as well
-    patterns.add<ConvertVectorTransferRead>(context);
-    // populateAffineToStdConversionPatterns(patterns);
-
-    if (failed(applyPartialConversion(module, target, std::move(patterns)))) {
-      signalPassFailure();
-    }
+    RewritePatternSet patterns(ctx);
+    patterns.add<ConvertVectorTransferRead>(ctx);
+    // Post-order, forward walk traversal of ops (excluding input `op`).
+    walkAndApplyPatterns(module, std::move(patterns));
   }
 };
 
 //===----------------------------------------------------------------------===//
 // PPULowerToLLVM
 //===----------------------------------------------------------------------===//
-
-// TODO: vedi se puoi convertire le memrefs in raw llvm.ptr mediante un
-// TypeConverter
-// class PolyToStandardTypeConverter : public TypeConverter {
-//  public:
-//   PolyToStandardTypeConverter(MLIRContext *ctx) {
-//     addConversion([](Type type) { return type; });
-//     addConversion([ctx](PolynomialType type) -> Type {
-//       int degreeBound = type.getDegreeBound();
-//       IntegerType elementTy =
-//           IntegerType::get(ctx, 32,
-//           IntegerType::SignednessSemantics::Signless);
-//       return RankedTensorType::get({degreeBound}, elementTy);
-//     });
-//   }
-// };
-
-/* conversion pattern custom */
-
-// struct ConvertAdd : public OpConversionPattern<AddOp> {
-//   ConvertAdd(mlir::MLIRContext *context)
-//       : OpConversionPattern<AddOp>(context) {}
-
-//   using OpConversionPattern::OpConversionPattern;
-
-//   LogicalResult matchAndRewrite(
-//       AddOp op, OpAdaptor adaptor,
-//       ConversionPatternRewriter &rewriter) const override {
-//     // TODO: implement
-//     return success();
-//   }
-// };
 
 struct PPULowerToLLVM : impl::PPULowerToLLVMBase<PPULowerToLLVM> {
   using PPULowerToLLVMBase::PPULowerToLLVMBase;
