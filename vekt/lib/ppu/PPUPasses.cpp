@@ -175,6 +175,70 @@ struct ConvertVectorTransferRead
   }
 };
 
+struct ConvertVectorTransferWrite
+    : public OpRewritePattern<mlir::vector::TransferWriteOp> {
+
+  ConvertVectorTransferWrite(mlir::MLIRContext *context)
+      : OpRewritePattern<mlir::vector::TransferWriteOp>(context) {}
+
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(mlir::vector::TransferWriteOp op,
+                                PatternRewriter &rewriter) const final {
+
+    // Trasformiamo questo:
+    //
+    // %2 =
+    //   vector.transfer_write %5, %arg2[%arg4] : vector<16xi32>, memref<?xi32>
+    //
+    // In questo:
+    //
+    // %intptr =
+    //   memref.extract_aligned_pointer_as_index %arg0 : memref<?xi32> -> index
+    // %1 = arith.index_cast %intptr : index to i64
+    // %2 = llvm.inttoptr %1 : i64 to !llvm.ptr<4>
+    // %3 = arith.index_cast %arg4 : index to i64
+    // %4 = llvm.getelementptr %2[%3] : (!llvm.ptr<4>, i64) -> !llvm.ptr<4>, i32
+    // "ppu.vec_store"(%val, %4) : (vector<16xi32>, !llvm.ptr<4>) -> ()
+
+    auto extractOp = rewriter.create<memref::ExtractAlignedPointerAsIndexOp>(
+        op.getLoc(), op.getSource());
+    auto indexCastOp = rewriter.create<arith::IndexCastOp>(
+        op.getLoc(), rewriter.getI64Type(), extractOp);
+    // NB: qua stiamo hardcodando l'addrespace(4) della PPU
+    auto PPUPtrTy = LLVM::LLVMPointerType::get(rewriter.getContext(), 4);
+    auto basePtr =
+        rewriter.create<LLVM::IntToPtrOp>(op.getLoc(), PPUPtrTy, indexCastOp);
+
+    // costruire una GEP è un po' più complicato dato che bisogna gestire indici
+    // potenzialmente multidimensionali
+    auto indices = op.getIndices();
+    // la GEP vuole vuole interi e non index types
+    SmallVector<Value> gepIndices;
+    for (Value idx : indices) {
+      auto castedIdx = rewriter.create<arith::IndexCastOp>(
+          op.getLoc(), rewriter.getI64Type(), idx);
+      gepIndices.push_back(castedIdx);
+    }
+    // recuperiamo il tipo di dato puntato dalla memref (si continua a chiamare
+    // source e non dest)
+    Type elemTy = op.getSource().getType().getElementType();
+    Value finalPtr = basePtr;
+    if (!gepIndices.empty()) {
+      auto gepOp = rewriter.create<LLVM::GEPOp>(op.getLoc(), PPUPtrTy, elemTy,
+                                                basePtr, gepIndices);
+      finalPtr = gepOp.getResult();
+    }
+
+    auto ppuVecStoreOp =
+        rewriter.create<ppu::VecStoreOp>(op.getLoc(), op.getVector(), finalPtr);
+
+    rewriter.replaceOp(op.getOperation(), ppuVecStoreOp);
+
+    return success();
+  }
+};
+
 struct ConvertVectorToPPU : impl::ConvertVectorToPPUBase<ConvertVectorToPPU> {
   using ConvertVectorToPPUBase::ConvertVectorToPPUBase;
 
@@ -190,7 +254,7 @@ struct ConvertVectorToPPU : impl::ConvertVectorToPPUBase<ConvertVectorToPPU> {
     ModuleOp module = getOperation();
 
     RewritePatternSet patterns(ctx);
-    patterns.add<ConvertVectorTransferRead>(ctx);
+    patterns.add<ConvertVectorTransferRead, ConvertVectorTransferWrite>(ctx);
     // Post-order, forward walk traversal of ops (excluding input `op`).
     walkAndApplyPatterns(module, std::move(patterns));
   }
