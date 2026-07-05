@@ -3,16 +3,18 @@ source_filename = "vekt_main.c"
 target datalayout = "e-m:e-p:32:32-p1:32:32-p3:32:32-p5:32:32-i64:32-f64:32-v64:32-v128:32-a:0:32-v256:32-v512:32-n8:16:32"
 target triple = "arc-pc-unknown-gnu"
 
-@.str = private unnamed_addr constant [5 x i8] c"\09%d\0A\00", align 1
-@.str.2 = private unnamed_addr constant [40 x i8] c"Tempo di esecuzione di vec_sum: %.2fms\0A\00", align 1
-@.str.4 = private unnamed_addr constant [30 x i8] c"a[%d]=%d, b[%d]=%d, c[%d]=%d\0A\00", align 1
-@.str.6 = private unnamed_addr constant [23 x i8] c"Vettorizzo su %d lane\0A\00", align 1
-@.str.7 = private unnamed_addr constant [51 x i8] c"Tempo di esecuzione di vectorized_vec_sum: %.2fms\0A\00", align 1
-@.str.8 = private unnamed_addr constant [15 x i8] c"Speedup: %.2f\0A\00", align 1
-@.str.10 = private unnamed_addr constant [55 x i8] c"Tempo di esecuzione di autovectorized_vec_sum: %.2fms\0A\00", align 1
-@str = private unnamed_addr constant [39 x i8] c"Errore nell'allocazione della memoria.\00", align 1
-@str.13 = private unnamed_addr constant [27 x i8] c"Versione vekt-vettorizzata\00", align 1
-@str.14 = private unnamed_addr constant [30 x i8] c"Primi 5 elementi della somma:\00", align 1
+@a = addrspace(4) global [8192 x i32] zeroinitializer, align 4
+@b = addrspace(4) global [8192 x i32] zeroinitializer, align 4
+@c = addrspace(4) global [8192 x i32] zeroinitializer, align 4
+@.str = private unnamed_addr constant [40 x i8] c"Tempo di esecuzione di vec_sum: %.2fms\0A\00", align 1
+@.str.2 = private unnamed_addr constant [30 x i8] c"a[%d]=%d, b[%d]=%d, c[%d]=%d\0A\00", align 1
+@.str.4 = private unnamed_addr constant [23 x i8] c"Vettorizzo su %d lane\0A\00", align 1
+@.str.5 = private unnamed_addr constant [51 x i8] c"Tempo di esecuzione di vectorized_vec_sum: %.2fms\0A\00", align 1
+@.str.6 = private unnamed_addr constant [15 x i8] c"Speedup: %.2f\0A\00", align 1
+@.str.8 = private unnamed_addr constant [30 x i8] c"\09puntatori array: %p, %p, %p\0A\00", align 1
+@.str.9 = private unnamed_addr constant [55 x i8] c"Tempo di esecuzione di autovectorized_vec_sum: %.2fms\0A\00", align 1
+@str.11 = private unnamed_addr constant [27 x i8] c"Versione vekt-vettorizzata\00", align 1
+@str.12 = private unnamed_addr constant [30 x i8] c"Primi 5 elementi della somma:\00", align 1
 
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind willreturn memory(argmem: write)
 define dso_local void @init_vector(ptr nocapture noundef writeonly %a, i32 noundef %dim, i32 noundef %value) local_unnamed_addr #0 {
@@ -38,11 +40,12 @@ for.body:                                         ; preds = %for.body.preheader,
 ; Function Attrs: nounwind
 define dso_local void @vekt_vec_sum_wrapper(ptr noundef %a, ptr noundef %b, ptr noundef %c, i32 noundef %n) local_unnamed_addr #1 {
 entry:
-  tail call void @vekt_vec_sum(ptr noundef %a, ptr noundef %a, i32 noundef 0, i32 noundef %n, i32 noundef 1, ptr noundef %b, ptr noundef %b, i32 noundef 0, i32 noundef %n, i32 noundef 1, ptr noundef %c, ptr noundef %c, i32 noundef 0, i32 noundef %n, i32 noundef 1, i32 noundef %n) #9
+  %conv = sext i32 %n to i64
+  tail call void @vekt_vec_sum(ptr noundef %a, ptr noundef %a, i64 noundef 0, i64 noundef %conv, i64 noundef 1, ptr noundef %b, ptr noundef %b, i64 noundef 0, i64 noundef %conv, i64 noundef 1, ptr noundef %c, ptr noundef %c, i64 noundef 0, i64 noundef %conv, i64 noundef 1, i32 noundef %n) #10
   ret void
 }
 
-declare void @vekt_vec_sum(ptr noundef, ptr noundef, i32 noundef, i32 noundef, i32 noundef, ptr noundef, ptr noundef, i32 noundef, i32 noundef, i32 noundef, ptr noundef, ptr noundef, i32 noundef, i32 noundef, i32 noundef, i32 noundef) local_unnamed_addr #2
+declare void @vekt_vec_sum(ptr noundef, ptr noundef, i64 noundef, i64 noundef, i64 noundef, ptr noundef, ptr noundef, i64 noundef, i64 noundef, i64 noundef, ptr noundef, ptr noundef, i64 noundef, i64 noundef, i64 noundef, i32 noundef) local_unnamed_addr #2
 
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind willreturn memory(argmem: readwrite)
 define dso_local void @vec_sum(ptr nocapture noundef readonly %a, ptr nocapture noundef readonly %b, ptr nocapture noundef writeonly %c, i32 noundef %n) local_unnamed_addr #3 {
@@ -67,288 +70,285 @@ for.body:                                         ; preds = %for.body.preheader,
   store i32 %add, ptr %arrayidx2, align 4, !tbaa !3
   %inc = add nuw nsw i32 %i.08, 1
   %cmp = icmp slt i32 %inc, %n
-  br i1 %cmp, label %for.body, label %for.cond.cleanup, !llvm.loop !10
+  br i1 %cmp, label %for.body, label %for.cond.cleanup, !llvm.loop !9
 }
 
-; Function Attrs: nofree nounwind
+; Function Attrs: mustprogress nofree nosync nounwind willreturn
 define dso_local void @vectorized_vec_sum(ptr addrspace(4) noalias noundef %a, ptr addrspace(4) noalias noundef %b, ptr addrspace(4) noalias noundef %c, i32 noundef %n) local_unnamed_addr #4 {
 entry:
   %div = sdiv i32 %n, 16
-  %cmp45 = icmp sgt i32 %n, 15
-  br i1 %cmp45, label %for.body.preheader, label %for.cond.cleanup
+  %cmp14 = icmp sgt i32 %n, 15
+  br i1 %cmp14, label %for.body.preheader, label %for.cond.cleanup
 
 for.body.preheader:                               ; preds = %entry
   br label %for.body
 
 for.cond.cleanup:                                 ; preds = %for.body, %entry
-  %mul10 = shl nsw i32 %div, 4
-  %0 = shl nsw i32 %div, 4
-  %rem.decomposed = sub i32 %n, %0
-  %add = add nsw i32 %mul10, %rem.decomposed
-  %cmp1347 = icmp sgt i32 %rem.decomposed, 0
-  br i1 %cmp1347, label %for.body15.preheader, label %for.cond.cleanup14
-
-for.body15.preheader:                             ; preds = %for.cond.cleanup
-  br label %for.body15
-
-for.body:                                         ; preds = %for.body.preheader, %for.body
-  %i.046 = phi i32 [ %inc, %for.body ], [ 0, %for.body.preheader ]
-  %mul = shl nsw i32 %i.046, 4
-  %arrayidx = getelementptr inbounds i32, ptr addrspace(4) %a, i32 %mul
-  %1 = tail call <16 x i32> @llvm.arc.vvld.w.v512(ptr addrspace(4) %arrayidx)
-  %arrayidx2 = getelementptr inbounds i32, ptr addrspace(4) %b, i32 %mul
-  %2 = tail call <16 x i32> @llvm.arc.vvld.w.v512(ptr addrspace(4) %arrayidx2)
-  %3 = tail call <16 x i32> @llvm.arc.vvadd.w.v512(<16 x i32> %1, <16 x i32> %2)
-  %arrayidx6 = getelementptr inbounds i32, ptr addrspace(4) %c, i32 %mul
-  tail call void @llvm.arc.vvst.w.v512(<16 x i32> %3, ptr addrspace(4) %arrayidx6)
-  %4 = load i32, ptr addrspace(4) %arrayidx6, align 4, !tbaa !3
-  %call9 = tail call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str, i32 noundef %4)
-  %inc = add nuw nsw i32 %i.046, 1
-  %cmp = icmp slt i32 %inc, %div
-  br i1 %cmp, label %for.body, label %for.cond.cleanup, !llvm.loop !15
-
-for.cond.cleanup14:                               ; preds = %for.body15, %for.cond.cleanup
   ret void
 
-for.body15:                                       ; preds = %for.body15.preheader, %for.body15
-  %i11.048 = phi i32 [ %inc21, %for.body15 ], [ %mul10, %for.body15.preheader ]
-  %arrayidx16 = getelementptr inbounds i32, ptr addrspace(4) %a, i32 %i11.048
-  %5 = load i32, ptr addrspace(4) %arrayidx16, align 4, !tbaa !3
-  %arrayidx17 = getelementptr inbounds i32, ptr addrspace(4) %b, i32 %i11.048
-  %6 = load i32, ptr addrspace(4) %arrayidx17, align 4, !tbaa !3
-  %add18 = add nsw i32 %6, %5
-  %arrayidx19 = getelementptr inbounds i32, ptr addrspace(4) %c, i32 %i11.048
-  store i32 %add18, ptr addrspace(4) %arrayidx19, align 4, !tbaa !3
-  %inc21 = add nsw i32 %i11.048, 1
-  %cmp13 = icmp slt i32 %inc21, %add
-  br i1 %cmp13, label %for.body15, label %for.cond.cleanup14, !llvm.loop !16
+for.body:                                         ; preds = %for.body.preheader, %for.body
+  %i.015 = phi i32 [ %inc, %for.body ], [ 0, %for.body.preheader ]
+  %mul = shl nsw i32 %i.015, 4
+  %arrayidx = getelementptr inbounds i32, ptr addrspace(4) %a, i32 %mul
+  %0 = tail call <16 x i32> @llvm.arc.vvld.w.v512(ptr addrspace(4) %arrayidx)
+  %arrayidx2 = getelementptr inbounds i32, ptr addrspace(4) %b, i32 %mul
+  %1 = tail call <16 x i32> @llvm.arc.vvld.w.v512(ptr addrspace(4) %arrayidx2)
+  %2 = tail call <16 x i32> @llvm.arc.vvadd.w.v512(<16 x i32> %0, <16 x i32> %1)
+  %arrayidx6 = getelementptr inbounds i32, ptr addrspace(4) %c, i32 %mul
+  tail call void @llvm.arc.vvst.w.v512(<16 x i32> %2, ptr addrspace(4) %arrayidx6)
+  %inc = add nuw nsw i32 %i.015, 1
+  %cmp = icmp slt i32 %inc, %div
+  br i1 %cmp, label %for.body, label %for.cond.cleanup, !llvm.loop !14
 }
-
-; Function Attrs: nofree nounwind
-declare noundef i32 @printf(ptr nocapture noundef readonly, ...) local_unnamed_addr #4
 
 ; Function Attrs: nounwind
 define dso_local i32 @main() local_unnamed_addr #1 {
 entry:
-  %0 = alloca [4096 x i8], align 16, addrspace(4)
-  %1 = alloca [4096 x i8], align 16, addrspace(4)
-  %2 = alloca [4096 x i8], align 16, addrspace(4)
-  %tobool = icmp ne ptr addrspace(4) %0, null
-  %tobool1 = icmp ne ptr addrspace(4) %1, null
-  %or.cond = and i1 %tobool, %tobool1
-  %tobool3 = icmp ne ptr addrspace(4) %2, null
-  %or.cond81 = and i1 %or.cond, %tobool3
-  br i1 %or.cond81, label %for.body.preheader, label %if.then
-
-for.body.preheader:                               ; preds = %entry
   br label %for.body
 
-if.then:                                          ; preds = %entry
-  %puts = call i32 @puts(ptr nonnull dereferenceable(1) @str)
-  br label %cleanup
-
-for.body.i:                                       ; preds = %for.body.i.preheader, %for.body.i
-  %i.04.i = phi i32 [ %inc.i, %for.body.i ], [ 0, %for.body.i.preheader ]
-  %arrayidx.i.addrspace = getelementptr inbounds i32, ptr addrspace(4) %2, i32 %i.04.i
-  store i32 0, ptr addrspace(4) %arrayidx.i.addrspace, align 4, !tbaa !3
+for.body.i:                                       ; preds = %for.body.i, %for.body.i.preheader
+  %i.04.i = phi i32 [ 0, %for.body.i.preheader ], [ %inc.i.1, %for.body.i ]
+  %arrayidx.i = getelementptr inbounds i32, ptr addrspacecast (ptr addrspace(4) @c to ptr), i32 %i.04.i
+  store i32 -1, ptr %arrayidx.i, align 4, !tbaa !3
   %inc.i = add nuw nsw i32 %i.04.i, 1
-  %cmp.i = icmp ult i32 %inc.i, 1024
-  br i1 %cmp.i, label %for.body.i, label %init_vector.exit, !llvm.loop !7
+  %arrayidx.i.1 = getelementptr inbounds i32, ptr addrspacecast (ptr addrspace(4) @c to ptr), i32 %inc.i
+  store i32 -1, ptr %arrayidx.i.1, align 4, !tbaa !3
+  %inc.i.1 = add nuw nsw i32 %i.04.i, 2
+  %cmp.i.1 = icmp ult i32 %inc.i.1, 8192
+  br i1 %cmp.i.1, label %for.body.i, label %init_vector.exit, !llvm.loop !7
 
 init_vector.exit:                                 ; preds = %for.body.i
-  %call6 = call i32 @clock() #9
-  br label %for.body.i146
+  %call = tail call i32 @clock() #10
+  br label %for.body.i114
 
-for.body.i146:                                    ; preds = %for.body.i146, %init_vector.exit
-  %i.08.i = phi i32 [ 0, %init_vector.exit ], [ %inc.i148, %for.body.i146 ]
-  %arrayidx.i147.addrspace = getelementptr inbounds i32, ptr addrspace(4) %0, i32 %i.08.i
-  %3 = load i32, ptr addrspace(4) %arrayidx.i147.addrspace, align 4, !tbaa !3
-  %arrayidx1.i.addrspace = getelementptr inbounds i32, ptr addrspace(4) %1, i32 %i.08.i
-  %4 = load i32, ptr addrspace(4) %arrayidx1.i.addrspace, align 4, !tbaa !3
-  %add.i = add nsw i32 %4, %3
-  %arrayidx2.i.addrspace = getelementptr inbounds i32, ptr addrspace(4) %2, i32 %i.08.i
-  store i32 %add.i, ptr addrspace(4) %arrayidx2.i.addrspace, align 4, !tbaa !3
-  %inc.i148 = add nuw nsw i32 %i.08.i, 1
-  %cmp.i149 = icmp ult i32 %inc.i148, 1024
-  br i1 %cmp.i149, label %for.body.i146, label %vec_sum.exit, !llvm.loop !10
+for.body.i114:                                    ; preds = %for.body.i114, %init_vector.exit
+  %i.08.i = phi i32 [ 0, %init_vector.exit ], [ %inc.i116.1, %for.body.i114 ]
+  %arrayidx.i115 = getelementptr inbounds i32, ptr addrspacecast (ptr addrspace(4) @a to ptr), i32 %i.08.i
+  %0 = load i32, ptr %arrayidx.i115, align 4, !tbaa !3
+  %arrayidx1.i = getelementptr inbounds i32, ptr addrspacecast (ptr addrspace(4) @b to ptr), i32 %i.08.i
+  %1 = load i32, ptr %arrayidx1.i, align 4, !tbaa !3
+  %add.i = add nsw i32 %1, %0
+  %arrayidx2.i = getelementptr inbounds i32, ptr addrspacecast (ptr addrspace(4) @c to ptr), i32 %i.08.i
+  store i32 %add.i, ptr %arrayidx2.i, align 4, !tbaa !3
+  %inc.i116 = add nuw nsw i32 %i.08.i, 1
+  %arrayidx.i115.1 = getelementptr inbounds i32, ptr addrspacecast (ptr addrspace(4) @a to ptr), i32 %inc.i116
+  %2 = load i32, ptr %arrayidx.i115.1, align 4, !tbaa !3
+  %arrayidx1.i.1 = getelementptr inbounds i32, ptr addrspacecast (ptr addrspace(4) @b to ptr), i32 %inc.i116
+  %3 = load i32, ptr %arrayidx1.i.1, align 4, !tbaa !3
+  %add.i.1 = add nsw i32 %3, %2
+  %arrayidx2.i.1 = getelementptr inbounds i32, ptr addrspacecast (ptr addrspace(4) @c to ptr), i32 %inc.i116
+  store i32 %add.i.1, ptr %arrayidx2.i.1, align 4, !tbaa !3
+  %inc.i116.1 = add nuw nsw i32 %i.08.i, 2
+  %cmp.i117.1 = icmp ult i32 %inc.i116.1, 8192
+  br i1 %cmp.i117.1, label %for.body.i114, label %vec_sum.exit, !llvm.loop !9
 
-vec_sum.exit:                                     ; preds = %for.body.i146
-  %call7 = call i32 @clock() #9
-  %sub = sub nsw i32 %call7, %call6
+vec_sum.exit:                                     ; preds = %for.body.i114
+  %call3 = tail call i32 @clock() #10
+  %sub = sub nsw i32 %call3, %call
   %conv = sitofp i32 %sub to double
-  %call8 = call i32 @_timer_clocks_per_sec() #9
-  %conv9 = uitofp i32 %call8 to double
-  %div = fdiv contract double %conv, %conv9
+  %call4 = tail call i32 @_timer_clocks_per_sec() #10
+  %conv5 = uitofp i32 %call4 to double
+  %div = fdiv contract double %conv, %conv5
   %mul = fmul contract double %div, 1.000000e+03
-  %call10 = call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.2, double noundef %mul)
-  %puts141 = call i32 @puts(ptr nonnull dereferenceable(1) @str.14)
-  br label %for.body17
+  %call6 = tail call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str, double noundef %mul)
+  %puts = tail call i32 @puts(ptr nonnull dereferenceable(1) @str.12)
+  %4 = load i32, ptr addrspace(4) @a, align 4, !tbaa !3
+  %5 = load i32, ptr addrspace(4) @b, align 4, !tbaa !3
+  %6 = load i32, ptr addrspace(4) @c, align 4, !tbaa !3
+  %call17 = tail call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.2, i32 noundef 0, i32 noundef %4, i32 noundef 0, i32 noundef %5, i32 noundef 0, i32 noundef %6)
+  %7 = load i32, ptr addrspace(4) getelementptr inbounds ([8192 x i32], ptr addrspace(4) @a, i32 0, i32 1), align 4, !tbaa !3
+  %8 = load i32, ptr addrspace(4) getelementptr inbounds ([8192 x i32], ptr addrspace(4) @b, i32 0, i32 1), align 4, !tbaa !3
+  %9 = load i32, ptr addrspace(4) getelementptr inbounds ([8192 x i32], ptr addrspace(4) @c, i32 0, i32 1), align 4, !tbaa !3
+  %call17.1 = tail call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.2, i32 noundef 1, i32 noundef %7, i32 noundef 1, i32 noundef %8, i32 noundef 1, i32 noundef %9)
+  %10 = load i32, ptr addrspace(4) getelementptr inbounds ([8192 x i32], ptr addrspace(4) @a, i32 0, i32 2), align 4, !tbaa !3
+  %11 = load i32, ptr addrspace(4) getelementptr inbounds ([8192 x i32], ptr addrspace(4) @b, i32 0, i32 2), align 4, !tbaa !3
+  %12 = load i32, ptr addrspace(4) getelementptr inbounds ([8192 x i32], ptr addrspace(4) @c, i32 0, i32 2), align 4, !tbaa !3
+  %call17.2 = tail call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.2, i32 noundef 2, i32 noundef %10, i32 noundef 2, i32 noundef %11, i32 noundef 2, i32 noundef %12)
+  %13 = load i32, ptr addrspace(4) getelementptr inbounds ([8192 x i32], ptr addrspace(4) @a, i32 0, i32 3), align 4, !tbaa !3
+  %14 = load i32, ptr addrspace(4) getelementptr inbounds ([8192 x i32], ptr addrspace(4) @b, i32 0, i32 3), align 4, !tbaa !3
+  %15 = load i32, ptr addrspace(4) getelementptr inbounds ([8192 x i32], ptr addrspace(4) @c, i32 0, i32 3), align 4, !tbaa !3
+  %call17.3 = tail call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.2, i32 noundef 3, i32 noundef %13, i32 noundef 3, i32 noundef %14, i32 noundef 3, i32 noundef %15)
+  %16 = load i32, ptr addrspace(4) getelementptr inbounds ([8192 x i32], ptr addrspace(4) @a, i32 0, i32 4), align 4, !tbaa !3
+  %17 = load i32, ptr addrspace(4) getelementptr inbounds ([8192 x i32], ptr addrspace(4) @b, i32 0, i32 4), align 4, !tbaa !3
+  %18 = load i32, ptr addrspace(4) getelementptr inbounds ([8192 x i32], ptr addrspace(4) @c, i32 0, i32 4), align 4, !tbaa !3
+  %call17.4 = tail call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.2, i32 noundef 4, i32 noundef %16, i32 noundef 4, i32 noundef %17, i32 noundef 4, i32 noundef %18)
+  %putchar = tail call i32 @putchar(i32 10)
+  %call22 = tail call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.4, i32 noundef 16)
+  br label %for.body.i118
 
-for.body:                                         ; preds = %for.body.preheader, %for.body
-  %i.0173 = phi i32 [ %add, %for.body ], [ 0, %for.body.preheader ]
-  %add = add nuw nsw i32 %i.0173, 1
-  %arrayidx = getelementptr inbounds i32, ptr addrspace(4) %0, i32 %i.0173
+for.body:                                         ; preds = %for.body, %entry
+  %i.0135 = phi i32 [ 0, %entry ], [ %add.1, %for.body ]
+  %add = add nuw nsw i32 %i.0135, 1
+  %arrayidx = getelementptr inbounds [8192 x i32], ptr addrspace(4) @a, i32 0, i32 %i.0135
   store i32 %add, ptr addrspace(4) %arrayidx, align 4, !tbaa !3
-  %arrayidx5 = getelementptr inbounds i32, ptr addrspace(4) %1, i32 %i.0173
-  store i32 %add, ptr addrspace(4) %arrayidx5, align 4, !tbaa !3
-  %cmp = icmp ult i32 %add, 1024
-  br i1 %cmp, label %for.body, label %for.body.i.preheader, !llvm.loop !17
+  %arrayidx2 = getelementptr inbounds [8192 x i32], ptr addrspace(4) @b, i32 0, i32 %i.0135
+  store i32 %add, ptr addrspace(4) %arrayidx2, align 4, !tbaa !3
+  %add.1 = add nuw nsw i32 %i.0135, 2
+  %arrayidx.1 = getelementptr inbounds [8192 x i32], ptr addrspace(4) @a, i32 0, i32 %add
+  store i32 %add.1, ptr addrspace(4) %arrayidx.1, align 4, !tbaa !3
+  %arrayidx2.1 = getelementptr inbounds [8192 x i32], ptr addrspace(4) @b, i32 0, i32 %add
+  store i32 %add.1, ptr addrspace(4) %arrayidx2.1, align 4, !tbaa !3
+  %cmp.1 = icmp ult i32 %add.1, 8192
+  br i1 %cmp.1, label %for.body, label %for.body.i.preheader, !llvm.loop !15
 
 for.body.i.preheader:                             ; preds = %for.body
   br label %for.body.i
 
-for.cond.cleanup16:                               ; preds = %for.body17
-  %putchar = call i32 @putchar(i32 10)
-  %call26 = call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.6, i32 noundef 16)
-  br label %for.body.i150
+for.body.i118:                                    ; preds = %for.body.i118, %vec_sum.exit
+  %i.04.i119 = phi i32 [ 0, %vec_sum.exit ], [ %inc.i121.1, %for.body.i118 ]
+  %arrayidx.i120 = getelementptr inbounds i32, ptr addrspacecast (ptr addrspace(4) @c to ptr), i32 %i.04.i119
+  store i32 -1, ptr %arrayidx.i120, align 4, !tbaa !3
+  %inc.i121 = add nuw nsw i32 %i.04.i119, 1
+  %arrayidx.i120.1 = getelementptr inbounds i32, ptr addrspacecast (ptr addrspace(4) @c to ptr), i32 %inc.i121
+  store i32 -1, ptr %arrayidx.i120.1, align 4, !tbaa !3
+  %inc.i121.1 = add nuw nsw i32 %i.04.i119, 2
+  %cmp.i122.1 = icmp ult i32 %inc.i121.1, 8192
+  br i1 %cmp.i122.1, label %for.body.i118, label %init_vector.exit123, !llvm.loop !7
 
-for.body.i150:                                    ; preds = %for.body.i150, %for.cond.cleanup16
-  %i.04.i151 = phi i32 [ 0, %for.cond.cleanup16 ], [ %inc.i153, %for.body.i150 ]
-  %arrayidx.i152.addrspace = getelementptr inbounds i32, ptr addrspace(4) %2, i32 %i.04.i151
-  store i32 0, ptr addrspace(4) %arrayidx.i152.addrspace, align 4, !tbaa !3
-  %inc.i153 = add nuw nsw i32 %i.04.i151, 1
-  %cmp.i154 = icmp ult i32 %inc.i153, 1024
-  br i1 %cmp.i154, label %for.body.i150, label %init_vector.exit155, !llvm.loop !7
+init_vector.exit123:                              ; preds = %for.body.i118
+  %call23 = tail call i32 @clock() #10
+  br label %for.body.i124
 
-init_vector.exit155:                              ; preds = %for.body.i150
-  %call27 = call i32 @clock() #9
-  br label %for.body.i156
+for.body.i124:                                    ; preds = %for.body.i124, %init_vector.exit123
+  %i.015.i = phi i32 [ 0, %init_vector.exit123 ], [ %inc.i127.1, %for.body.i124 ]
+  %mul.i = shl i32 %i.015.i, 4
+  %arrayidx.i125 = getelementptr inbounds i32, ptr addrspace(4) @a, i32 %mul.i
+  %19 = tail call <16 x i32> @llvm.arc.vvld.w.v512(ptr addrspace(4) %arrayidx.i125)
+  %arrayidx2.i126 = getelementptr inbounds i32, ptr addrspace(4) @b, i32 %mul.i
+  %20 = tail call <16 x i32> @llvm.arc.vvld.w.v512(ptr addrspace(4) %arrayidx2.i126)
+  %21 = tail call <16 x i32> @llvm.arc.vvadd.w.v512(<16 x i32> %19, <16 x i32> %20)
+  %arrayidx6.i = getelementptr inbounds i32, ptr addrspace(4) @c, i32 %mul.i
+  tail call void @llvm.arc.vvst.w.v512(<16 x i32> %21, ptr addrspace(4) %arrayidx6.i)
+  %mul.i.1 = add nuw nsw i32 %mul.i, 16
+  %arrayidx.i125.1 = getelementptr inbounds i32, ptr addrspace(4) @a, i32 %mul.i.1
+  %22 = tail call <16 x i32> @llvm.arc.vvld.w.v512(ptr addrspace(4) %arrayidx.i125.1)
+  %arrayidx2.i126.1 = getelementptr inbounds i32, ptr addrspace(4) @b, i32 %mul.i.1
+  %23 = tail call <16 x i32> @llvm.arc.vvld.w.v512(ptr addrspace(4) %arrayidx2.i126.1)
+  %24 = tail call <16 x i32> @llvm.arc.vvadd.w.v512(<16 x i32> %22, <16 x i32> %23)
+  %arrayidx6.i.1 = getelementptr inbounds i32, ptr addrspace(4) @c, i32 %mul.i.1
+  tail call void @llvm.arc.vvst.w.v512(<16 x i32> %24, ptr addrspace(4) %arrayidx6.i.1)
+  %inc.i127.1 = add nuw nsw i32 %i.015.i, 2
+  %cmp.i128.1 = icmp ult i32 %inc.i127.1, 512
+  br i1 %cmp.i128.1, label %for.body.i124, label %vectorized_vec_sum.exit, !llvm.loop !14
 
-for.body.i156:                                    ; preds = %for.body.i156, %init_vector.exit155
-  %i.046.i = phi i32 [ 0, %init_vector.exit155 ], [ %inc.i159, %for.body.i156 ]
-  %mul.i = shl nsw i32 %i.046.i, 4
-  %arrayidx.i157 = getelementptr inbounds i32, ptr addrspace(4) %0, i32 %mul.i
-  %5 = call <16 x i32> @llvm.arc.vvld.w.v512(ptr addrspace(4) %arrayidx.i157)
-  %arrayidx2.i158 = getelementptr inbounds i32, ptr addrspace(4) %1, i32 %mul.i
-  %6 = call <16 x i32> @llvm.arc.vvld.w.v512(ptr addrspace(4) %arrayidx2.i158)
-  %7 = call <16 x i32> @llvm.arc.vvadd.w.v512(<16 x i32> %5, <16 x i32> %6)
-  %arrayidx6.i = getelementptr inbounds i32, ptr addrspace(4) %2, i32 %mul.i
-  call void @llvm.arc.vvst.w.v512(<16 x i32> %7, ptr addrspace(4) %arrayidx6.i)
-  %8 = load i32, ptr addrspace(4) %arrayidx6.i, align 16, !tbaa !3, !alias.scope !18, !noalias !21
-  %call9.i = call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str, i32 noundef %8)
-  %inc.i159 = add nuw nsw i32 %i.046.i, 1
-  %cmp.i160 = icmp ult i32 %inc.i159, 64
-  br i1 %cmp.i160, label %for.body.i156, label %vectorized_vec_sum.exit, !llvm.loop !15
+vectorized_vec_sum.exit:                          ; preds = %for.body.i124
+  %call24 = tail call i32 @clock() #10
+  %sub25 = sub nsw i32 %call24, %call23
+  %conv26 = sitofp i32 %sub25 to double
+  %call27 = tail call i32 @_timer_clocks_per_sec() #10
+  %conv28 = uitofp i32 %call27 to double
+  %div29 = fdiv contract double %conv26, %conv28
+  %mul30 = fmul contract double %div29, 1.000000e+03
+  %call31 = tail call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.5, double noundef %mul30)
+  %div32 = fdiv contract double %mul, %mul30
+  %call33 = tail call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.6, double noundef %div32)
+  %puts110 = tail call i32 @puts(ptr nonnull dereferenceable(1) @str.12)
+  %25 = load i32, ptr addrspace(4) @a, align 4, !tbaa !3
+  %26 = load i32, ptr addrspace(4) @b, align 4, !tbaa !3
+  %27 = load i32, ptr addrspace(4) @c, align 4, !tbaa !3
+  %call44 = tail call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.2, i32 noundef 0, i32 noundef %25, i32 noundef 0, i32 noundef %26, i32 noundef 0, i32 noundef %27)
+  %28 = load i32, ptr addrspace(4) getelementptr inbounds ([8192 x i32], ptr addrspace(4) @a, i32 0, i32 1), align 4, !tbaa !3
+  %29 = load i32, ptr addrspace(4) getelementptr inbounds ([8192 x i32], ptr addrspace(4) @b, i32 0, i32 1), align 4, !tbaa !3
+  %30 = load i32, ptr addrspace(4) getelementptr inbounds ([8192 x i32], ptr addrspace(4) @c, i32 0, i32 1), align 4, !tbaa !3
+  %call44.1 = tail call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.2, i32 noundef 1, i32 noundef %28, i32 noundef 1, i32 noundef %29, i32 noundef 1, i32 noundef %30)
+  %31 = load i32, ptr addrspace(4) getelementptr inbounds ([8192 x i32], ptr addrspace(4) @a, i32 0, i32 2), align 4, !tbaa !3
+  %32 = load i32, ptr addrspace(4) getelementptr inbounds ([8192 x i32], ptr addrspace(4) @b, i32 0, i32 2), align 4, !tbaa !3
+  %33 = load i32, ptr addrspace(4) getelementptr inbounds ([8192 x i32], ptr addrspace(4) @c, i32 0, i32 2), align 4, !tbaa !3
+  %call44.2 = tail call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.2, i32 noundef 2, i32 noundef %31, i32 noundef 2, i32 noundef %32, i32 noundef 2, i32 noundef %33)
+  %34 = load i32, ptr addrspace(4) getelementptr inbounds ([8192 x i32], ptr addrspace(4) @a, i32 0, i32 3), align 4, !tbaa !3
+  %35 = load i32, ptr addrspace(4) getelementptr inbounds ([8192 x i32], ptr addrspace(4) @b, i32 0, i32 3), align 4, !tbaa !3
+  %36 = load i32, ptr addrspace(4) getelementptr inbounds ([8192 x i32], ptr addrspace(4) @c, i32 0, i32 3), align 4, !tbaa !3
+  %call44.3 = tail call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.2, i32 noundef 3, i32 noundef %34, i32 noundef 3, i32 noundef %35, i32 noundef 3, i32 noundef %36)
+  %37 = load i32, ptr addrspace(4) getelementptr inbounds ([8192 x i32], ptr addrspace(4) @a, i32 0, i32 4), align 4, !tbaa !3
+  %38 = load i32, ptr addrspace(4) getelementptr inbounds ([8192 x i32], ptr addrspace(4) @b, i32 0, i32 4), align 4, !tbaa !3
+  %39 = load i32, ptr addrspace(4) getelementptr inbounds ([8192 x i32], ptr addrspace(4) @c, i32 0, i32 4), align 4, !tbaa !3
+  %call44.4 = tail call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.2, i32 noundef 4, i32 noundef %37, i32 noundef 4, i32 noundef %38, i32 noundef 4, i32 noundef %39)
+  %putchar111 = tail call i32 @putchar(i32 10)
+  %puts112 = tail call i32 @puts(ptr nonnull dereferenceable(1) @str.11)
+  %call50 = tail call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.8, ptr addrspace(4) noundef @a, ptr addrspace(4) noundef @b, ptr addrspace(4) noundef @c)
+  br label %for.body.i129
 
-vectorized_vec_sum.exit:                          ; preds = %for.body.i156
-  %call28 = call i32 @clock() #9
-  %sub29 = sub nsw i32 %call28, %call27
-  %conv30 = sitofp i32 %sub29 to double
-  %call31 = call i32 @_timer_clocks_per_sec() #9
-  %conv32 = uitofp i32 %call31 to double
-  %div33 = fdiv contract double %conv30, %conv32
-  %mul34 = fmul contract double %div33, 1.000000e+03
-  %call35 = call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.7, double noundef %mul34)
-  %div36 = fdiv contract double %mul, %mul34
-  %call37 = call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.8, double noundef %div36)
-  %puts142 = call i32 @puts(ptr nonnull dereferenceable(1) @str.14)
-  br label %for.body44
+for.body.i129:                                    ; preds = %for.body.i129, %vectorized_vec_sum.exit
+  %i.04.i130 = phi i32 [ 0, %vectorized_vec_sum.exit ], [ %inc.i132.1, %for.body.i129 ]
+  %arrayidx.i131 = getelementptr inbounds i32, ptr addrspacecast (ptr addrspace(4) @c to ptr), i32 %i.04.i130
+  store i32 -1, ptr %arrayidx.i131, align 4, !tbaa !3
+  %inc.i132 = add nuw nsw i32 %i.04.i130, 1
+  %arrayidx.i131.1 = getelementptr inbounds i32, ptr addrspacecast (ptr addrspace(4) @c to ptr), i32 %inc.i132
+  store i32 -1, ptr %arrayidx.i131.1, align 4, !tbaa !3
+  %inc.i132.1 = add nuw nsw i32 %i.04.i130, 2
+  %cmp.i133.1 = icmp ult i32 %inc.i132.1, 8192
+  br i1 %cmp.i133.1, label %for.body.i129, label %init_vector.exit134, !llvm.loop !7
 
-for.body17:                                       ; preds = %vec_sum.exit, %for.body17
-  %i12.0174 = phi i32 [ 0, %vec_sum.exit ], [ %inc23, %for.body17 ]
-  %arrayidx18 = getelementptr inbounds i32, ptr addrspace(4) %0, i32 %i12.0174
-  %9 = load i32, ptr addrspace(4) %arrayidx18, align 4, !tbaa !3
-  %arrayidx19 = getelementptr inbounds i32, ptr addrspace(4) %1, i32 %i12.0174
-  %10 = load i32, ptr addrspace(4) %arrayidx19, align 4, !tbaa !3
-  %arrayidx20 = getelementptr inbounds i32, ptr addrspace(4) %2, i32 %i12.0174
-  %11 = load i32, ptr addrspace(4) %arrayidx20, align 4, !tbaa !3
-  %call21 = call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.4, i32 noundef %i12.0174, i32 noundef %9, i32 noundef %i12.0174, i32 noundef %10, i32 noundef %i12.0174, i32 noundef %11)
-  %inc23 = add nuw nsw i32 %i12.0174, 1
-  %cmp14 = icmp ult i32 %inc23, 5
-  br i1 %cmp14, label %for.body17, label %for.cond.cleanup16, !llvm.loop !24
-
-for.cond.cleanup43:                               ; preds = %for.body44
-  %putchar143 = call i32 @putchar(i32 10)
-  %puts144 = call i32 @puts(ptr nonnull dereferenceable(1) @str.13)
-  br label %for.body.i161
-
-for.body.i161:                                    ; preds = %for.body.i161, %for.cond.cleanup43
-  %i.04.i162 = phi i32 [ 0, %for.cond.cleanup43 ], [ %inc.i164, %for.body.i161 ]
-  %arrayidx.i163.addrspace = getelementptr inbounds i32, ptr addrspace(4) %2, i32 %i.04.i162
-  store i32 0, ptr addrspace(4) %arrayidx.i163.addrspace, align 4, !tbaa !3
-  %inc.i164 = add nuw nsw i32 %i.04.i162, 1
-  %cmp.i165 = icmp ult i32 %inc.i164, 1024
-  br i1 %cmp.i165, label %for.body.i161, label %init_vector.exit166, !llvm.loop !7
-
-init_vector.exit166:                              ; preds = %for.body.i161
-  %12 = addrspacecast ptr addrspace(4) %2 to ptr
-  %13 = addrspacecast ptr addrspace(4) %0 to ptr
-  %14 = addrspacecast ptr addrspace(4) %1 to ptr
-  %call54 = call i32 @clock() #9
-  call void @vekt_vec_sum(ptr noundef %13, ptr noundef %13, i32 noundef 0, i32 noundef 1024, i32 noundef 1, ptr noundef %14, ptr noundef %14, i32 noundef 0, i32 noundef 1024, i32 noundef 1, ptr noundef %12, ptr noundef %12, i32 noundef 0, i32 noundef 1024, i32 noundef 1, i32 noundef 1024) #9
-  %call55 = call i32 @clock() #9
-  %sub56 = sub nsw i32 %call55, %call54
-  %conv57 = sitofp i32 %sub56 to double
-  %call58 = call i32 @_timer_clocks_per_sec() #9
-  %conv59 = uitofp i32 %call58 to double
-  %div60 = fdiv contract double %conv57, %conv59
-  %mul61 = fmul contract double %div60, 1.000000e+03
-  %call62 = call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.10, double noundef %mul61)
-  %div63 = fdiv contract double %mul, %mul61
-  %call64 = call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.8, double noundef %div63)
-  %puts145 = call i32 @puts(ptr nonnull dereferenceable(1) @str.14)
-  br label %for.body71
-
-for.body44:                                       ; preds = %vectorized_vec_sum.exit, %for.body44
-  %i39.0175 = phi i32 [ 0, %vectorized_vec_sum.exit ], [ %inc50, %for.body44 ]
-  %arrayidx45 = getelementptr inbounds i32, ptr addrspace(4) %0, i32 %i39.0175
-  %15 = load i32, ptr addrspace(4) %arrayidx45, align 4, !tbaa !3
-  %arrayidx46 = getelementptr inbounds i32, ptr addrspace(4) %1, i32 %i39.0175
-  %16 = load i32, ptr addrspace(4) %arrayidx46, align 4, !tbaa !3
-  %arrayidx47 = getelementptr inbounds i32, ptr addrspace(4) %2, i32 %i39.0175
-  %17 = load i32, ptr addrspace(4) %arrayidx47, align 4, !tbaa !3
-  %call48 = call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.4, i32 noundef %i39.0175, i32 noundef %15, i32 noundef %i39.0175, i32 noundef %16, i32 noundef %i39.0175, i32 noundef %17)
-  %inc50 = add nuw nsw i32 %i39.0175, 1
-  %cmp41 = icmp ult i32 %inc50, 5
-  br i1 %cmp41, label %for.body44, label %for.cond.cleanup43, !llvm.loop !25
-
-for.body71:                                       ; preds = %init_vector.exit166, %for.body71
-  %i66.0176 = phi i32 [ 0, %init_vector.exit166 ], [ %inc77, %for.body71 ]
-  %arrayidx72 = getelementptr inbounds i32, ptr addrspace(4) %0, i32 %i66.0176
-  %18 = load i32, ptr addrspace(4) %arrayidx72, align 4, !tbaa !3
-  %arrayidx73 = getelementptr inbounds i32, ptr addrspace(4) %1, i32 %i66.0176
-  %19 = load i32, ptr addrspace(4) %arrayidx73, align 4, !tbaa !3
-  %arrayidx74 = getelementptr inbounds i32, ptr addrspace(4) %2, i32 %i66.0176
-  %20 = load i32, ptr addrspace(4) %arrayidx74, align 4, !tbaa !3
-  %call75 = call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.4, i32 noundef %i66.0176, i32 noundef %18, i32 noundef %i66.0176, i32 noundef %19, i32 noundef %i66.0176, i32 noundef %20)
-  %inc77 = add nuw nsw i32 %i66.0176, 1
-  %cmp68 = icmp ult i32 %inc77, 5
-  br i1 %cmp68, label %for.body71, label %cleanup, !llvm.loop !26
-
-cleanup:                                          ; preds = %for.body71, %if.then
-  %retval.0 = phi i32 [ 1, %if.then ], [ 0, %for.body71 ]
-  ret i32 %retval.0
+init_vector.exit134:                              ; preds = %for.body.i129
+  %call51 = tail call i32 @clock() #10
+  tail call void @vekt_vec_sum(ptr noundef addrspacecast (ptr addrspace(4) @a to ptr), ptr noundef addrspacecast (ptr addrspace(4) @a to ptr), i64 noundef 0, i64 noundef 8192, i64 noundef 1, ptr noundef addrspacecast (ptr addrspace(4) @b to ptr), ptr noundef addrspacecast (ptr addrspace(4) @b to ptr), i64 noundef 0, i64 noundef 8192, i64 noundef 1, ptr noundef addrspacecast (ptr addrspace(4) @c to ptr), ptr noundef addrspacecast (ptr addrspace(4) @c to ptr), i64 noundef 0, i64 noundef 8192, i64 noundef 1, i32 noundef 8192) #10
+  %call52 = tail call i32 @clock() #10
+  %sub53 = sub nsw i32 %call52, %call51
+  %conv54 = sitofp i32 %sub53 to double
+  %call55 = tail call i32 @_timer_clocks_per_sec() #10
+  %conv56 = uitofp i32 %call55 to double
+  %div57 = fdiv contract double %conv54, %conv56
+  %mul58 = fmul contract double %div57, 1.000000e+03
+  %call59 = tail call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.9, double noundef %mul58)
+  %div60 = fdiv contract double %mul, %mul58
+  %call61 = tail call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.6, double noundef %div60)
+  %puts113 = tail call i32 @puts(ptr nonnull dereferenceable(1) @str.12)
+  %40 = load i32, ptr addrspace(4) @a, align 4, !tbaa !3
+  %41 = load i32, ptr addrspace(4) @b, align 4, !tbaa !3
+  %42 = load i32, ptr addrspace(4) @c, align 4, !tbaa !3
+  %call72 = tail call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.2, i32 noundef 0, i32 noundef %40, i32 noundef 0, i32 noundef %41, i32 noundef 0, i32 noundef %42)
+  %43 = load i32, ptr addrspace(4) getelementptr inbounds ([8192 x i32], ptr addrspace(4) @a, i32 0, i32 1), align 4, !tbaa !3
+  %44 = load i32, ptr addrspace(4) getelementptr inbounds ([8192 x i32], ptr addrspace(4) @b, i32 0, i32 1), align 4, !tbaa !3
+  %45 = load i32, ptr addrspace(4) getelementptr inbounds ([8192 x i32], ptr addrspace(4) @c, i32 0, i32 1), align 4, !tbaa !3
+  %call72.1 = tail call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.2, i32 noundef 1, i32 noundef %43, i32 noundef 1, i32 noundef %44, i32 noundef 1, i32 noundef %45)
+  %46 = load i32, ptr addrspace(4) getelementptr inbounds ([8192 x i32], ptr addrspace(4) @a, i32 0, i32 2), align 4, !tbaa !3
+  %47 = load i32, ptr addrspace(4) getelementptr inbounds ([8192 x i32], ptr addrspace(4) @b, i32 0, i32 2), align 4, !tbaa !3
+  %48 = load i32, ptr addrspace(4) getelementptr inbounds ([8192 x i32], ptr addrspace(4) @c, i32 0, i32 2), align 4, !tbaa !3
+  %call72.2 = tail call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.2, i32 noundef 2, i32 noundef %46, i32 noundef 2, i32 noundef %47, i32 noundef 2, i32 noundef %48)
+  %49 = load i32, ptr addrspace(4) getelementptr inbounds ([8192 x i32], ptr addrspace(4) @a, i32 0, i32 3), align 4, !tbaa !3
+  %50 = load i32, ptr addrspace(4) getelementptr inbounds ([8192 x i32], ptr addrspace(4) @b, i32 0, i32 3), align 4, !tbaa !3
+  %51 = load i32, ptr addrspace(4) getelementptr inbounds ([8192 x i32], ptr addrspace(4) @c, i32 0, i32 3), align 4, !tbaa !3
+  %call72.3 = tail call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.2, i32 noundef 3, i32 noundef %49, i32 noundef 3, i32 noundef %50, i32 noundef 3, i32 noundef %51)
+  %52 = load i32, ptr addrspace(4) getelementptr inbounds ([8192 x i32], ptr addrspace(4) @a, i32 0, i32 4), align 4, !tbaa !3
+  %53 = load i32, ptr addrspace(4) getelementptr inbounds ([8192 x i32], ptr addrspace(4) @b, i32 0, i32 4), align 4, !tbaa !3
+  %54 = load i32, ptr addrspace(4) getelementptr inbounds ([8192 x i32], ptr addrspace(4) @c, i32 0, i32 4), align 4, !tbaa !3
+  %call72.4 = tail call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.2, i32 noundef 4, i32 noundef %52, i32 noundef 4, i32 noundef %53, i32 noundef 4, i32 noundef %54)
+  ret i32 0
 }
 
 declare i32 @clock() local_unnamed_addr #2
 
 declare i32 @_timer_clocks_per_sec() local_unnamed_addr #2
 
+; Function Attrs: nofree nounwind
+declare noundef i32 @printf(ptr nocapture noundef readonly, ...) local_unnamed_addr #5
+
 ; Function Attrs: mustprogress nocallback nofree nosync nounwind willreturn memory(read)
-declare <16 x i32> @llvm.arc.vvld.w.v512(ptr addrspace(4)) #5
+declare <16 x i32> @llvm.arc.vvld.w.v512(ptr addrspace(4)) #6
 
 ; Function Attrs: mustprogress nocallback nofree nosync nounwind willreturn memory(none)
-declare <16 x i32> @llvm.arc.vvadd.w.v512(<16 x i32>, <16 x i32>) #6
+declare <16 x i32> @llvm.arc.vvadd.w.v512(<16 x i32>, <16 x i32>) #7
 
 ; Function Attrs: mustprogress nocallback nofree nosync nounwind willreturn memory(write)
-declare void @llvm.arc.vvst.w.v512(<16 x i32>, ptr addrspace(4)) #7
+declare void @llvm.arc.vvst.w.v512(<16 x i32>, ptr addrspace(4)) #8
 
 ; Function Attrs: nofree nounwind
-declare noundef i32 @puts(ptr nocapture noundef readonly) local_unnamed_addr #8
+declare noundef i32 @puts(ptr nocapture noundef readonly) local_unnamed_addr #9
 
 ; Function Attrs: nofree nounwind
-declare noundef i32 @putchar(i32 noundef) local_unnamed_addr #8
+declare noundef i32 @putchar(i32 noundef) local_unnamed_addr #9
 
 attributes #0 = { mustprogress nofree norecurse nosync nounwind willreturn memory(argmem: write) "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="av2hs" "target-features"="+av2hs,+bs,+cd,+divrem,+fpu-mac,+fpud,+fpud-div,+fpus-div,+ll64,+mpy,+mpy16,+norm,+sa,+swap,+vdsp,+vdsp512gb0,+vdsp_vector_c,+vfpu2" }
 attributes #1 = { nounwind "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="av2hs" "target-features"="+av2hs,+bs,+cd,+divrem,+fpu-mac,+fpud,+fpud-div,+fpus-div,+ll64,+mpy,+mpy16,+norm,+sa,+swap,+vdsp,+vdsp512gb0,+vdsp_vector_c,+vfpu2" }
 attributes #2 = { "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="av2hs" "target-features"="+av2hs,+bs,+cd,+divrem,+fpu-mac,+fpud,+fpud-div,+fpus-div,+ll64,+mpy,+mpy16,+norm,+sa,+swap,+vdsp,+vdsp512gb0,+vdsp_vector_c,+vfpu2" }
 attributes #3 = { mustprogress nofree norecurse nosync nounwind willreturn memory(argmem: readwrite) "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="av2hs" "target-features"="+av2hs,+bs,+cd,+divrem,+fpu-mac,+fpud,+fpud-div,+fpus-div,+ll64,+mpy,+mpy16,+norm,+sa,+swap,+vdsp,+vdsp512gb0,+vdsp_vector_c,+vfpu2" }
-attributes #4 = { nofree nounwind "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="av2hs" "target-features"="+av2hs,+bs,+cd,+divrem,+fpu-mac,+fpud,+fpud-div,+fpus-div,+ll64,+mpy,+mpy16,+norm,+sa,+swap,+vdsp,+vdsp512gb0,+vdsp_vector_c,+vfpu2" }
-attributes #5 = { mustprogress nocallback nofree nosync nounwind willreturn memory(read) }
-attributes #6 = { mustprogress nocallback nofree nosync nounwind willreturn memory(none) }
-attributes #7 = { mustprogress nocallback nofree nosync nounwind willreturn memory(write) }
-attributes #8 = { nofree nounwind }
-attributes #9 = { nounwind }
+attributes #4 = { mustprogress nofree nosync nounwind willreturn "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="av2hs" "target-features"="+av2hs,+bs,+cd,+divrem,+fpu-mac,+fpud,+fpud-div,+fpus-div,+ll64,+mpy,+mpy16,+norm,+sa,+swap,+vdsp,+vdsp512gb0,+vdsp_vector_c,+vfpu2" }
+attributes #5 = { nofree nounwind "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="av2hs" "target-features"="+av2hs,+bs,+cd,+divrem,+fpu-mac,+fpud,+fpud-div,+fpus-div,+ll64,+mpy,+mpy16,+norm,+sa,+swap,+vdsp,+vdsp512gb0,+vdsp_vector_c,+vfpu2" }
+attributes #6 = { mustprogress nocallback nofree nosync nounwind willreturn memory(read) }
+attributes #7 = { mustprogress nocallback nofree nosync nounwind willreturn memory(none) }
+attributes #8 = { mustprogress nocallback nofree nosync nounwind willreturn memory(write) }
+attributes #9 = { nofree nounwind }
+attributes #10 = { nounwind }
 
 !llvm.module.flags = !{!0, !1}
 !llvm.ident = !{!2}
@@ -360,23 +360,12 @@ attributes #9 = { nounwind }
 !4 = !{!"int", !5, i64 0}
 !5 = !{!"omnipotent char", !6, i64 0}
 !6 = !{!"Simple C/C++ TBAA"}
-!7 = distinct !{!7, !8, !9, !9}
+!7 = distinct !{!7, !8}
 !8 = !{!"llvm.loop.mustprogress"}
-!9 = !{!"llvm.loop.unroll.disable"}
-!10 = distinct !{!10, !8, !9, !9, !11, !12}
-!11 = !{!"llvm.loop.vectorize.width", i32 1}
-!12 = !{!"llvm.loop.vectorize.followup_all", !13}
-!13 = distinct !{!13, !8, !9, !9, !14}
-!14 = !{!"llvm.loop.isvectorized"}
-!15 = distinct !{!15, !8, !9, !9}
-!16 = distinct !{!16, !8, !9, !9}
-!17 = distinct !{!17, !8, !9, !9}
-!18 = !{!19}
-!19 = distinct !{!19, !20, !"vectorized_vec_sum: %c"}
-!20 = distinct !{!20, !"vectorized_vec_sum"}
-!21 = !{!22, !23}
-!22 = distinct !{!22, !20, !"vectorized_vec_sum: %a"}
-!23 = distinct !{!23, !20, !"vectorized_vec_sum: %b"}
-!24 = distinct !{!24, !8, !9, !9}
-!25 = distinct !{!25, !8, !9, !9}
-!26 = distinct !{!26, !8, !9, !9}
+!9 = distinct !{!9, !8, !10, !11}
+!10 = !{!"llvm.loop.vectorize.width", i32 1}
+!11 = !{!"llvm.loop.vectorize.followup_all", !12}
+!12 = distinct !{!12, !8, !13}
+!13 = !{!"llvm.loop.isvectorized"}
+!14 = distinct !{!14, !8}
+!15 = distinct !{!15, !8}

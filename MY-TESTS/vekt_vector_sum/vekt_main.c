@@ -5,7 +5,7 @@
 
 #include <arc_vector.h>
 
-#define N 1024
+#define N 1024*8
 
 void init_vector(int *a, int dim, int value) {
   for (int i = 0; i < dim; i++) {
@@ -57,12 +57,13 @@ void vectorized_vec_sum(__vccm int* restrict a,
         vvst(vc, &c[i*lanes]);
     }
 
-    // loop scalare per la gestione degli ultimi elementi
-    int start = num_vectors*lanes;
-    int end = start + n%lanes;
-    for (int i = start; i < end; i++) {
-		c[i] = a[i] + b[i];
-    }
+    // commentiamo via per semplificare l'output
+    // // loop scalare per la gestione degli ultimi elementi
+    // int start = num_vectors*lanes;
+    // int end = start + n%lanes;
+    // for (int i = start; i < end; i++) {
+	// 	c[i] = a[i] + b[i];
+    // }
 }
 
 __vccm int a[N];
