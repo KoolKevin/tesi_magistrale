@@ -6,7 +6,7 @@ OPT = -O2
 AUTOVEC = -fvectorize -fslp-vectorize -ffast-math
 DEBUG_FLAGS = -Rpass=loop-vectorize -Rpass-missed=loop-vectorize -Rpass-analysis=loop-vectorize
 
-SRCS = vekt_main.c vec_sum.e2e.ll
+SRCS = vekt_main.c vec_sum.e2e.v2.ll
 TARGET = a.out
 
 all: build

@@ -90,3 +90,13 @@ NB: il compilatore metaware risparmia
 - e l'istruzione di branch
 
 utilizzando hardware loop e legalizzando gli intrinseci in una versione che usa post-increment
+
+NB: anche la versione scalare usa hardware loop e load/store con post-increment
+
+**NMB**: compilando con O1 e utilizzando un indice a 32 bit le performance della versione vettorizzata a mano e della versione vettorizzata del mio tool sono analoghe.
+
+- è però un 25x, il che non ha molto senso se si pensa che il numero di lane è 16. Il motivo è dovuto ad un codice non eccezzionale nella funzione scalare (tante load e controllo inutile)
+
+- con O1 hw-loop e istruzioni di post-incremento non vengono utilizzate
+
+- con O2 e indice a 32 bit, il mio tool produce codice che utilizza hw loop ma non le istruzioni di post-incremento (??)

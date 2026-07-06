@@ -38,7 +38,9 @@ vekt_vec_sum:                           ; @vekt_vec_sum
 	.cfa_bf	vekt_vec_sum
 ;  %bb.0:
 	.cfa_same	%r30                    ; @0x0
+	.cfa_same	%r9                     ; @0x0
 	.cfa_same	%r7                     ; @0x0
+	.cfa_same	%r6                     ; @0x0
 	.cfa_same	%r5                     ; @0x0
 	.cfa_same	%r4                     ; @0x0
 	.cfa_same	%r1                     ; @0x0
@@ -48,42 +50,36 @@ vekt_vec_sum:                           ; @vekt_vec_sum
 	jle	[%blink]                        ; @0x4
 	.cfa_restore_state                      ; @0x8
 ;  %bb.1:                               ; %.lr.ph.preheader
-	add.f	%r2,%r0,0xffffffff@u32          ; @0x8
-	asr_s	%r0,%r0,31                      ; @0x10
-	adc.f	%r0,%r0,-1                      ; @0x12
-	ld	%r11,[%sp,36]                   ; @0x16
-	ld	%r8,[%sp,4]                     ; @0x1a
-	asl_s	%r0,%r0,28                      ; @0x1e
-	lsr_s	%r2,%r2,4                       ; @0x20
-	or_s	%r0,%r0,%r2                     ; @0x22
-	add_s	%r3,%r0,1                       ; @0x24
-	mov_s	%r12,0                          ; @0x26
-	mov_s	%r0,0                           ; @0x28
+	; Implicit def %r2                      ; @0x8
+	ld	%r11,[%sp,36]                   ; @0x8
+	ld	%r8,[%sp,4]                     ; @0xc
+	add_s	%r0,%r0,-1                      ; @0x10
+	lsr	%r3,%r0,4                       ; @0x12
+	add	%lp_count,%r3,1                 ; @0x16
+	mov_s	%r3,0                           ; @0x1a
+	lp	.LZD0                           ; @0x1c
 .LBB0_2:                                ; %.lr.ph
                                         ; =>This Inner Loop Header: Depth=1
-                                        ; @0x2a
-	add2	%r2,%r1,%r12                    ; @0x2a
-	add2	%r9,%r8,%r12                    ; @0x2e
+                                        ; @0x20
+	add2	%r12,%r1,%r3                    ; @0x20
+	add2	%r0,%r8,%r3                     ; @0x24
 .vvsbundle  "v1sc" 
  ;	 { 
-	vvld.w	%vr0,%r2                        ; @0x32
-	add2	%r6,%r11,%r12                   ; @0x32
+	vvld.w	%vr0,%r12                       ; @0x28
+	add2	%r2,%r11,%r3                    ; @0x28
  ;	 }
 .vvsbundle  "v1sc" 
  ;	 { 
-	vvld.w	%vr1,%r9                        ; @0x3a
-	add.f	%r12,%r12,16                    ; @0x3a
+	vvld.w	%vr1,%r0                        ; @0x30
+	add_s	%r3,%r3,16                      ; @0x30
  ;	 }
-.vvsbundle  "v1sc" 
- ;	 { 
-	vvadd.w	%vr0, %vr1, %vr0                ; @0x42
-	adc.f	%r0,%r0,0                       ; @0x42
- ;	 }
-	vvst.w	%vr0,%r6                        ; @0x4c
-	dbnz	%r3,.LBB0_2                     ; @0x50
+	vvadd.w	%vr0, %vr1, %vr0                ; @0x36
+	vvst.w	%vr0,%r2                        ; @0x3c
+.LZD0:                                  ; @0x40
+	; ZD Loop End                           ; @0x40
 ;  %bb.3:                               ; %._crit_edge
-	j_s	[%blink]                        ; @0x54
+	j_s	[%blink]                        ; @0x40
 	.cfa_ef
-.Lfunc_end0:                            ; @0x56
+.Lfunc_end0:                            ; @0x42
 
 	.reloc	_init_ad,0	;startup code to enable %status AD bit ; -- End function
