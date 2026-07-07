@@ -93,7 +93,7 @@ utilizzando hardware loop e legalizzando gli intrinseci in una versione che usa 
 
 NB: anche la versione scalare usa hardware loop e load/store con post-increment
 
-**NMB**: compilando con O1 e utilizzando un indice a 32 bit le performance della versione vettorizzata a mano e della versione vettorizzata del mio tool sono analoghe.
+**NMB**: compilando con O1 e utilizzando un indice a 32 bit le performance della versione vettorizzata a mano e della versione vettorizzata del mio tool sono analoghe (l'indice a 64 bit produceva varie istruzioni per la gestione della low e high word dentro al loop).
 
 - è però un 25x, il che non ha molto senso se si pensa che il numero di lane è 16. Il motivo è dovuto ad un codice non eccezzionale nella funzione scalare (tante load e controllo inutile)
 
