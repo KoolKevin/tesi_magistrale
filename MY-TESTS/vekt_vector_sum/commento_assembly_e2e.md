@@ -100,3 +100,5 @@ NB: anche la versione scalare usa hardware loop e load/store con post-increment
 - con O1 hw-loop e istruzioni di post-incremento non vengono utilizzate
 
 - con O2 e indice a 32 bit, il mio tool produce codice che utilizza hw loop ma non le istruzioni di post-incremento (??)
+    - è possibile che alcune ottimizzazioni non vengano applicate se passo come input un file .ll e non un file c? Ho copiato e incollato l'output llvm-ir della versione vettorizzata a mano sostituendo il corpo della funzione prodotta dal mio tool. Anche con la stessa IR le istruzioni con post-incremento non sono state prodotte
+        - potrei non aver copiato degli attributi e quindi l'ir forse non era proprio uguale identica
