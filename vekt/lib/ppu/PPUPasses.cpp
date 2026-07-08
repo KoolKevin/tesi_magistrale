@@ -1,19 +1,27 @@
+#include "mlir/Conversion/LLVMCommon/LoweringOptions.h"
+#include "mlir/Conversion/LLVMCommon/Pattern.h" // ConvertOpToLLVMPattern
+#include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/ControlFlow/IR/ControlFlow.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
+#include "mlir/IR/Builders.h"
+#include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/PatternMatch.h"
+#include "mlir/Pass/Pass.h"
 #include "mlir/Rewrite/FrozenRewritePatternSet.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
+#include "mlir/Transforms/WalkPatternRewriteDriver.h"
+#include "llvm/ADT/STLExtras.h"
 
 // conversion patterns
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/ArithToLLVM/ArithToLLVM.h"
 #include "mlir/Conversion/ControlFlowToLLVM/ControlFlowToLLVM.h"
 #include "mlir/Conversion/FuncToLLVM/ConvertFuncToLLVM.h"
-#include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"
 #include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
 #include "mlir/Conversion/UBToLLVM/UBToLLVM.h"
@@ -21,15 +29,9 @@
 #include "mlir/Conversion/VectorToSCF/VectorToSCF.h"
 #include "mlir/Dialect/Vector/Transforms/LoweringPatterns.h"
 
-#include "mlir/Transforms/WalkPatternRewriteDriver.h"
 #include "ppu/PPUDialect.h"
 #include "ppu/PPUOps.h"
 #include "ppu/PPUPasses.h"
-
-#include "mlir/Dialect/MemRef/IR/MemRef.h"
-#include "mlir/IR/Builders.h"
-#include "mlir/IR/BuiltinOps.h"
-#include "mlir/Pass/Pass.h"
 
 namespace mlir::ppu {
 #define GEN_PASS_DEF_PPUINSERTVECLOAD
@@ -39,39 +41,8 @@ namespace mlir::ppu {
 
 namespace {
 
-// NB: questo me lo tengo come esempio di passo che fa uso di RewritePattern
-// //===----------------------------------------------------------------------===//
-// // PPUSwitchBarFooRewriter
-// //===----------------------------------------------------------------------===//
-
-// class PPUSwitchBarFooRewriter : public OpRewritePattern<func::FuncOp> {
-// public:
-//   using OpRewritePattern<func::FuncOp>::OpRewritePattern;
-//   LogicalResult matchAndRewrite(func::FuncOp op,
-//                                 PatternRewriter &rewriter) const final {
-//     if (op.getSymName() == "bar") {
-//       rewriter.modifyOpInPlace(op, [&op]() { op.setSymName("foo"); });
-//       return success();
-//     }
-//     return failure();
-//   }
-// };
-
-// class PPUSwitchBarFoo : public impl::PPUSwitchBarFooBase<PPUSwitchBarFoo> {
-// public:
-//   using impl::PPUSwitchBarFooBase<PPUSwitchBarFoo>::PPUSwitchBarFooBase;
-
-//   void runOnOperation() final {
-//     RewritePatternSet patterns(&getContext());
-//     patterns.add<PPUSwitchBarFooRewriter>(&getContext());
-//     FrozenRewritePatternSet patternSet(std::move(patterns));
-//     if (failed(applyPatternsGreedily(getOperation(), patternSet)))
-//       signalPassFailure();
-//   }
-// };
-
 //===----------------------------------------------------------------------===//
-// PPUInsertVecLoad
+// PPUInsertVecLoad (passo di prova)
 //===----------------------------------------------------------------------===//
 
 class PPUInsertVecLoad : public impl::PPUInsertVecLoadBase<PPUInsertVecLoad> {
@@ -264,6 +235,178 @@ struct ConvertVectorToPPU : impl::ConvertVectorToPPUBase<ConvertVectorToPPU> {
 // PPULowerToLLVM
 //===----------------------------------------------------------------------===//
 
+// Convertiamo le memref direttamente in raw.ptr, buttando via
+// rank/shape/stride. Questo è corretto perché Polygeist produce sempre
+// memref<?xT> e quindi questa informazione non c'è in primo luogo
+class PPUTypeConverter : public LLVMTypeConverter {
+public:
+  // ereditiamo da LLVMTypeConverter, appendiamo semplicemente la nostra
+  // gestione custome per le memref
+  PPUTypeConverter(MLIRContext *ctx, const LowerToLLVMOptions &options)
+      : LLVMTypeConverter(ctx, options) {
+    addConversion([](MemRefType type) -> Type {
+      // NB: hardcodiamo l'address space(4) della PPU
+      return LLVM::LLVMPointerType::get(type.getContext(), 4);
+    });
+  }
+};
+
+// func.func -> llvm.func: versione minimale, senza passare per
+// LLVMTypeConverter::convertFunctionSignature (che è quella che hardcoda
+// il trattamento speciale delle memref).
+//
+// NB: a differenza della maggior parte dei pattern, qui l'adaptor NON viene
+// mai usato.
+// - func::FuncOp non ha operandi SSA (non riceve valori) quindi l'adaptor
+// generato per lei è vuoto.
+// - i tipi della firma e i corrispondenti parametri formali vivono
+// rispettivamente: in un attributo (function_type) e nei block argument
+// dell'entry block della regione associata all'op
+//      -> NESSUNO DEI DUE PASSA PER LA SOSTITUZIONE AUTOMATICA DEGLI
+//      OPERANDI CHE IL FRAMEWORK DI DIALECT CONVERSION FA AUTOMATICAMENTE
+//      TRAMITE L'ADAPTOR.
+// - Per questo dobbiamo convertire i tipi a mano con `converter->convertType()`
+// (per la firma) e con `applySignatureConversion` (per i block argument del
+// corpo) invece di leggerli già pronti da `adaptor`.
+struct PPUFuncOpLowering : public OpConversionPattern<func::FuncOp> {
+  using OpConversionPattern::OpConversionPattern;
+
+  LogicalResult
+  matchAndRewrite(func::FuncOp funcOp, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    // recupero il tipo della funzione dall'attributo
+    auto originalType = funcOp.getFunctionType();
+    // recupero il converter e un helper per fare le conversioni necessarie a
+    // mano
+    const auto *converter = getTypeConverter();
+    TypeConverter::SignatureConversion sigConversion(
+        originalType.getNumInputs());
+
+    // otteniamo gli argomenti della funzione convertiti
+    SmallVector<Type> argTypes;
+    for (auto [idx, t] : llvm::enumerate(originalType.getInputs())) {
+      Type converted = converter->convertType(t);
+      if (!converted)
+        return rewriter.notifyMatchFailure(
+            funcOp, "impossibile convertire il tipo di un argomento");
+      argTypes.push_back(converted);
+      sigConversion.addInputs(idx, converted);
+    }
+
+    // otteniamo i return types convertiti
+    Type resultType;
+    if (originalType.getNumResults() == 0) {
+      resultType = LLVM::LLVMVoidType::get(rewriter.getContext());
+    } else if (originalType.getNumResults() == 1) {
+      resultType = converter->convertType(originalType.getResult(0));
+      if (!resultType)
+        return rewriter.notifyMatchFailure(
+            funcOp, "impossibile convertire il tipo di ritorno");
+    } else {
+      return rewriter.notifyMatchFailure(
+          funcOp, "funzioni con più di un risultato non sono supportate");
+    }
+
+    // creo una nuova funzione con i tipi convertiti
+    auto llvmFuncType =
+        LLVM::LLVMFunctionType::get(resultType, argTypes, false);
+    auto newFuncOp = rewriter.create<LLVM::LLVMFuncOp>(
+        funcOp.getLoc(), funcOp.getName(), llvmFuncType);
+    newFuncOp.setVisibility(funcOp.getVisibility());
+    // copio il corpo della vecchia funzione
+    rewriter.inlineRegionBefore(funcOp.getBody(), newFuncOp.getBody(),
+                                newFuncOp.end());
+
+    if (!newFuncOp.getBody().empty())
+      rewriter.applySignatureConversion(&newFuncOp.getBody().front(),
+                                        sigConversion, converter);
+    rewriter.eraseOp(funcOp);
+
+    return success();
+  }
+};
+
+// func.return -> llvm.return: gli operandi sono già nella forma giusta
+// (nessun descriptor da spacchettare), quindi è un forward diretto.
+struct PPUReturnOpLowering : public OpConversionPattern<func::ReturnOp> {
+  using OpConversionPattern::OpConversionPattern;
+
+  LogicalResult
+  matchAndRewrite(func::ReturnOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    rewriter.replaceOpWithNewOp<LLVM::ReturnOp>(op, adaptor.getOperands());
+    return success();
+  }
+};
+
+// memref.load %mem[%idx0, ...] -> llvm.getelementptr + llvm.load
+// %mem è ormai un !llvm.ptr grezzo (grazie a PPUTypeConverter), quindi
+// costruiamo l'indirizzo con una GEP lineare sugli indici, esattamente come
+// già facevi in ConvertVectorTransferRead per la vec_load.
+struct MemRefLoadOpLowering : public OpConversionPattern<memref::LoadOp> {
+  using OpConversionPattern::OpConversionPattern;
+
+  LogicalResult
+  matchAndRewrite(memref::LoadOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    Type elemTy = op.getMemRefType().getElementType();
+    Type llvmElemTy = getTypeConverter()->convertType(elemTy);
+    if (!llvmElemTy)
+      return rewriter.notifyMatchFailure(op, "tipo elemento non convertibile");
+
+    Value basePtr = adaptor.getMemref(); // già un !llvm.ptr
+    SmallVector<Value> gepIndices;
+    for (Value idx : adaptor.getIndices()) {
+      auto castedIdx = rewriter.create<arith::IndexCastOp>(
+          op.getLoc(), rewriter.getI64Type(), idx);
+      gepIndices.push_back(castedIdx);
+    }
+
+    Value finalPtr = basePtr;
+    if (!gepIndices.empty()) {
+      auto PPUPtrTy = LLVM::LLVMPointerType::get(rewriter.getContext(), 4);
+      finalPtr = rewriter.create<LLVM::GEPOp>(op.getLoc(), PPUPtrTy, llvmElemTy,
+                                              basePtr, gepIndices);
+    }
+
+    rewriter.replaceOpWithNewOp<LLVM::LoadOp>(op, llvmElemTy, finalPtr);
+    return success();
+  }
+};
+
+// memref.store %val, %mem[%idx0, ...] -> llvm.getelementptr + llvm.store
+struct MemRefStoreOpLowering : public OpConversionPattern<memref::StoreOp> {
+  using OpConversionPattern::OpConversionPattern;
+
+  LogicalResult
+  matchAndRewrite(memref::StoreOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    Type elemTy = op.getMemRefType().getElementType();
+    Type llvmElemTy = getTypeConverter()->convertType(elemTy);
+    if (!llvmElemTy)
+      return rewriter.notifyMatchFailure(op, "tipo elemento non convertibile");
+
+    Value basePtr = adaptor.getMemref();
+    SmallVector<Value> gepIndices;
+    for (Value idx : adaptor.getIndices()) {
+      auto castedIdx = rewriter.create<arith::IndexCastOp>(
+          op.getLoc(), rewriter.getI64Type(), idx);
+      gepIndices.push_back(castedIdx);
+    }
+
+    Value finalPtr = basePtr;
+    if (!gepIndices.empty()) {
+      auto PPUPtrTy = LLVM::LLVMPointerType::get(rewriter.getContext(), 4);
+      finalPtr = rewriter.create<LLVM::GEPOp>(op.getLoc(), PPUPtrTy, llvmElemTy,
+                                              basePtr, gepIndices);
+    }
+
+    rewriter.replaceOpWithNewOp<LLVM::StoreOp>(op, adaptor.getValue(),
+                                               finalPtr);
+    return success();
+  }
+};
+
 struct PPULowerToLLVM : impl::PPULowerToLLVMBase<PPULowerToLLVM> {
   using PPULowerToLLVMBase::PPULowerToLLVMBase;
 
@@ -280,9 +423,10 @@ struct PPULowerToLLVM : impl::PPULowerToLLVMBase<PPULowerToLLVM> {
                              memref::MemRefDialect, vector::VectorDialect>();
 
     // During this lowering, we will also be lowering the MemRef types.
-    // TODO: per adesso usiamo il converter di default per llvm, forse possiamo
-    // modificarlo (ereditarietà?) per convertire memref in llvm.ptr<4>
-    LLVMTypeConverter typeConverter(&getContext());
+    LowerToLLVMOptions options(context);
+    PPUTypeConverter typeConverter(context, options);
+    // TODO: queste potrebbe essere necessario, controlla
+    // LLVMTypeConverter typeConverter(&getContext());
 
     // NB: l'ordine con cui popolo i pattern non conta! Molto meglio rispetto a
     // fare un lowering manuale con una pass pipeline come facevo prima
@@ -291,14 +435,28 @@ struct PPULowerToLLVM : impl::PPULowerToLLVMBase<PPULowerToLLVM> {
     populateSCFToControlFlowConversionPatterns(patterns);
     ub::populateUBToLLVMConversionPatterns(typeConverter, patterns);
     arith::populateArithToLLVMConversionPatterns(typeConverter, patterns);
-    populateFinalizeMemRefToLLVMConversionPatterns(typeConverter, patterns);
     cf::populateControlFlowToLLVMConversionPatterns(typeConverter, patterns);
+
     // TODO: il lowering di memrefs con dimensione dinamica non è ammesso anche
     // usando questa opzione 'funcToLLVMOpts.useBarePtrCallConv = true' 😭
     // https://mlir.llvm.org/doxygen/LLVMCommon_2TypeConverter_8cpp_source.html#l00593
     //
     // qua mi espande le memrefs nelle struct complete, io però voglio raw ptrs
-    populateFuncToLLVMConversionPatterns(typeConverter, patterns);
+    //
+    // inoltre
+    //  - structFuncArgTypeConverter
+    //  - convertFunctionSignatureImpl
+    //  - convertFunctionSignature
+    // https://mlir.llvm.org/doxygen/FuncToLLVM_8cpp_source.html#l00297
+    //  - convertFuncSignature
+    // populateFuncToLLVMConversionPatterns(typeConverter, patterns);
+    // populateFinalizeMemRefToLLVMConversionPatterns(typeConverter, patterns);
+
+    // NB: non usiamo più populateFinalizeMemRefToLLVMConversionPatterns né
+    // populateFuncToLLVMConversionPatterns: entrambe assumono che le memref
+    // vengano abbassate a descriptor
+    patterns.add<PPUFuncOpLowering, PPUReturnOpLowering, MemRefLoadOpLowering,
+                 MemRefStoreOpLowering>(typeConverter, context);
 
     if (failed(applyPartialConversion(module, target, std::move(patterns)))) {
       signalPassFailure();
