@@ -12,19 +12,15 @@
 // - C -> MxN
 // 
 // K è la dimensione comune
-#define M 32
-#define K 32
-#define N 1 // N == 1 è un caso importante dato che elimina accessi strided a B
+#define M 16
+#define K 16
+#define N 16 // N == 1 è un caso importante dato che elimina accessi strided a B
+
+__vccm int a[M * K];
+__vccm int b[K * N];
+__vccm int c[M * N];
 
 int main() {
-    __vccm int* a = __vccm_alloca(M * K * sizeof(int));
-    __vccm int* b = __vccm_alloca(K * N * sizeof(int));
-    __vccm int* c = __vccm_alloca(M * N * sizeof(int));
-    if (!a || !b || !c) {
-        printf("Errore nell'allocazione della memoria.\n");
-        return 1;
-    }
-
     // Inizializzazione degli array con valori casuali
     init_matrix(a, M, K, 1);
     init_matrix(b, K, N, 1);
@@ -45,7 +41,6 @@ int main() {
     printf("\n");
 
 	/******** versione vettorizzata ********/
-/*
     printf("Vettorizzo su %d lane\n", _VDSP_NUM_32BIT_LANES);
     init_matrix(c, M, N, 0);
 
@@ -62,7 +57,6 @@ int main() {
     }
 
     printf("\n");
-*/
 
     /******** versione autovettorizzata ********/
     printf("Versione autovettorizzata\n");
