@@ -18,10 +18,9 @@ int main() {
 
     // Inizializzazione degli array
     for (int i = 0; i < N; i++) {
-        a[i] = 1;
-        b[i] = 1;
+        a[i] = i;
+        b[i] = i;
     }
-
 
     /******** versione scalare ********/
 
@@ -35,8 +34,9 @@ int main() {
     printf("\n");
 
 	/******** versione vettorizzata ********/
-/*
+
     printf("Vettorizzo su %d lane\n", _VDSP_NUM_32BIT_LANES);
+    c = -1;
 
     start = clock();
     c = vectorized_dotp(a, b, N);
@@ -45,12 +45,13 @@ int main() {
     printf("Tempo di esecuzione vectorized: %.2fms\n", time_vectorized);
     printf("Speedup: %.2f\n", time_scalar/time_vectorized);
     printf("Risultato: %d\n", c);
-*/
-    /******** versione autovettorizzata ********/
 
     printf("\n");
 
+    /******** versione autovettorizzata ********/
+
     printf("Versione autovettorizzata\n");
+    c = -1;
 
     start = clock();
     c = autovectorized_dotp(a, b, N);
@@ -59,14 +60,6 @@ int main() {
     printf("Tempo di esecuzione di autovectorized: %.2fms\n", time_autovectorized);
     printf("Speedup: %.2f\n", time_scalar/time_autovectorized);
     printf("Risultato: %d\n", c);
-
-
-/*
-    // Liberazione della memoria allocata
-    free(a);
-    free(b);
-    free(c);
-*/
 
     return 0;
 }

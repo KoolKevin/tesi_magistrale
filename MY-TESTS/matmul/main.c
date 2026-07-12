@@ -12,9 +12,9 @@
 // - C -> MxN
 // 
 // K è la dimensione comune
-#define M 16
-#define K 16
-#define N 16 // N == 1 è un caso importante dato che elimina accessi strided a B
+#define M 33
+#define K 33
+#define N 33 // N == 1 è un caso importante dato che elimina accessi strided a B
 
 __vccm int a[M * K];
 __vccm int b[K * N];
@@ -33,11 +33,13 @@ int main() {
     clock_t end = clock();   
     double time_scalar = ((double)(end-start) / CLOCKS_PER_SEC)*1000; // in ms
     printf("Tempo di esecuzione: %.2fms\n", time_scalar);
-    printf("Primi 5 elementi della matrice risultato:\n");
-    for (int i = 0; i < 5; i++) {
-        printf("c[%d, %d]=%d\n", i/N, i%N, c[i]);
-    }
+    print_matrix(c, M, N);
 
+    // copio il risultato scalare per confrontarlo con i 
+    // risultati delle altre versioni
+    int groundtruth[M][N];
+    copy_matrix((int*)groundtruth, c, M, N); 
+    
     printf("\n");
 
 	/******** versione vettorizzata ********/
@@ -51,10 +53,8 @@ int main() {
     printf("Tempo di esecuzione di vectorized_vec_sum: %.2fms\n", time_vectorized);
     printf("Speedup: %.2f\n", time_scalar/time_vectorized);
 
-    printf("Primi 5 elementi della matrice risultato:\n");
-    for (int i = 0; i < 5; i++) {
-        printf("c[%d, %d]=%d\n", i/N, i%N, c[i]);
-    }
+    print_matrix(c, M, N);
+    check_result((int*)groundtruth, c, M, N);
 
     printf("\n");
 
@@ -69,10 +69,7 @@ int main() {
     printf("Tempo di esecuzione di autovectorized_vec_sum: %.2fms\n", time_autovectorized);
     printf("Speedup: %.2f\n", time_scalar/time_autovectorized);
 
-    printf("Primi 5 elementi della matrice risultato:\n");
-    for (int i = 0; i < 5; i++) {
-        printf("c[%d, %d]=%d\n", i/N, i%N, c[i]);
-    }
+    print_matrix(c, M, N);
 
     return 0;
 }

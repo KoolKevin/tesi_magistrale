@@ -5,6 +5,12 @@
 
 void init_matrix(int *a, int M, int N, int value);
 
+void check_result(int* A, int* B, int M, int N);
+
+int* copy_matrix(int* dst, int* src, int M, int N); 
+
+void print_matrix(int* A, int M, int N); 
+
 void matmul(int *A, int *B, int *C, int M, int N, int K); 
 
 void vectorized_matmul(__vccm int* restrict A,
