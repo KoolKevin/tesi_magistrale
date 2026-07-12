@@ -36,11 +36,12 @@ module attributes {transform.with_named_sequence} {
 
     %matmul = transform.structured.match ops{["linalg.matmul"]} in %root : (!transform.any_op) -> !transform.any_op
 
+    // 1. tiling alla dimensione del registro vettoriale
     %tiled, %li, %lj, %lk =
-      transform.structured.tile_using_for %matmul tile_sizes [16, 16, 1]
+      transform.structured.tile_using_for %matmul tile_sizes [16, 1, 1]
       : (!transform.any_op) -> (!transform.any_op, !transform.op<"scf.for">, !transform.op<"scf.for">, !transform.op<"scf.for">)
 
-    // 1. peel il loop esterno (M)
+    // 2. peel il loop esterno (M)
     // NB: transform.loop.peel -> updates the given loop so that its step evenly
     // divides its range and puts the remaining iteration into a separate loop
     // or a conditional. In the absence of sufficient static information, this
@@ -48,30 +49,15 @@ module attributes {transform.with_named_sequence} {
     // runtime.
     %main_i, %rem_i = transform.loop.peel %li : (!transform.op<"scf.for">) -> (!transform.op<"scf.for">, !transform.op<"scf.for">)
 
-    // // 2a. isola il loop N dentro il ramo main_i (M pieno) e peela anche quello
-    // %match_main = transform.structured.match ops{["scf.for"]} in %main_i : (!transform.op<"scf.for">) -> !transform.op<"scf.for">
-    // %self_a, %lj_main, %lk_main = transform.split_handle %match_main
-    //   : (!transform.op<"scf.for">) -> (!transform.op<"scf.for">, !transform.op<"scf.for">, !transform.op<"scf.for">)
-    // %main_ii, %rem_ij = transform.loop.peel %lj_main : (!transform.op<"scf.for">) -> (!transform.op<"scf.for">, !transform.op<"scf.for">)
 
-    // // 2b. isola il loop N dentro il ramo rem_i (M resto) e peela anche quello
-    // %match_rem = transform.structured.match ops{["scf.for"]} in %rem_i : (!transform.op<"scf.for">) -> !transform.op<"scf.for">
-    // %self_b, %lj_rem, %lk_rem = transform.split_handle %match_rem
-    //   : (!transform.op<"scf.for">) -> (!transform.op<"scf.for">, !transform.op<"scf.for">, !transform.op<"scf.for">)
-    // %rem_ji, %rem_jj = transform.loop.peel %lj_rem : (!transform.op<"scf.for">) -> (!transform.op<"scf.for">, !transform.op<"scf.for">)
+    // 3. vettorizza il loop peeled
+    %matmul_main = transform.structured.match ops{["linalg.matmul"]} in %main_i : (!transform.op<"scf.for">) -> !transform.any_op
+    transform.structured.vectorize %matmul_main vector_sizes [16, 1, 1] : !transform.any_op   // M pieno, N pieno   -> NIENTE masking
 
-    // // 3. vettorizza ognuno dei 4 rami risultanti
-    // %mm_A = transform.structured.match ops{["linalg.matmul"]} in %main_ii : (!transform.op<"scf.for">) -> !transform.any_op
-    // transform.structured.vectorize %mm_A vector_sizes [16, 16, 1] : !transform.any_op   // M pieno, N pieno   -> NIENTE masking
+    // // 4. vettorizza il remainder loop
+    // %matmul_rem = transform.structured.match ops{["linalg.matmul"]} in %rem_i : (!transform.op<"scf.for">) -> !transform.any_op
+    // transform.structured.vectorize %matmul_rem vector_sizes [16, 1, 1] : !transform.any_op   // M pieno, N pieno   -> NIENTE masking
 
-    // %mm_B = transform.structured.match ops{["linalg.matmul"]} in %rem_ij : (!transform.op<"scf.for">) -> !transform.any_op
-    // transform.structured.vectorize %mm_B vector_sizes [16, 16, 1] : !transform.any_op   // M pieno, N resto   -> masking solo su N
-
-    // %mm_C = transform.structured.match ops{["linalg.matmul"]} in %rem_ji : (!transform.op<"scf.for">) -> !transform.any_op
-    // transform.structured.vectorize %mm_C vector_sizes [16, 16, 1] : !transform.any_op   // M resto, N pieno   -> masking solo su M
-
-    // %mm_D = transform.structured.match ops{["linalg.matmul"]} in %rem_jj : (!transform.op<"scf.for">) -> !transform.any_op
-    // transform.structured.vectorize %mm_D vector_sizes [16, 16, 1] : !transform.any_op   // M resto, N resto   -> masking su entrambi
 
     transform.yield
   }
