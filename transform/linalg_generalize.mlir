@@ -9,11 +9,26 @@ func.func @matmul(
   return %C: memref<?x?xf32>
 }
 
+func.func @dotp(
+    %A: memref<?xf32>,
+    %B: memref<?xf32>,
+    %C: memref<f32>
+) -> memref<f32> {
+
+  linalg.dot ins(%A, %B: memref<?xf32>, memref<?xf32>)
+            outs(%C: memref<f32>)
+  return %C: memref<f32>
+}
+
+
+
 
 module attributes {transform.with_named_sequence} {
   transform.named_sequence @__transform_main(%root: !transform.any_op {transform.readonly}) {
     // matcho la matmul
-    %matmul = transform.structured.match ops{["linalg.matmul"]} in %root : (!transform.any_op) -> !transform.any_op
+    // %matmul = transform.structured.match ops{["linalg.matmul"]} in %root : (!transform.any_op) -> !transform.any_op
+
+    %matmul = transform.structured.match ops{["linalg.dot"]} in %root : (!transform.any_op) -> !transform.any_op
 
     %generalized = transform.structured.generalize %matmul : (!transform.any_op) -> !transform.any_op
 
