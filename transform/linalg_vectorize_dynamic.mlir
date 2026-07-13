@@ -42,8 +42,8 @@ module attributes {transform.with_named_sequence} {
       : (!transform.any_op) -> (!transform.any_op, !transform.op<"scf.for">, !transform.op<"scf.for">, !transform.op<"scf.for">)
 
     // 2. peel il loop esterno (M)
-    // NB: transform.loop.peel -> updates the given loop so that its step evenly
-    // divides its range and puts the remaining iteration into a separate loop
+    // NB: transform.loop.peel -> updates the given loop so that ITS STEP EVENLY
+    // DIVIDES ITS RANGE and puts the remaining iteration into a separate loop
     // or a conditional. In the absence of sufficient static information, this
     // op may peel a loop, even if the step always divides the range evenly at
     // runtime.
