@@ -16,6 +16,16 @@ def PPUInsertVecLoad : Pass<"ppu-insert-vec-load", "::mlir::ModuleOp"> {
   ];
 }
 
+def PPURaiseAffineToLinalgGeneric: Pass<"ppu-raise-affine-to-linalg-generic", "::mlir::ModuleOp"> {
+  let summary = "raises perfect affine loop nests into an equivalent linalg.generic form";
+  let description = [{
+    ...
+  }];
+
+  let dependentDialects = [
+    "mlir::linalg::LinalgDialect"
+  ];
+}
 
 def PPULowerToLLVM : Pass<"ppu-lower-to-llvm", "::mlir::ModuleOp"> {
   let summary = "lower from vectorized affine form to llvm + ppu dialect";
