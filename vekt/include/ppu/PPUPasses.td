@@ -27,6 +27,18 @@ def PPURaiseAffineToLinalgGeneric: Pass<"ppu-raise-affine-to-linalg-generic", ":
   ];
 }
 
+def PPUNormalizeIterargsReductions: Pass<"ppu-normalize-iterargs-reductions", "::mlir::ModuleOp"> {
+  let summary = "rewrites affine.for reduction loops are in the iter_args form into regular for loops that load and store explicitly";
+  let description = [{
+    ...
+  }];
+
+  let dependentDialects = [
+    "mlir::affine::AffineDialect",
+    "mlir::linalg::LinalgDialect"
+  ];
+}
+
 def PPULowerToLLVM : Pass<"ppu-lower-to-llvm", "::mlir::ModuleOp"> {
   let summary = "lower from vectorized affine form to llvm + ppu dialect";
   let description = [{

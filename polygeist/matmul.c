@@ -29,12 +29,25 @@
 
 // Posso utilizzare questa sintassi con VLA per non dover delinearizzare gli
 // accessi alle memref (godo)
+// void matmul(int M, int N, int K, int A[M][K], int B[K][N], int C[M][N]) {
+//   for (int i = 0; i < M; i++) {
+//     for (int j = 0; j < N; j++) {
+//       for (int k = 0; k < K; k++) {
+//         C[i][j] += A[i][k] * B[k][j];
+//       }
+//     }
+//   }
+// }
+
+// version con accumulatore
 void matmul(int M, int N, int K, int A[M][K], int B[K][N], int C[M][N]) {
   for (int i = 0; i < M; i++) {
     for (int j = 0; j < N; j++) {
+      int acc = 0;
       for (int k = 0; k < K; k++) {
-        C[i][j] += A[i][k] * B[k][j];
+        acc += A[i][k] * B[k][j];
       }
+      C[i][j] = acc;
     }
   }
 }
