@@ -635,7 +635,11 @@ void buildGenericFromNest(PatternRewriter &rewriter,
         // ^bb0(%in: i32, %in_0: i32, %out: i32):
         //    %0 = arith.muli %in, %in_0 : i32
         //
-        Value yielded;
+        // Il valore da yieldare è quello passato come argomento alla store
+        // dentro al body. Quest'ultimo può essere prodotto dentro al body,
+        // oppure può essere loop-invariant (e.g. inizializzazione). è quindi
+        // importante inizializzare yielded.
+        Value yielded = info.yieldedScalar;
         for (Operation &op : innermost.getBody()->without_terminator()) {
           // ignoro load e store in quanto rimpiazzate da block args / yield
           if (isa<affine::AffineLoadOp, affine::AffineStoreOp>(op))
