@@ -21,6 +21,8 @@
 //     return %c0_i32 : i32
 // }
 
+// RUN: vekt-opt -ppu-normalize-iterargs-reductions -ppu-raise-affine-to-linalg-generic %s | FileCheck %s
+
 func.func @conv2d(%arg0: i32, %arg1: i32, %arg2: i32, %arg3: i32, %arg4: i32, %arg5: memref<?x?xi32>, %arg6: memref<?x?xi32>, %arg7: memref<?x?xi32>) -> i32 attributes {llvm.linkage = #llvm.linkage<external>} {
     %c0_i32 = arith.constant 0 : i32
     %0 = arith.index_cast %arg0 : i32 to index
@@ -42,4 +44,27 @@ func.func @conv2d(%arg0: i32, %arg1: i32, %arg2: i32, %arg3: i32, %arg4: i32, %a
       }
     }
     return %c0_i32 : i32
-  }
+}
+
+// CHECK: #[[$ATTR_0:.+]] = affine_map<(d0, d1) -> (d0, d1)>
+// CHECK: #[[$ATTR_1:.+]] = affine_map<(d0, d1, d2, d3) -> (d0 + d2, d1 + d3)>
+// CHECK: #[[$ATTR_2:.+]] = affine_map<(d0, d1, d2, d3) -> (d2, d3)>
+// CHECK: #[[$ATTR_3:.+]] = affine_map<(d0, d1, d2, d3) -> (d0, d1)>
+// CHECK-LABEL:   func.func @conv2d(
+// CHECK-SAME:                      %[[ARG0:.*]]: i32, %[[ARG1:.*]]: i32, %[[ARG2:.*]]: i32, %[[ARG3:.*]]: i32, %[[ARG4:.*]]: i32, %[[ARG5:.*]]: memref<?x?xi32>, %[[ARG6:.*]]: memref<?x?xi32>, %[[ARG7:.*]]: memref<?x?xi32>) -> i32 attributes {llvm.linkage = #llvm.linkage<external>} {
+// CHECK:           %[[CONSTANT_0:.*]] = arith.constant 0 : i32
+// CHECK:           %[[INDEX_CAST_0:.*]] = arith.index_cast %[[ARG0]] : i32 to index
+// CHECK:           %[[INDEX_CAST_1:.*]] = arith.index_cast %[[ARG1]] : i32 to index
+// CHECK:           %[[INDEX_CAST_2:.*]] = arith.index_cast %[[ARG4]] : i32 to index
+// CHECK:           linalg.generic {indexing_maps = [#[[$ATTR_0]]], iterator_types = ["parallel", "parallel"]} outs(%[[ARG5]] : memref<?x?xi32>) {
+// CHECK:           ^bb0(%[[VAL_0:.*]]: i32):
+// CHECK:             linalg.yield %[[CONSTANT_0]] : i32
+// CHECK:           }
+// CHECK:           linalg.generic {indexing_maps = [#[[$ATTR_1]], #[[$ATTR_2]], #[[$ATTR_3]]], iterator_types = ["parallel", "parallel", "reduction", "reduction"]} ins(%[[ARG6]], %[[ARG7]] : memref<?x?xi32>, memref<?x?xi32>) outs(%[[ARG5]] : memref<?x?xi32>) {
+// CHECK:           ^bb0(%[[VAL_1:.*]]: i32, %[[VAL_2:.*]]: i32, %[[VAL_3:.*]]: i32):
+// CHECK:             %[[MULI_0:.*]] = arith.muli %[[VAL_1]], %[[VAL_2]] : i32
+// CHECK:             %[[ADDI_0:.*]] = arith.addi %[[VAL_3]], %[[MULI_0]] : i32
+// CHECK:             linalg.yield %[[ADDI_0]] : i32
+// CHECK:           }
+// CHECK:           return %[[CONSTANT_0]] : i32
+// CHECK:         }

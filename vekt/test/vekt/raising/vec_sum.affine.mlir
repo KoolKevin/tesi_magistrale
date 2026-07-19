@@ -18,6 +18,9 @@
 // - richiede un comando contorto dato che mlir 23 non ha ancora tutte le opzioni
 // vekt-opt --ppu-raise-affine-to-linalg-generic vec_sum.affine.mlir |
 //  ~/llvm-project/build/bin/mlir-opt -linalg-morph-ops="generic-to-named named-to-category"
+
+// RUN: vekt-opt -ppu-normalize-iterargs-reductions -ppu-raise-affine-to-linalg-generic %s | FileCheck %s
+
 module {
   func.func @vec_sum(%arg0: memref<?xf32>, %arg1: memref<?xf32>, %arg2: memref<?xf32>, %arg3: i32) attributes {llvm.linkage = #llvm.linkage<external>} {
     %0 = arith.index_cast %arg3 : i32 to index
@@ -30,3 +33,15 @@ module {
     return
   }
 }
+
+// CHECK: #[[$ATTR_0:.+]] = affine_map<(d0) -> (d0)>
+// CHECK-LABEL:   func.func @vec_sum(
+// CHECK-SAME:      %[[ARG0:.*]]: memref<?xf32>, %[[ARG1:.*]]: memref<?xf32>, %[[ARG2:.*]]: memref<?xf32>, %[[ARG3:.*]]: i32) attributes {llvm.linkage = #llvm.linkage<external>} {
+// CHECK:           %[[INDEX_CAST_0:.*]] = arith.index_cast %[[ARG3]] : i32 to index
+// CHECK:           linalg.generic {indexing_maps = [#[[$ATTR_0]], #[[$ATTR_0]], #[[$ATTR_0]]], iterator_types = ["parallel"]} ins(%[[ARG0]], %[[ARG1]] : memref<?xf32>, memref<?xf32>) outs(%[[ARG2]] : memref<?xf32>) {
+// CHECK:           ^bb0(%[[VAL_0:.*]]: f32, %[[VAL_1:.*]]: f32, %[[VAL_2:.*]]: f32):
+// CHECK:             %[[ADDF_0:.*]] = arith.addf %[[VAL_0]], %[[VAL_1]] : f32
+// CHECK:             linalg.yield %[[ADDF_0]] : f32
+// CHECK:           }
+// CHECK:           return
+// CHECK:         }
