@@ -30,46 +30,25 @@ namespace {
 // - i bounds e lo step sono attributi
 //   - i bound sono affine_maps dato che devono essere funzioni affini delle iv
 // - la induction variable e gli iter_args sono block_arguments
-// - abbiamo come argomento dell'op il valore iniziale degli iter_args
+// - abbiamo come argomento dell'op i bound dinamici e il valore iniziale degli
+// iter_args
 //
 // ```
-// %result = "affine.for"(%sum_init) ({
+// %result = "affine.for"(%N, %sum_init) ({
 // ^bb0(%i: index, %sum_iter: f32):
 //   // ... corpo del ciclo ...
 //   "affine.yield"(%next_sum) : (f32) -> ()
 // }) {
 //   lower_bound = affine_map<() -> (0)>,
-//   upper_bound = affine_map<() -> (10)>,
+//   upper_bound = affine_map<(s0) -> (s0)>,
 //   step = 1 : index
-// } : (f32) -> f32
+// } : (index, f32) -> f32
 // ```
 
 //===----------------------------------------------------------------------===//
 // PPUNormalizeIterargsReductions
 //===----------------------------------------------------------------------===//
-// TODO: scrivi bene cosa fa il passo
-
-// Rewrites a chain of affine.for loops using iter_args to express a TOTAL
-// reduction (i.e. the whole chain reduces to a single scalar/fixed cell,
-// consumed either by func.return or by a store whose address does not
-// depend on any induction variable in the chain) into the equivalent
-// explicit load/store RMW form on a memref -- the form the raising pass to
-// linalg.generic already knows how to parse.
-//
-// Reductions interleaved with an *enclosing* parallel dimension (e.g.
-// row-sums: store to out[i] after reducing over j) ARE handled: the
-// initializer is hoisted into its own small standalone loop nest over just
-// the enclosing parallel dims, cloned as a sibling before the whole
-// structure -- rather than injected into an existing loop's body, which
-// would break the perfect-nest shape the raiser expects. The main
-// reduction nest itself is left untouched structurally (still the same
-// affine.for chain, now with iter_args stripped) so it stays perfectly
-// nested with the parallel loops around it.
-//
-// CAVEAT: the block/terminator surgery for rebuilding affine.for with a
-// different iter_args signature is the most delicate part of this file.
-// Test it incrementally (single-level chain first, then a 2-level
-// pass-through chain) before trusting it on real IR.
+// (guarda docs in passes.td per una descrizione di alto livello)
 //===----------------------------------------------------------------------===//
 
 // Questa struct salva le informazioni relative ad una forOp con iter_args
@@ -80,7 +59,7 @@ struct ReductionLevel {
   Value yieldedValue;    // operand of forOp's affine.yield
 };
 
-// riconosce una struttura di riduzione del tipo:
+// riconosce e recupera una struttura di riduzione del tipo:
 //
 // for (iter_args)
 //     for (iter_args)
@@ -104,6 +83,9 @@ SmallVector<ReductionLevel> collectPassThroughChain(affine::AffineForOp outer) {
     auto yieldOp = cast<affine::AffineYieldOp>(cur.getBody()->getTerminator());
     chain.push_back({cur, iterArg, yieldOp.getOperand(0)});
 
+    // scorro le op dentro al for corrente per capire se c'è un ulteriore
+    // inner-loop, e per verificare che la struttura a pass-through chain sia
+    // verificata
     affine::AffineForOp inner;
     unsigned otherOps = 0;
     for (Operation &op : cur.getBody()->without_terminator()) {
@@ -151,8 +133,9 @@ struct SinkInfo {
   affine::AffineStoreOp storeOp;
 };
 
-// Verifica che il risultato finale sia una vera reduction controllando dove
-// viene usato il risultato dell'intera catena (loopResult).
+// Verifica che il risultato dell'outermost loop della catena di riduzione sia
+// una vera reduction controllando dove viene usato quest'ultimo catena
+// (loopResult).
 //
 // Sono supportati due casi:
 // - viene restituito con func.return
@@ -168,8 +151,8 @@ struct SinkInfo {
 // Per convenzione, nelle librerie LLVM / MLIR si preferisce ArrayRef<T> quando
 // la funzione non modifica il contenitore;
 SinkInfo classifySink(ArrayRef<ReductionLevel> chain) {
-  // recuperiamo lo user del (singolo) risultato del mio outermost reduction
-  // loop (valore della riduzione)
+  // recuperiamo lo user del (singolo per semplificare) risultato del mio
+  // outermost reduction loop (valore della riduzione)
   auto outermostLoop = chain.front().forOp;
   auto loopResult = outermostLoop.getResult(0);
   if (!loopResult.hasOneUse())
@@ -397,18 +380,18 @@ struct NormalizeIterArgsReduction
     buildInitNest(rewriter, enclosing, initValue, target, targetMap,
                   targetIndices, loc);
 
-    // Rebuild each level, innermost (indice == chain.size() - 1) first so an
-    // outer level's body already reflects its already-rebuilt nested loop by
-    // the time we get to it.
+    // Rebuild each level, innermost first so an outer level's body already
+    // reflects its already-rebuilt nested loop by the time we get to it.
     //
     // Per ogni livello della catena:
     // - crea un nuovo affine.for questa volta senza iter_args
     // - sposta dentro il corpo
     // - rimpiazza gli usi dell'iterArg.
     //
-    // Nel loop terminale inserisce load all'inizio del corpo e store prima del
-    // nuovo affine.yield. In questo modo il valore dell'accumulatore non viene
-    // più trasportato tramite SSA ma tramite memoria.
+    // Nel loop innermost inserisce una load esplicita dell'accumulatore
+    // all'inizio del corpo e una store esplicita dell'accumulatore incrementato
+    // alla fine. In questo modo il valore dell'accumulatore non viene più
+    // trasportato tramite SSA ma tramite memoria.
     //
     // Infine:
     // - se il risultato veniva restituito, materializza una load per ottenere
@@ -560,12 +543,12 @@ struct PPUNormalizeIterargsReductions
 //===----------------------------------------------------------------------===//
 // PPURaiseAffineToLinalgGeneric
 //===----------------------------------------------------------------------===//
-// TODO: scrivi una descrizione di alto livello di come funziona il passo
+// (guarda docs in passes.td per una descrizione di alto livello)
 //===----------------------------------------------------------------------===//
 
-/// Walks downward from `outer`, requiring each loop to be normalized and to
-/// contain nothing but the next nested loop (affine.apply helpers for
-/// address computation are tolerated). Returns {} on any mismatch.
+// Walks downward from `outer`, requiring each loop to be normalized and to
+// contain nothing but the next nested loop (affine.apply helpers for
+// address computation are tolerated). Returns {} on any mismatch.
 SmallVector<affine::AffineForOp> collectPerfectNest(affine::AffineForOp outer) {
   SmallVector<affine::AffineForOp> nest;
   affine::AffineForOp cur = outer;
@@ -608,13 +591,13 @@ SmallVector<affine::AffineForOp> collectPerfectNest(affine::AffineForOp outer) {
   return nest;
 }
 
-// Returns the indexing_map of 'accessOp' (affineLoads e affineStore implicitely
+// Returns the indexing_map of 'accessOp' (affineLoads e affineStore implicitly
 // converted from the smart pointer Op derived class), composed/simplified and
 // then re-permuted so that result dim `i` refers to `nestIVs[i]`. Returns
 // std::nullopt if the access depends on anything other than nestIVs (e.g. a
 // stride symbol from a linearized memref access).
 // TODO: dovrei probabilmente aggiungere un check per assicurarmi di non stare
-// passando spazzatura al costrutture di access.
+// passando spazzatura al costruttore di access.
 std::optional<AffineMap> buildIndexingMapFromAccess(Operation *accessOp,
                                                     ArrayRef<Value> nestIVs) {
   // recuperiamo la AffineValueMap utilizzata dall'accesso
@@ -666,9 +649,6 @@ std::optional<AffineMap> buildIndexingMapFromAccess(Operation *accessOp,
   // relativi parametri sono nulli)
   AffineMap indexing_map =
       raw.replaceDimsAndSymbols(dimReplacements, {}, nestIVs.size(), 0);
-
-  // TODO: togli debug
-  //   llvm::outs() << "\t" << indexing_map << "\n";
 
   return indexing_map;
 }
@@ -725,8 +705,6 @@ analyzeNest(ArrayRef<affine::AffineForOp> nest) {
   // scorriamo le loads trovate e calcoliamo le relative indexing_map salvando
   // anche tutte le info necessarie. Inoltre controlliamo la presenza di pattern
   // RMW di eventuali riduzioni.
-  // TODO: qua devo aggiungere anche il caso di affine.for con attributo
-  // iter_args per le riduzioni
   for (auto ld : loads) {
     // le affine.load/store hanno una affine.map implicita come attributo che
     // specifica come gli operandi del subscript vengono usati (di default è
@@ -754,7 +732,9 @@ analyzeNest(ArrayRef<affine::AffineForOp> nest) {
   info.output = {store.getMemRef(), *outMap, store};
 
   // controlliamo quali dimensioni del nest (lhs della indexing map), compaiono
-  // nella indexing map dell'output
+  // nella indexing map dell'output. (getResults restituisce le espressioni nel
+  // rhs della affineMap; usiamo il rhs per controllare se stanno venendo
+  // utilizzate espressioni che non supportiamo (subscript troppo complicato))
   llvm::SmallDenseSet<unsigned> outputDims;
   for (AffineExpr e : info.output.indexingMap.getResults()) {
     auto d = dyn_cast<AffineDimExpr>(e);
@@ -764,29 +744,26 @@ analyzeNest(ArrayRef<affine::AffineForOp> nest) {
     if (!d)
       return std::nullopt;
 
-    // get position restituisce l'indice della posizione nel lhs della mappa
+    // getPosition() restituisce l'indice della posizione nel lhs della mappa
     outputDims.insert(d.getPosition());
   }
 
   // capiamo quali dimensioni del nest sono parallele o di reduction
+  // controllando semplicemente quali compaiono nel subscript della store di
+  // output e quali no (e.g. store[%i, %j] ha come affineMap (d0,d1) -> (d0,d1),
+  // e quindi d2 sarà di reduction)
   for (unsigned i = 0; i < nestIVs.size(); ++i) {
     bool isParallel = outputDims.contains(i);
 
     // A dim missing from the output map MUST be backed by the RMW accumulator
     // pattern, or there's no accumulation to justify dropping it. Le dimensioni
     // non trovate sono automaticamente classificate come ridotte.
-    // TODO: qua devo aggiungere anche il caso di affine.for con attributo
-    // iter_args per le riduzioni
     if (!isParallel && !info.outputAccumulatorLoad)
       return std::nullopt;
 
     info.iteratorTypes.push_back(isParallel ? utils::IteratorType::parallel
                                             : utils::IteratorType::reduction);
   }
-
-  // TODO: togli debug
-  //   for (auto iType : info.iteratorTypes)
-  //     llvm::outs() << "\t" << iType << "\n";
 
   return info;
 }
@@ -890,11 +867,6 @@ struct ConvertAffineLoopNestToLinalgGeneric
     SmallVector<affine::AffineForOp> nest = collectPerfectNest(op);
     if (nest.empty())
       return failure();
-
-    // TODO: togli debug
-    // for (affine::AffineForOp forOp : nest) {
-    //   llvm::outs() << "\t" << forOp << "\n";
-    // }
 
     auto info = analyzeNest(nest);
     if (!info)

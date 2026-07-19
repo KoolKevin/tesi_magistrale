@@ -250,8 +250,6 @@ struct PPULowerToLLVM : impl::PPULowerToLLVMBase<PPULowerToLLVM> {
                              memref::MemRefDialect, vector::VectorDialect>();
 
     // During this lowering, we will also be lowering the MemRef types.
-    // TODO: per adesso usiamo il converter di default per llvm, forse possiamo
-    // modificarlo (ereditarietà?) per convertire memref in llvm.ptr<4>
     LLVMTypeConverter typeConverter(&getContext());
 
     // NB: l'ordine con cui popolo i pattern non conta! Molto meglio rispetto a
@@ -267,7 +265,7 @@ struct PPULowerToLLVM : impl::PPULowerToLLVMBase<PPULowerToLLVM> {
     // usando questa opzione 'funcToLLVMOpts.useBarePtrCallConv = true' 😭
     // https://mlir.llvm.org/doxygen/LLVMCommon_2TypeConverter_8cpp_source.html#l00593
     //
-    // qua mi espande le memrefs nelle struct complete, io però voglio raw ptrs
+    // qua mi espande le memrefs nelle struct complete, io vorrei raw ptrs ...
     populateFuncToLLVMConversionPatterns(typeConverter, patterns);
 
     if (failed(applyPartialConversion(module, target, std::move(patterns)))) {
