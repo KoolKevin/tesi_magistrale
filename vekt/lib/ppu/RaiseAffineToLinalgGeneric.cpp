@@ -23,61 +23,120 @@ namespace mlir::ppu {
 
 namespace {
 
+// NB: questa è la sintassi esplicita di un affine for, ricordatela per i passi
+// sotto!
+//
+// Nota che:
+// - i bounds e lo step sono attributi
+//   - i bound sono affine_maps dato che devono essere funzioni affini delle iv
+// - la induction variable e gli iter_args sono block_arguments
+// - abbiamo come argomento dell'op il valore iniziale degli iter_args
+//
+// ```
+// %result = "affine.for"(%sum_init) ({
+// ^bb0(%i: index, %sum_iter: f32):
+//   // ... corpo del ciclo ...
+//   "affine.yield"(%next_sum) : (f32) -> ()
+// }) {
+//   lower_bound = affine_map<() -> (0)>,
+//   upper_bound = affine_map<() -> (10)>,
+//   step = 1 : index
+// } : (f32) -> f32
+// ```
+
 //===----------------------------------------------------------------------===//
 // PPUNormalizeIterargsReductions
 //===----------------------------------------------------------------------===//
+// TODO: scrivi bene cosa fa il passo
 
-// TODO: togli questi using
-using namespace mlir;
-using namespace mlir::affine;
+// Rewrites a chain of affine.for loops using iter_args to express a TOTAL
+// reduction (i.e. the whole chain reduces to a single scalar/fixed cell,
+// consumed either by func.return or by a store whose address does not
+// depend on any induction variable in the chain) into the equivalent
+// explicit load/store RMW form on a memref -- the form the raising pass to
+// linalg.generic already knows how to parse.
+//
+// Reductions interleaved with an *enclosing* parallel dimension (e.g.
+// row-sums: store to out[i] after reducing over j) ARE handled: the
+// initializer is hoisted into its own small standalone loop nest over just
+// the enclosing parallel dims, cloned as a sibling before the whole
+// structure -- rather than injected into an existing loop's body, which
+// would break the perfect-nest shape the raiser expects. The main
+// reduction nest itself is left untouched structurally (still the same
+// affine.for chain, now with iter_args stripped) so it stays perfectly
+// nested with the parallel loops around it.
+//
+// CAVEAT: the block/terminator surgery for rebuilding affine.for with a
+// different iter_args signature is the most delicate part of this file.
+// Test it incrementally (single-level chain first, then a 2-level
+// pass-through chain) before trusting it on real IR.
+//===----------------------------------------------------------------------===//
 
-/// One level of a pass-through iter_args chain.
+// Questa struct salva le informazioni relative ad una forOp con iter_args
+// appartenente ad una pass-through chain
 struct ReductionLevel {
-  AffineForOp forOp;
-  BlockArgument iterArg; // forOp's sole region iter arg
+  affine::AffineForOp forOp;
+  BlockArgument iterArg; // forOp's sole iter arg
   Value yieldedValue;    // operand of forOp's affine.yield
 };
 
-/// Starting at `outer` (must have exactly one iter_arg), walks down through
-/// nested affine.for ops as long as each nested loop is a pure pass-through
-/// of the enclosing one: the enclosing body is *only*
-///   %r = affine.for ... iter_args(%x = <enclosing iterArg>) {...}
-///   affine.yield %r
-/// with nothing else in it. Stops at the first level whose body is NOT
-/// itself just a single nested iter_args loop (the "terminal" / actually
-/// computing level). Returns {} if the shape doesn't match at any point.
-SmallVector<ReductionLevel> collectPassThroughChain(AffineForOp outer) {
+// riconosce una struttura di riduzione del tipo:
+//
+// for (iter_args)
+//     for (iter_args)
+//         for (iter_args)
+//             ...
+//
+// dove i loop intermedi fanno solamente da "passaggio" dell'accumulatore.
+// senza altre istruzioni nei loop intermedi. L'ultimo loop è quello che esegue
+// realmente la riduzione.
+SmallVector<ReductionLevel> collectPassThroughChain(affine::AffineForOp outer) {
   SmallVector<ReductionLevel> chain;
-  AffineForOp cur = outer;
+  affine::AffineForOp cur = outer;
+
   while (true) {
+    // se ho più di un iter_arg, è un caso complicato che non gestisco
     if (cur.getNumIterOperands() != 1)
       return {};
+
+    // recupero le informazioni del loop di reduction corrente
     BlockArgument iterArg = cur.getRegionIterArgs()[0];
-    auto yieldOp = cast<AffineYieldOp>(cur.getBody()->getTerminator());
-    if (yieldOp.getNumOperands() != 1)
-      return {};
+    auto yieldOp = cast<affine::AffineYieldOp>(cur.getBody()->getTerminator());
     chain.push_back({cur, iterArg, yieldOp.getOperand(0)});
 
-    AffineForOp inner;
+    affine::AffineForOp inner;
     unsigned otherOps = 0;
     for (Operation &op : cur.getBody()->without_terminator()) {
-      if (auto f = dyn_cast<AffineForOp>(op)) {
+      if (auto f = dyn_cast<affine::AffineForOp>(op)) {
+        // two nested loops at this level -> not a pass-through chain
         if (inner)
-          return {}; // two nested loops at this level: not pass-through
+          return {};
+
         inner = f;
       } else {
         ++otherOps;
       }
     }
+
+    // se non abbiamo trovato altri affine for abbiamo raggiunto la fine della
+    // catena
     if (!inner)
-      break; // cur is the terminal, computing level
+      break;
+
+    // real work alongside the nested loop: not a pure pass-through chain
     if (otherOps != 0)
-      return {}; // real work alongside the nested loop: not pure pass-through
+      return {};
+
+    // controlliamo che l'inner loop trovato appartenga alla pass-through chain
+    // - un solo iter_arg inizializzato con l'iter_arg del suo padre
+    // - il risultato di inner deve essere l'operando della yield del padre
     if (inner.getNumIterOperands() != 1 || inner.getInits()[0] != iterArg ||
         inner.getResult(0) != chain.back().yieldedValue)
-      return {}; // not an exact pass-through of this level's iterArg/result
+      return {};
+
     cur = inner;
   }
+
   return chain;
 }
 
@@ -85,145 +144,224 @@ enum class SinkKind { Return, InvariantStore, Unsupported };
 
 struct SinkInfo {
   SinkKind kind = SinkKind::Unsupported;
+  // usati solo in caso di SinkKind::Return
   func::ReturnOp returnOp;
   unsigned returnOperandIdx = 0;
-  AffineStoreOp storeOp;
+  // usato solo in caso di SinkKind::InvariantStore
+  affine::AffineStoreOp storeOp;
 };
 
-/// Classifies the single use of the outermost loop's result. Bails
-/// (Unsupported) for the interleaved-with-a-parallel-dim case -- see file
-/// header.
-SinkInfo classifySink(Value loopResult, ArrayRef<ReductionLevel> chain) {
+// Verifica che il risultato finale sia una vera reduction controllando dove
+// viene usato il risultato dell'intera catena (loopResult).
+//
+// Sono supportati due casi:
+// - viene restituito con func.return
+// - viene scritto tramite un affine.store in un indirizzo che non dipende dalle
+// iv dei loop di riduzione (altrimenti il pattern non viene applicato dato che
+// è un caso complicato)
+// - TODO: potrebbe esserci anche un terzo caso, ovvero di riduzione totale ma
+// senza ritorno immediato; semplicemente il valore viene utilizzato da ir
+// successiva.
+//
+// NOTA: che passiamo ArrayRef al posto di SmallVector, la prima è
+// sostanzialmente equivalente a 'const SmallVector<ReductionLevel> &chain'.
+// Per convenzione, nelle librerie LLVM / MLIR si preferisce ArrayRef<T> quando
+// la funzione non modifica il contenitore;
+SinkInfo classifySink(ArrayRef<ReductionLevel> chain) {
+  // recuperiamo lo user del (singolo) risultato del mio outermost reduction
+  // loop (valore della riduzione)
+  auto outermostLoop = chain.front().forOp;
+  auto loopResult = outermostLoop.getResult(0);
   if (!loopResult.hasOneUse())
     return {};
   OpOperand &use = *loopResult.getUses().begin();
   Operation *user = use.getOwner();
 
+  // controlliamo se il valore della riduzione viene ritornato
   if (auto ret = dyn_cast<func::ReturnOp>(user)) {
     SinkInfo info;
     info.kind = SinkKind::Return;
     info.returnOp = ret;
     info.returnOperandIdx = use.getOperandNumber();
+
     return info;
   }
 
-  if (auto store = dyn_cast<AffineStoreOp>(user)) {
-    if (store.getValueToStore() != loopResult)
-      return {};
+  // controlliamo se il valore della riduzione viene storato
+  if (auto store = dyn_cast<affine::AffineStoreOp>(user)) {
+    // recuperiamo le iv della chain
     llvm::SmallPtrSet<Value, 4> chainIVs;
     for (auto &lvl : chain) {
-      AffineForOp forOp = lvl.forOp; // copy: AffineForOp is a cheap handle,
-                                     // but getInductionVar() needs a
-                                     // non-const one and `chain` is an
-                                     // ArrayRef (always const elements).
+      // need a copy because getInductionVar() requires non-const elements
+      affine::AffineForOp forOp = lvl.forOp;
       chainIVs.insert(forOp.getInductionVar());
     }
+
+    // Controlliamo di non stare usando una iv di un loop di riduzione
+    // (getMapOperands recupera gli operandi utilizzati come subscript per la
+    // memref della store; affineMap dato che devono formare una affine
+    // equation)
     for (Value operand : store.getMapOperands())
       if (chainIVs.contains(operand))
         return {}; // address depends on a reduction IV: mixed case, bail
+
     SinkInfo info;
     info.kind = SinkKind::InvariantStore;
     info.storeOp = store;
+
     return info;
   }
+
+  // altrimenti sto usando il valore della riduzione in una maniera diversa
+  // che non mi interessa
   return {};
 }
 
-/// Ancestor affine.for ops of `chainOuter`, ordered outermost to innermost,
-/// stopping at the first non-affine.for ancestor (typically the func.func
-/// body). These are the "P" loops: genuinely parallel with respect to the
-/// reduction chain, not part of it.
-SmallVector<AffineForOp> collectEnclosingLoops(AffineForOp chainOuter) {
-  SmallVector<AffineForOp> encl;
-  Operation *cur = chainOuter->getParentOp();
-  while (auto f = dyn_cast_or_null<AffineForOp>(cur)) {
+// Ancestor affine.for ops of `outerLoopOfChain`, ordered outermost to
+// innermost, stopping at the first non-affine.for ancestor (typically the
+// func.func body). These are the "P" loops: genuinely parallel with respect to
+// the reduction chain, not part of it.
+SmallVector<affine::AffineForOp>
+collectEnclosingLoops(affine::AffineForOp outerLoopOfChain) {
+  SmallVector<affine::AffineForOp> encl;
+  Operation *cur = outerLoopOfChain->getParentOp();
+  while (auto f = dyn_cast_or_null<affine::AffineForOp>(cur)) {
     encl.push_back(f);
     cur = f->getParentOp();
   }
   std::reverse(encl.begin(), encl.end());
+
   return encl;
 }
 
-/// Clones `enclosing` (outermost to innermost) into a fresh, standalone
-/// loop nest at the current insertion point, and emits the init store at
-/// its innermost point (or with no loops at all, if `enclosing` is empty --
-/// the pure total-reduction case). `targetIndices`'s operands are remapped
-/// from the original enclosing IVs to the freshly cloned ones; any operand
-/// that isn't one of `enclosing`'s IVs is assumed to dominate the new
-/// insertion point already (it must, since it also had to dominate the
-/// original store, which sits inside `enclosing`) and is left as-is.
-///
-/// Returns the outermost cloned AffineForOp, or null if `enclosing` was
-/// empty (nothing was created besides the store itself).
-AffineForOp buildInitNest(PatternRewriter &rewriter,
-                          ArrayRef<AffineForOp> enclosing, Value initValue,
-                          Value target, AffineMap targetMap,
-                          ArrayRef<Value> targetIndices, Location loc) {
+// Clones `enclosing` (outermost to innermost) into a fresh, standalone
+// loop nest at the current insertion point, and emits the init store at
+// its innermost point (or with no loops at all, if `enclosing` is empty --
+// the pure total-reduction case). `targetIndices`'s operands are remapped
+// from the original enclosing IVs to the freshly cloned ones; any operand
+// that isn't one of `enclosing`'s IVs is assumed to dominate the new
+// insertion point already (it must, since it also had to dominate the
+// original store, which sits inside `enclosing`) and is left as-is.
+//
+// Returns the outermost cloned AffineForOp, or null if `enclosing` was
+// empty (nothing was created besides the store itself).
+affine::AffineForOp buildInitNest(PatternRewriter &rewriter,
+                                  ArrayRef<affine::AffineForOp> enclosing,
+                                  Value initValue, Value target,
+                                  AffineMap targetMap,
+                                  ArrayRef<Value> targetIndices, Location loc) {
+
+  // se non ci sono enclosing parallel loops, l'inizializzazione consiste
+  // semplicemente in una store (inserita prima di outer)
   if (enclosing.empty()) {
-    rewriter.create<AffineStoreOp>(loc, initValue, target, targetMap,
-                                   targetIndices);
+    rewriter.create<affine::AffineStoreOp>(loc, initValue, target, targetMap,
+                                           targetIndices);
     return nullptr;
   }
 
   IRMapping map;
-  AffineForOp outermostClone;
-  for (AffineForOp orig : enclosing) {
+  affine::AffineForOp outermostClone;
+  for (affine::AffineForOp orig : enclosing) {
+    // Salviamo gli operandi per upper e lower bound del for (la versione
+    // clonata se si è già processato il loop di origine)
+    //
+    // NB: se il ciclo MLIR ha una mappa fissa con costanti (es. affine.for %i =
+    // 0 to 10), la mappa non ha variabili esterne. Di conseguenza,
+    // getLowerBoundOperands() restituirà una lista vuota. Se invece il ciclo
+    // dipende da una variabile esterna %N (es. affine.for %i = %N to 10),
+    // allora %N è un operando della mappa. In questo caso,
+    // getLowerBoundOperands() restituirà una lista contenente proprio quel
+    // Value (%N).
+    //
+    // es: affine.for %i = affine_map<(d0, d1) -> (d0 + d1)>(%N, %M) to 100 { }
     SmallVector<Value> lb, ub;
     for (Value v : orig.getLowerBoundOperands())
       lb.push_back(map.lookupOrDefault(v));
     for (Value v : orig.getUpperBoundOperands())
       ub.push_back(map.lookupOrDefault(v));
 
-    auto cloned = rewriter.create<AffineForOp>(loc, lb, orig.getLowerBoundMap(),
-                                               ub, orig.getUpperBoundMap(),
-                                               orig.getStepAsInt());
+    // cloniamo il loop e mappiamo l'iv (blockArg)
+    auto cloned = rewriter.create<affine::AffineForOp>(
+        loc, lb, orig.getLowerBoundMap(), ub, orig.getUpperBoundMap(),
+        orig.getStepAsInt());
     map.map(orig.getInductionVar(), cloned.getInductionVar());
     if (!outermostClone)
       outermostClone = cloned;
-    // Descend: whatever we build next (the next cloned level, or the
-    // store) should land inside this loop's body, right before its
-    // (default, auto-inserted) affine.yield terminator.
+
+    // whatever we build next (the next cloned level, or the store) should land
+    // inside this loop's body, right before its (implicit) affine.yield
+    // terminator.
     rewriter.setInsertionPoint(cloned.getBody()->getTerminator());
   }
 
+  // recuperiamo gli indici che formano il subscript per la store di
+  // inizializzazione dell'accumulatore (assenti in caso di accumulatore
+  // scalare), e creiamo la store
   SmallVector<Value> remappedIndices;
   for (Value v : targetIndices)
     remappedIndices.push_back(map.lookupOrDefault(v));
-  rewriter.create<AffineStoreOp>(loc, initValue, target, targetMap,
-                                 remappedIndices);
+  rewriter.create<affine::AffineStoreOp>(loc, initValue, target, targetMap,
+                                         remappedIndices);
+
   return outermostClone;
 }
 
-struct NormalizeIterArgsReduction : public OpRewritePattern<AffineForOp> {
+struct NormalizeIterArgsReduction
+    : public OpRewritePattern<affine::AffineForOp> {
   using OpRewritePattern::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(AffineForOp op,
+  LogicalResult matchAndRewrite(affine::AffineForOp op,
                                 PatternRewriter &rewriter) const override {
+    // Facciamo dei check preliminari per capire se possiamo matchare
+    // (iterOperand == iter_arg == accumulatore). Vogliamo affine.for con:
+    // - un solo accumulatore per semplificare la logica successiva del passo
+    // (no allocazioni molteplici, load/store molteplici, ... )
+    // - senza for padri che fanno parte della stessa catena di riduzione
+    // (l'iter_arg del loop figlio è inizializzato proprio con l'iter_arg del
+    // padre?) -> vogliamo matchare il for più esterno della catena
+    //
+    // API usate:
+    // - op.getRegionIterArgs(), restituisce la lista dei iter_args (blockArg
+    // della regione)
+    // - op.getInits(), dà i valori iniziali passati da fuori all'operazione
+    // (operandi della for op)
     if (op.getNumIterOperands() != 1)
       return failure();
-
-    // Only fire on the outermost loop of a chain: if our parent is itself
-    // an affine.for whose iterArg feeds us as a pure pass-through, let that
-    // invocation (or one further up) handle the whole chain at once.
-    if (auto parent = op->getParentOfType<AffineForOp>()) {
-      if (parent.getNumIterOperands() == 1 && !op.getInits().empty() &&
+    // FIXME: questo check non è corretto dato che il padre potrebbe avere più
+    // di un iterOperand. Siccome nei miei benchmark non capita per adesso
+    // ignoro
+    if (auto parent = op->getParentOfType<affine::AffineForOp>()) {
+      if (parent.getNumIterOperands() == 1 &&
           op.getInits()[0] == parent.getRegionIterArgs()[0])
         return failure();
     }
 
+    // recuperiamo le informazioni del loop-nest di riduzione (pass-through
+    // chain)
     SmallVector<ReductionLevel> chain = collectPassThroughChain(op);
     if (chain.empty())
       return failure();
 
-    SinkInfo sink = classifySink(chain.front().forOp.getResult(0), chain);
+    // recuperiamo l'informazione sul sink del valore della riduzione (result
+    // dell'outermost loop)
+    // - se la riduzione è parziale, sarà una store fuori dall'outermost loop
+    // - se la riduzione è totale sarà una return (per quello che supportiamo
+    // fino ad ora)
+    SinkInfo sink = classifySink(chain);
     if (sink.kind == SinkKind::Unsupported)
       return failure();
 
     Location loc = op.getLoc();
     Value initValue = chain.front().forOp.getInits()[0];
 
-    // Determine the accumulator location: reuse the existing store's
-    // target if there is one, else materialize a scratch scalar.
+    // Determine the accumulator memory location:
+    // - reuse the existing store's target if there is one
+    // - else materialize a scratch scalar
+    //
+    // (se la riduzione è completa (e.g. dotp), non c'è una store ma un qualcosa
+    // tipo return; se la riduzione è parziale (e.g. matmul) ci sarà una store
+    // fuori dall'outermost loop di accumulazione in cui viene salvato il valore
+    // finale dell'accumulatore)
     Value target;
     AffineMap targetMap;
     SmallVector<Value> targetIndices;
@@ -233,20 +371,25 @@ struct NormalizeIterArgsReduction : public OpRewritePattern<AffineForOp> {
       targetIndices = llvm::to_vector(sink.storeOp.getMapOperands());
     } else {
       rewriter.setInsertionPoint(chain.front().forOp);
+      // memref di rango 0
       auto memrefTy = MemRefType::get({}, initValue.getType());
       target = rewriter.create<memref::AllocaOp>(loc, memrefTy);
+      // recuperiamo una mappa di questo tipo: affine_map<() -> ()>. Non la
+      // stiamo materializzando nell'ir ma ci servirà dopo per le operazioni di
+      // store.
       targetMap = rewriter.getConstantAffineMap(0).getMultiDimIdentityMap(
           0, rewriter.getContext());
-      // 0-D memref: no indices.
     }
 
-    // 1. Initialize the accumulator. If the chain sits inside enclosing
-    //    parallel loops (P), the init has to run once per iteration of P --
-    //    done here as a standalone cloned nest over P, a sibling placed
-    //    before P's outermost loop, rather than injected into any existing
-    //    loop body (which would break that loop's perfect-nest shape).
-    SmallVector<AffineForOp> enclosing =
+    // Initialize the accumulator. If the chain sits inside enclosing parallel
+    // loops (P), the init has to run once per iteration of P. This is done here
+    // as a standalone cloned nest over P placed before P's outermost loop,
+    // rather than injected into any existing loop body (which would break that
+    // loop's perfect-nest shape).
+    SmallVector<affine::AffineForOp> enclosing =
         collectEnclosingLoops(chain.front().forOp);
+    // setto l'insertion point prima dell'outermost loop (sia esso parallel
+    // oppure il primo di una chain di reduction)
     Operation *initAnchor = enclosing.empty()
                                 ? static_cast<Operation *>(chain.front().forOp)
                                 : static_cast<Operation *>(enclosing.front());
@@ -254,22 +397,60 @@ struct NormalizeIterArgsReduction : public OpRewritePattern<AffineForOp> {
     buildInitNest(rewriter, enclosing, initValue, target, targetMap,
                   targetIndices, loc);
 
-    // 2. Rebuild each level, innermost first (so an outer level's body
-    //    already reflects its already-rebuilt nested loop by the time we
-    //    get to it).
-    for (unsigned i = chain.size(); i-- > 0;) {
-      ReductionLevel &lvl = chain[i];
-      bool isTerminal = (i == chain.size() - 1);
-      AffineForOp old = lvl.forOp;
+    // Rebuild each level, innermost (indice == chain.size() - 1) first so an
+    // outer level's body already reflects its already-rebuilt nested loop by
+    // the time we get to it.
+    //
+    // Per ogni livello della catena:
+    // - crea un nuovo affine.for questa volta senza iter_args
+    // - sposta dentro il corpo
+    // - rimpiazza gli usi dell'iterArg.
+    //
+    // Nel loop terminale inserisce load all'inizio del corpo e store prima del
+    // nuovo affine.yield. In questo modo il valore dell'accumulatore non viene
+    // più trasportato tramite SSA ma tramite memoria.
+    //
+    // Infine:
+    // - se il risultato veniva restituito, materializza una load per ottenere
+    // il valore della riduzione sostituendo il result del loop
+    // - se il risultato veniva memorizzato, elimina lo store originale perché
+    // ormai già avvenuto dentro ai nuovi loop di riduzione.
+    for (auto [revIdx, lvl] : llvm::enumerate(llvm::reverse(chain))) {
+      bool isTerminal = (revIdx == 0);
+      bool isOutermost = (revIdx == chain.size() - 1);
+      // NB: in chain, mi sono salvato la catena di AffineForOp con iter_args
+      // (old chain), e adesso sto sostituendo gradualmente questi for nella
+      // versione senza iter_args (new chain). Notevolmente, gli enclosing fors
+      // hanno già nel loro corpo tutta la new chain di for processata senza
+      // essere andati a modificare il loro corpo direttamente. Questo in quanto
+      // bisogna ricordarsi che le Op-derived classes sono un handle
+      // (smart-pointer wrapper) attorno a un'Operation*, non una copia
+      // dell'operazione. Quindi i vecchi for continuano a puntare alle stesse
+      // operazioni dell'IR, e quando il loro contenuto (body) viene modificato
+      // come sotto, il wrapper "vede" le modifiche.
+      affine::AffineForOp oldForOp = lvl.forOp;
 
-      rewriter.setInsertionPoint(old);
-      auto newFor = rewriter.create<AffineForOp>(
-          loc, old.getLowerBoundOperands(), old.getLowerBoundMap(),
-          old.getUpperBoundOperands(), old.getUpperBoundMap(),
-          old.getStepAsInt());
+      // creiamo un nuovo for senza body, risultati, iter_args e senza la yield
+      // implicita (il builder la aggiunge automaticamente per far avere al
+      // blocco un terminatore valido)
+      rewriter.setInsertionPoint(oldForOp);
+      auto newFor = rewriter.create<affine::AffineForOp>(
+          loc, oldForOp.getLowerBoundOperands(), oldForOp.getLowerBoundMap(),
+          oldForOp.getUpperBoundOperands(), oldForOp.getUpperBoundMap(),
+          oldForOp.getStepAsInt());
       Block *newBody = newFor.getBody();
       rewriter.eraseOp(newBody->getTerminator());
 
+      // Costruiamo il corpo del nuovo for con rewriter.mergeBlocks():
+      //
+      // void mergeBlocks(Block *source, Block *dest, ValueRange argValues);
+      // - source = blocco da svuotare
+      // - dest = blocco in cui spostare tutte le operazioni
+      // - argValues = valori con cui sostituire i blockArgs di source dentro al
+      // nuovo blocco dest
+      //   - nota che il nuovo for non ha iter_arg e quindi ha un blockArg in
+      //   meno. mergeBlocks() gestisce la situazione sostituendo l'uso del
+      //   blockArg con quello che diciamo noi (e.g. load materializzata)
       Value ivReplacement = newFor.getInductionVar();
       Value iterArgReplacement;
       if (isTerminal) {
@@ -277,52 +458,81 @@ struct NormalizeIterArgsReduction : public OpRewritePattern<AffineForOp> {
         // body, so it's available as the replacement value for the old
         // iterArg's uses when we merge the old body's ops in below.
         rewriter.setInsertionPointToStart(newBody);
-        iterArgReplacement = rewriter.create<AffineLoadOp>(
+        iterArgReplacement = rewriter.create<affine::AffineLoadOp>(
             loc, target, targetMap, targetIndices);
       } else {
-        // Pass-through level: iterArg has zero real uses left (its only
-        // use -- feeding the nested loop's iter_operand -- was removed
-        // when we rebuilt that nested loop in the previous iteration).
-        // Any type-matching placeholder works; it will never be read.
+        // L'iterArg di un livello intermedio aveva come uso solamente essere
+        // passato come argomento di inizializzazione dell'iter_arg della forOp
+        // sottostante. La nuova forOp non ha più questo argomento e quindi non
+        // c'è più neanche alcun uso da sostituire. Usiamo un Value qualsiasi
+        // per non creare codice di gestione speciale per mergeBlocks(). Any
+        // type-matching placeholder works; it will never be used.
         iterArgReplacement = initValue;
       }
-
-      rewriter.mergeBlocks(old.getBody(), newBody,
+      rewriter.mergeBlocks(oldForOp.getBody(), newBody,
                            {ivReplacement, iterArgReplacement});
 
-      auto oldYield = cast<AffineYieldOp>(newBody->getTerminator());
+      // il vecchio body ha anche lui il suo terminatore (stavolta esplicito).
+      // Noi l'abbiamo mergeato dentro al body del nuovo for e adesso dobbiamo
+      // sostituirlo con uno yield implicito e materializzare la store
+      // dell'accumulatore nel livello più interno
+      auto oldYield = cast<affine::AffineYieldOp>(newBody->getTerminator());
       rewriter.setInsertionPoint(oldYield);
       if (isTerminal)
-        rewriter.create<AffineStoreOp>(loc, oldYield.getOperand(0), target,
-                                       targetMap, targetIndices);
+        rewriter.create<affine::AffineStoreOp>(
+            loc, oldYield.getOperand(0), target, targetMap, targetIndices);
       rewriter.eraseOp(oldYield);
       rewriter.setInsertionPointToEnd(newBody);
-      rewriter.create<AffineYieldOp>(loc);
+      rewriter.create<affine::AffineYieldOp>(loc);
 
-      // `old.getResult(0)` (this level's own loop result) must have zero
-      // uses before we can erase `old`. Its sole consumer is either:
-      //  - the external sink (return/store), if this is the outermost
-      //    level (i == 0) -- wire that up for real now, or
-      //  - the enclosing level's pass-through `affine.yield %r`, if i > 0
-      //    -- that yield is discarded wholesale (replaced by a bare
-      //    `affine.yield`) when we process the enclosing level in a later
-      //    iteration of this same loop, so the value we substitute here is
-      //    never actually observed; any dominating placeholder works.
-      if (i == 0) {
+      // Rimpiazzo gli usi del result del loop (attento che old.getResult(0)
+      // must have zero uses before we can erase old). Considera questa IR come
+      // reference:
+      //
+      // affine.for %arg8 = 0 to %0 {
+      //   affine.for %arg9 = 0 to %1 {
+      //     %3 = affine.for %arg10 = 0 to %2 iter_args(%arg11 = %c0) -> (i32) {
+      //       %4 = affine.for %arg12 = 0 to %2 iter_args(%arg13 = %arg11) ->
+      //       (i32) {
+      //         %5 = affine.load %arg6[%arg8 + %arg10, %arg9 + %arg12] :
+      //         memref<?x?xi32> %6 = affine.load %arg7[%arg10, %arg12] :
+      //         memref<?x?xi32> %7 = arith.muli %5, %6 : i32 %8 = arith.addi
+      //         %arg13, %7 : i32 affine.yield %8 : i32
+      //       }
+      //       affine.yield %4 : i32
+      //     }
+      //     affine.store %3, %arg5[%arg8, %arg9] : memref<?x?xi32>
+      //   }
+      // }
+      //
+      // - se sono l'outer-most loop della reduction chain devo controllare il
+      // mio sink.kind e
+      //    - materializzare una load per la return-op e usarla per sostituire
+      //    gli usi del mio result
+      //    - eliminare semplicemente la store subito fuori dal mio corpo dato
+      //    che faccio già le store dentro a inner
+      // - se sono un loop interno il mio risultato è una riduzione parziale
+      // utilizzata come incremento per il mio enclosing loop tramite la sua
+      // yield. Quella yield verrà eliminata e quindi non fa differenza cosa uso
+      // come replacement ma devo per forza sostituire altrimenti mi rimane un
+      // uso del result quando vado ad eliminare la vecchia forOp che mi fa
+      // crashare tutto
+      if (isOutermost) {
         if (sink.kind == SinkKind::Return) {
           rewriter.setInsertionPointAfter(newFor);
-          Value finalVal = rewriter.create<AffineLoadOp>(loc, target, targetMap,
-                                                         targetIndices);
-          rewriter.replaceAllUsesWith(old.getResult(0), finalVal);
+          Value finalVal = rewriter.create<affine::AffineLoadOp>(
+              loc, target, targetMap, targetIndices);
+          rewriter.replaceAllUsesWith(oldForOp.getResult(0), finalVal);
         } else {
           rewriter.eraseOp(sink.storeOp); // was old's sole remaining use
         }
       } else {
-        rewriter.replaceAllUsesWith(old.getResult(0), initValue);
+        rewriter.replaceAllUsesWith(oldForOp.getResult(0), initValue);
       }
 
-      rewriter.eraseOp(old);
+      rewriter.eraseOp(oldForOp);
     }
+
     return success();
   }
 };
@@ -331,14 +541,17 @@ struct PPUNormalizeIterargsReductions
     : impl::PPUNormalizeIterargsReductionsBase<PPUNormalizeIterargsReductions> {
   using PPUNormalizeIterargsReductionsBase::PPUNormalizeIterargsReductionsBase;
 
-  // NB: il walker non applica folding o DCE, è quindi una buona idea aggiungere
-  // un passo di canonicalizzazione dopo questo
   void runOnOperation() override {
     MLIRContext *ctx = &getContext();
 
     RewritePatternSet patterns(ctx);
     patterns.add<NormalizeIterArgsReduction>(ctx);
-    // TODO: usiamo il greedy pattern driver
+    // NB: usiamo il greedy driver dato che il passo modifica l'ir anche ad un
+    // livello di innestamento superiore rispetto alla op matchata. Questo rompe
+    // gli iteratori utilizzati da walkAndApplyPatterns() causando crash.
+    // walkAndApplyPatterns () è pensato per pattern che garantiscono di mutare
+    // solo il proprio sottoalbero (questo permette un implementazione con
+    // performance migliori)
     if (failed(applyPatternsGreedily(getOperation(), std::move(patterns))))
       signalPassFailure();
   }
@@ -346,6 +559,8 @@ struct PPUNormalizeIterargsReductions
 
 //===----------------------------------------------------------------------===//
 // PPURaiseAffineToLinalgGeneric
+//===----------------------------------------------------------------------===//
+// TODO: scrivi una descrizione di alto livello di come funziona il passo
 //===----------------------------------------------------------------------===//
 
 /// Walks downward from `outer`, requiring each loop to be normalized and to
