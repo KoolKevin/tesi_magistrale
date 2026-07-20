@@ -89,11 +89,14 @@ for.cond.cleanup:                                 ; preds = %for.body, %entry
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %i.015 = phi i32 [ %inc, %for.body ], [ 0, %for.body.preheader ]
   %mul = shl nsw i32 %i.015, 4
+
   %arrayidx = getelementptr inbounds i32, ptr addrspace(4) %a, i32 %mul
   %0 = tail call <16 x i32> @llvm.arc.vvld.w.v512(ptr addrspace(4) %arrayidx)
   %arrayidx2 = getelementptr inbounds i32, ptr addrspace(4) %b, i32 %mul
   %1 = tail call <16 x i32> @llvm.arc.vvld.w.v512(ptr addrspace(4) %arrayidx2)
+
   %2 = tail call <16 x i32> @llvm.arc.vvadd.w.v512(<16 x i32> %0, <16 x i32> %1)
+
   %arrayidx6 = getelementptr inbounds i32, ptr addrspace(4) %c, i32 %mul
   tail call void @llvm.arc.vvst.w.v512(<16 x i32> %2, ptr addrspace(4) %arrayidx6)
   %inc = add nuw nsw i32 %i.015, 1

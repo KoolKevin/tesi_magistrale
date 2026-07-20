@@ -2,11 +2,17 @@ CC = ccac
 ARCH = -tcf=ev71_vfpu
 
 HEADERS = -Hvdsp_vector_c
-OPT = -O2
+OPT ?= -O2
 AUTOVEC = -fvectorize -fslp-vectorize -ffast-math
 DEBUG_FLAGS = -Rpass=loop-vectorize -Rpass-missed=loop-vectorize -Rpass-analysis=loop-vectorize
 
-SRCS = vekt_main.c vec_sum.e2e.v2.ll
+MAIN_SRC = vekt_main.c
+# Definisci il secondo sorgente con un valore di default
+# Se l'utente non passa nulla da riga di comando, usa questo valore
+# -> invoca make SECOND_SRC=altro_file.v2.ll per usare un altro file
+SECOND_SRC ?= vec_sum.e2e.v2.ll
+# Costruisci SRCS concatenando i due
+SRCS = $(MAIN_SRC) $(SECOND_SRC)
 TARGET = a.out
 
 all: build

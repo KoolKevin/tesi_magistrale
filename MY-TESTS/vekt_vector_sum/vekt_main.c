@@ -32,6 +32,8 @@ void vekt_vec_sum_wrapper(int* a, int* b, int* c, int n) {
     );
 }
 
+// extern void vekt_vec_sum(int* a, int* b, int* c, int n);
+
 void vec_sum(int* a, int* b, int* c, int n) {
     #pragma clang loop vectorize(disable)
 	for(int i = 0; i < n; i++)
@@ -119,6 +121,7 @@ int main() {
 
     start = clock();
     vekt_vec_sum_wrapper(a, b, c, N);
+    // vekt_vec_sum(a, b, c, N);
     end = clock();   
     double time_vekt = ((double)(end-start) / CLOCKS_PER_SEC)*1000; // in ms
     printf("Tempo di esecuzione di autovectorized_vec_sum: %.2fms\n", time_vekt);

@@ -15,11 +15,11 @@ define void @vekt_vec_sum(ptr %0, ptr addrspace(4) %1, i64 %2, i64 %3, i64 %4, p
 ;   %22 = ptrtoint ptr %1 to i64
 ;   %23 = inttoptr i64 %22 to ptr addrspace(4)
   %22 = getelementptr i32, ptr addrspace(4) %1, i32 %19
-  %23 = call <16 x i32> @llvm.arc.vvld.w.v512(ptr addrspace(4) %22)
+  %23 = tail call <16 x i32> @llvm.arc.vvld.w.v512(ptr addrspace(4) %22)
 ;   %26 = ptrtoint ptr %6 to i64
 ;   %27 = inttoptr i64 %26 to ptr addrspace(4)
   %24 = getelementptr i32, ptr addrspace(4) %6, i32 %19
-  %25 = call <16 x i32> @llvm.arc.vvld.w.v512(ptr addrspace(4) %24)
+  %25 = tail call <16 x i32> @llvm.arc.vvld.w.v512(ptr addrspace(4) %24)
 
   %26 = add <16 x i32> %23, %25
   ; usare l'intrinseco non cambia niente
@@ -28,7 +28,7 @@ define void @vekt_vec_sum(ptr %0, ptr addrspace(4) %1, i64 %2, i64 %3, i64 %4, p
 ;   %31 = ptrtoint ptr %11 to i64
 ;   %32 = inttoptr i64 %31 to ptr addrspace(4)
   %27 = getelementptr i32, ptr addrspace(4) %11, i32 %19
-  call void @llvm.arc.vvst.w.v512(<16 x i32> %26, ptr addrspace(4) %27)
+  tail call void @llvm.arc.vvst.w.v512(<16 x i32> %26, ptr addrspace(4) %27)
   %28 = add i32 %19, 16
   br label %18
 
