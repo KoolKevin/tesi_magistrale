@@ -27,6 +27,9 @@ int main(int argc, char **argv) {
   // registriamo i miei passi
   mlir::ppu::registerPasses();
 
+  // TODO: dato che la specializzazione mi richiede un altro tool, devo spezzare
+  // questa pipeline in più pipeline distinte (generalizzazione,
+  // specializzazione (con mlir24), vettorizzazione e lowering)
   mlir::PassPipelineRegistration<>(
       "vekt16", "naive vectorization", [](mlir::OpPassManager &pm) {
         pm.addPass(mlir::createCanonicalizerPass());
@@ -41,7 +44,7 @@ int main(int argc, char **argv) {
 
         // uso questo passo invece di aggiungere i suoi pattern in quello sotto
         // dato che non riesco a farlo funzionare ;)
-        pm.addPass(mlir::ppu::createConvertVectorToPPU());
+        pm.addPass(mlir::ppu::createConvertLinalgToPPUAlgorithm());
         pm.addPass(mlir::createCanonicalizerPass()); // post-walk canon.
         pm.addPass(mlir::createConvertVectorToLLVMPass());
         pm.addPass(mlir::ppu::createPPULowerToLLVM());

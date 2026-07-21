@@ -4,7 +4,9 @@
 #include "mlir/Dialect/ControlFlow/IR/ControlFlow.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
+#include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/Dialect/Utils/StaticValueUtils.h" // Per getValueOrCreateConstantIndexOp e getConstantIntValue
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinOps.h"
@@ -36,6 +38,7 @@ namespace mlir::ppu {
 #define GEN_PASS_DEF_PPUINSERTVECLOAD
 #define GEN_PASS_DEF_PPULOWERTOLLVM
 #define GEN_PASS_DEF_CONVERTVECTORTOPPU
+#define GEN_PASS_DEF_CONVERTLINALGTOPPUALGORITHM
 #include "ppu/PPUPasses.h.inc"
 
 namespace {
@@ -78,7 +81,7 @@ public:
 };
 
 //===----------------------------------------------------------------------===//
-// ConvertVectorToPPU
+// ConvertLinalgToPPUAlgorithm
 //===----------------------------------------------------------------------===//
 
 struct ConvertVectorTransferRead
@@ -209,8 +212,127 @@ struct ConvertVectorTransferWrite
   }
 };
 
-struct ConvertVectorToPPU : impl::ConvertVectorToPPUBase<ConvertVectorToPPU> {
-  using ConvertVectorToPPUBase::ConvertVectorToPPUBase;
+struct ConvertLinalgElementwiseBinary
+    : public OpRewritePattern<mlir::linalg::AddOp> {
+
+  ConvertLinalgElementwiseBinary(mlir::MLIRContext *context)
+      : OpRewritePattern<mlir::linalg::AddOp>(context) {}
+
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(mlir::linalg::AddOp op,
+                                PatternRewriter &rewriter) const final {
+
+    mlir::Location loc = op.getLoc();
+
+    // recuperiamo i ranges dei loop (start, stop, step)
+    auto linalgOp = ::llvm::cast<mlir::linalg::LinalgOp>(op.getOperation());
+    // createLoopRanges() è un utility che analizza le shape degli operandi e le
+    // indexing_maps della linalg-op per estrarre i range (start, stop, step)
+    // (== (offset, size, stride)) dello spazio di iterazione.
+    // NB: Supporta automaticamente anche dimensioni dinamiche materializzando
+    // delle memref.dim ops
+    mlir::SmallVector<mlir::Range> loopRanges =
+        linalgOp.createLoopRanges(rewriter, loc);
+
+    // In questo momento ho un vettore di Range, ma il builder sotto ha bisogno
+    // di vettori separati per lbs, ubs e steps. Me li ricavo scorrendo
+    llvm::SmallVector<mlir::Value, 4> lbs, ubs;
+    llvm::SmallVector<int64_t, 4> steps;
+    for (const auto &range : loopRanges) {
+      // Materializza offset e size in creando delle arith.constand se sono
+      // costanti statiche (mi serve per avere dei Value per il builder sotto)
+      lbs.push_back(
+          mlir::getValueOrCreateConstantIndexOp(rewriter, loc, range.offset));
+      ubs.push_back(
+          mlir::getValueOrCreateConstantIndexOp(rewriter, loc, range.size));
+      // Estrai lo step come int64_t da OpFoldResult
+      int64_t stepVal = 1;
+      if (auto optInt = mlir::getConstantIntValue(range.stride)) {
+        stepVal = *optInt;
+      }
+      steps.push_back(stepVal);
+    }
+
+    // 2. Recupera gli operandi
+    mlir::Value lhs = op.getInputs()[0];
+    mlir::Value rhs = op.getInputs()[1];
+    mlir::Value out = op.getOutputs()[0];
+
+    // 3. Costruisci il loop nest usando i limiti estratti
+    mlir::affine::buildAffineLoopNest(
+        rewriter, loc, lbs, ubs, steps,
+        [&](mlir::OpBuilder &nestedBuilder, mlir::Location nestedLoc,
+            mlir::ValueRange ivs) {
+          mlir::Value lhsVal = nestedBuilder.create<mlir::affine::AffineLoadOp>(
+              nestedLoc, lhs, ivs);
+          mlir::Value rhsVal = nestedBuilder.create<mlir::affine::AffineLoadOp>(
+              nestedLoc, rhs, ivs);
+
+          // Esegui la somma (es. interi)
+          mlir::Value resVal = nestedBuilder.create<mlir::arith::AddIOp>(
+              nestedLoc, lhsVal, rhsVal);
+
+          nestedBuilder.create<mlir::affine::AffineStoreOp>(nestedLoc, resVal,
+                                                            out, ivs);
+        });
+
+    rewriter.eraseOp(op);
+
+    // %intptr =
+    //   memref.extract_aligned_pointer_as_index %arg0 : memref<?xi32> -> index
+    // %1 = arith.index_cast %intptr : index to i64
+    // %2 = llvm.inttoptr %1 : i64 to !llvm.ptr<4>
+    // %3 = arith.index_cast %arg4 : index to i64
+    // %4 = llvm.getelementptr %2[%3] : (!llvm.ptr<4>, i64) -> !llvm.ptr<4>, i32
+    // "ppu.vec_store"(%val, %4) : (vector<16xi32>, !llvm.ptr<4>) -> ()
+
+    // auto extractOp = rewriter.create<memref::ExtractAlignedPointerAsIndexOp>(
+    //     op.getLoc(), op.getSource());
+    // auto indexCastOp = rewriter.create<arith::IndexCastOp>(
+    //     op.getLoc(), rewriter.getI64Type(), extractOp);
+    // // NB: qua stiamo hardcodando l'addrespace(4) della PPU
+    // auto PPUPtrTy = LLVM::LLVMPointerType::get(rewriter.getContext(), 4);
+    // auto basePtr =
+    //     rewriter.create<LLVM::IntToPtrOp>(op.getLoc(), PPUPtrTy,
+    //     indexCastOp);
+
+    // // costruire una GEP è un po' più complicato dato che bisogna gestire
+    // indici
+    // // potenzialmente multidimensionali
+    // auto indices = op.getIndices();
+    // // la GEP vuole vuole interi e non index types
+    // SmallVector<Value> gepIndices;
+    // for (Value idx : indices) {
+    //   auto castedIdx = rewriter.create<arith::IndexCastOp>(
+    //       op.getLoc(), rewriter.getI64Type(), idx);
+    //   gepIndices.push_back(castedIdx);
+    // }
+    // // recuperiamo il tipo di dato puntato dalla memref (si continua a
+    // chiamare
+    // // source e non dest)
+    // Type elemTy = op.getSource().getType().getElementType();
+    // Value finalPtr = basePtr;
+    // if (!gepIndices.empty()) {
+    //   auto gepOp = rewriter.create<LLVM::GEPOp>(op.getLoc(), PPUPtrTy,
+    //   elemTy,
+    //                                             basePtr, gepIndices);
+    //   finalPtr = gepOp.getResult();
+    // }
+
+    // auto ppuVecStoreOp =
+    //     rewriter.create<ppu::VecStoreOp>(op.getLoc(), op.getVector(),
+    //     finalPtr);
+
+    // rewriter.replaceOp(op.getOperation(), ppuVecStoreOp);
+
+    return success();
+  }
+};
+
+struct ConvertLinalgToPPUAlgorithm
+    : impl::ConvertLinalgToPPUAlgorithmBase<ConvertLinalgToPPUAlgorithm> {
+  using ConvertLinalgToPPUAlgorithmBase::ConvertLinalgToPPUAlgorithmBase;
 
   // NB: non sto usando il dialect conversion framework dato che non ho bisogno
   // di gestire conversioni dei tipi. Similmente non sto utilizzando il greedy
@@ -224,7 +346,7 @@ struct ConvertVectorToPPU : impl::ConvertVectorToPPUBase<ConvertVectorToPPU> {
     ModuleOp module = getOperation();
 
     RewritePatternSet patterns(ctx);
-    patterns.add<ConvertVectorTransferRead, ConvertVectorTransferWrite>(ctx);
+    patterns.add<ConvertLinalgElementwiseBinary>(ctx);
     // Post-order, forward walk traversal of ops (excluding input `op`).
     walkAndApplyPatterns(module, std::move(patterns));
   }
