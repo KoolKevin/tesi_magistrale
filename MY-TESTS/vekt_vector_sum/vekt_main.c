@@ -18,21 +18,21 @@ void init_vector(int *a, int dim, int value) {
 // Ho dovuto aggiungere a mano chiamate a printf dentro all'ir per accorgermi che gli argomenti non stavano venendo
 // passati correttamente.
 // Questo commento è la testimonianza della mia sofferenza
-// extern void vekt_vec_sum(int* a_alloc, int* a_align, int64_t a_offset, int64_t a_size, int64_t a_stride,
-//                     int* b_alloc, int* b_align, int64_t b_offset, int64_t b_size, int64_t b_stride,
-//                     int* c_alloc, int* c_align, int64_t c_offset, int64_t c_size, int64_t c_stride,
-//                     int32_t n);
+extern void vekt_vec_sum(int* a_alloc, int* a_align, int64_t a_offset, int64_t a_size, int64_t a_stride,
+                    int* b_alloc, int* b_align, int64_t b_offset, int64_t b_size, int64_t b_stride,
+                    int* c_alloc, int* c_align, int64_t c_offset, int64_t c_size, int64_t c_stride,
+                    int32_t n);
 
-// void vekt_vec_sum_wrapper(int* a, int* b, int* c, int n) {
-//     vekt_vec_sum(
-//         a, a, 0, n, 1,
-//         b, b, 0, n, 1,
-//         c, c, 0, n, 1,
-//         n
-//     );
-// }
+void vekt_vec_sum_wrapper(int* a, int* b, int* c, int n) {
+    vekt_vec_sum(
+        a, a, 0, n, 1,
+        b, b, 0, n, 1,
+        c, c, 0, n, 1,
+        n
+    );
+}
 
-extern void vekt_vec_sum(int* a, int* b, int* c, int n);
+// extern void vekt_vec_sum(int* a, int* b, int* c, int n);
 
 void vec_sum(int* a, int* b, int* c, int n) {
     #pragma clang loop vectorize(disable)
@@ -124,8 +124,8 @@ int main() {
     init_vector(c, N, -1);
 
     start = clock();
-    // vekt_vec_sum_wrapper(a, b, c, N);
-    vekt_vec_sum(a, b, c, N);
+    vekt_vec_sum_wrapper(a, b, c, N);
+    // vekt_vec_sum(a, b, c, N);
     end = clock();   
     double time_vekt = ((double)(end-start) / CLOCKS_PER_SEC)*1000; // in ms
     printf("Tempo di esecuzione di autovectorized_vec_sum: %.2fms\n", time_vekt);
