@@ -669,6 +669,79 @@ struct LinalgGenericOpInfo {
   SmallVector<utils::IteratorType> iteratorTypes;
 };
 
+// NB: qua sono stato portato su una via sbagliata da Claude (me lo merito).
+// Popolare a mano le sizes delle memref dinamiche che compaiono nelle firme
+// delle funzioni non è necessario. Va benissimo usare memref.dim dato
+// che le memref verranno lowerate nei descriptor e sarà il chiamante a passare
+// le sizes della memref. Non c'è pericolo di non avere le sizes come pensavo.
+// NB: inferire le dimensioni delle memref però è comunque una trasformazione
+// interessante. Non cancello questo commento perchè potrebbe rivelarsi utile.
+//
+// // Data una memref, gli ub del loop_nest in cui viene acceduta, e la sua
+// // indexing_map, questa funziona materializza un reinterpret_cast op che
+// // arricchisce la memref con i valodi di sizes e strides
+// Value materializeSizedMemref(OpBuilder &builder, Location loc, Value memref,
+//                              AffineMap indexingMap, ArrayRef<Value> bound) {
+//   auto ty = cast<MemRefType>(memref.getType());
+//   int64_t rank = ty.getRank();
+
+//   // recuperiamo le sizes della memref utilizzando gli upperBounds del
+//   loop-nest
+//   // e le dimensioni usate nella indexingMap di accesso. Se una size è già
+//   nota
+//   // in quanto statica nella memref la materializziamo comunque come costante
+//   // in maniera tale da ottenere un Value da passare al builder insieme alle
+//   // altre sizes.
+//   SmallVector<Value> sizes(rank);
+//   for (int64_t p = 0; p < rank; p++) {
+//     if (ty.isDynamicDim(p)) {
+//       auto d = cast<AffineDimExpr>(indexingMap.getResult(p));
+//       sizes[p] = bound[d.getPosition()];
+//     } else {
+//       sizes[p] = builder.create<arith::ConstantIndexOp>(loc,
+//       ty.getDimSize(p));
+//     }
+//   }
+
+//   // Calcoliamo gli stride usando le sizes recuperate. Layout row-major
+//   // contiguo: l'ultima dimensione ha stride 1, ogni altra ha stride = size
+//   // della dimensione successiva * stride dimensione successiva. Anche qui
+//   // materializziamo dei Value da passare al builder
+//   SmallVector<Value> strides(rank);
+//   if (rank > 0)
+//     strides[rank - 1] = builder.create<arith::ConstantIndexOp>(loc, 1);
+//   for (int64_t p = rank - 2; p >= 0; p--)
+//     strides[p] =
+//         builder.create<arith::MulIOp>(loc, sizes[p + 1], strides[p + 1]);
+
+//   // Creiamo la reinterpret_cast op:
+//   // - stesso buffer sottostante
+//   // - offset 0
+//   // - shape con TUTTE le dimensioni dinamiche nel tipo per semplicità
+//   //    - tanto, probabilmente lo erano già e sizes porta comunque
+//   //    l'informazione e -canonicalize aggiusterà dove possibile
+//   // TODO: risultato dinamico sempre e comunque
+//   // TODO: materializza un sacco di costanti
+//   // TODO: stasha i changes e vedi se le sizes c'erano già con VLA
+//   SmallVector<int64_t> dynamicStrides(rank, ShapedType::kDynamic);
+//   auto layout = StridedLayoutAttr::get(builder.getContext(), 0,
+//   dynamicStrides); auto resultTy =
+//       MemRefType::get(SmallVector<int64_t>(rank, ShapedType::kDynamic),
+//                       ty.getElementType(), layout);
+//   // Il builder di ReinterpretCastOp prende infatti ArrayRef<OpFoldResult>
+//   per
+//   // sizes e strides. Usare OpFoldResult è la convenzione MLIR per
+//   rappresentare
+//   // un valore che è o una costante compile-time (un Attribute) o un valore
+//   SSA
+//   // runtime (Value) in un unico slot, usata da tutte le op "a shape mista
+//   // static/dynamic" (alcune dimensioni sono note e altre no)
+//   return builder.create<memref::ReinterpretCastOp>(
+//       loc, resultTy, memref, builder.getIndexAttr(0),
+//       SmallVector<OpFoldResult>(sizes.begin(), sizes.end()),
+//       SmallVector<OpFoldResult>(strides.begin(), strides.end()));
+// }
+
 // classify operands + iterator types
 std::optional<LinalgGenericOpInfo>
 analyzeNest(ArrayRef<affine::AffineForOp> nest) {
@@ -776,13 +849,25 @@ void buildGenericFromNest(PatternRewriter &rewriter,
   affine::AffineForOp innermost = nest.back();
   Location loc = outer.getLoc();
 
+  // NB: lascio commentato il codice relativo al popolamento esplicto delle
+  // sizes delle memref; non serve, ma potrebbe tornare utile in futuro
+
+  // recuperiamo gli upper bound usati nel nest
+  //   SmallVector<Value> bound;
+  //   for (affine::AffineForOp forOp : nest)
+  //     bound.push_back(forOp.getUpperBoundOperands()[0]);
+
   // recuperiamo da info, indexingMaps e inputs
   SmallVector<Value> ins;
   SmallVector<AffineMap> indexingMaps;
   for (auto &in : info.inputs) {
+    // ins.push_back(materializeSizedMemref(rewriter, loc, in.memref,
+    //                                      in.indexingMap, bound));
     ins.push_back(in.memref);
     indexingMaps.push_back(in.indexingMap);
   }
+  //   materializeSizedMemref(rewriter, loc, info.output.memref,
+  //                          info.output.indexingMap, bound);
   indexingMaps.push_back(info.output.indexingMap);
 
   // inseriamo la generic prima di outer

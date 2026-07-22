@@ -17,9 +17,12 @@ def PPUInsertVecLoad : Pass<"ppu-insert-vec-load", "::mlir::ModuleOp"> {
 }
 
 def PPURaiseAffineToLinalgGeneric: Pass<"ppu-raise-affine-to-linalg-generic", "::mlir::ModuleOp"> {
-  let summary = "effettua il raising di un loop nest affine perfetto nella versione equivalente espressa da linalg.generic";
+  let summary = "Effettua il raising di un loop nest affine perfetto nella "
+                "versione equivalente espressa da linalg.generic. Inoltre, "
+                "aggiunge alle memref con size dinamica generate da Polygeist, "
+                "i valori per i loro campo 'sizes'";
   let description = [{
-    il passo esegue le seguenti macro-operazioni logiche:
+    Il passo esegue le seguenti macro-operazioni logiche:
 
     - cerca e recupera, se viene trovato, il loop nest perfetto da tradurre
       in una linalg.generic op
@@ -182,8 +185,39 @@ def PPUNormalizeIterargsReductions: Pass<"ppu-normalize-iterargs-reductions", ":
   ];
 }
 
+def ConvertLinalgToPPUAlgorithm: Pass<"convert-linalg-to-ppu-algorithm", "::mlir::ModuleOp"> {
+  let summary = "Effettua il lowering di alcune linalg ops ad algoritmi vettorizzati destinati alla PPU";
+  let description = [{
+    Il lowering consiste nel sostituire la linalg op con:
+
+    - Affine ops per il control flow
+    - PPU ops per la computzione e il caricamento dei registri vettoriali
+
+    In caso di memref con dimensione dimanica si effettua anche uno splitting del
+    loop in un main loop vettorizzato e un remainder loop scalare.
+
+    Il lowering introduce anche una sequenza di operazioni per estrarre l'aligned
+    pointer delle memref usate nel resto dell'ir; ad esempio:
+
+    %intptr = memref.extract_aligned_pointer_as_index %arg0 : memref<?xi32> -> index
+    %1 = arith.index_cast %intptr : index to i64
+    %2 = llvm.inttoptr %1 : i64 to !llvm.ptr<4>
+    %3 = arith.index_cast %arg4 : index to i64
+    %4 = llvm.getelementptr %2[%3] : (!llvm.ptr<4>, i64) -> !llvm.ptr<4>, i32
+    "ppu.vec_store"(%val, %4) : (vector<16xi32>, !llvm.ptr<4>) -> ()
+  }];
+
+  let dependentDialects = [
+    "mlir::memref::MemRefDialect",
+    "mlir::affine::AffineDialect",
+    "mlir::ppu::PPUDialect",
+    "mlir::LLVM::LLVMDialect",
+    "mlir::arith::ArithDialect",
+  ];
+}
+
 def PPULowerToLLVM : Pass<"ppu-lower-to-llvm", "::mlir::ModuleOp"> {
-  let summary = "effettua il lowering da un mix di dialetti a llvm + ppu in maniera da esportare verso llvm-ir";
+  let summary = "Effettua il lowering da un mix di dialetti a llvm + ppu in maniera da esportare verso llvm-ir";
   let description = [{
     ...
   }];
@@ -199,35 +233,6 @@ def PPULowerToLLVM : Pass<"ppu-lower-to-llvm", "::mlir::ModuleOp"> {
     "mlir::ub::UBDialect",
     "mlir::ppu::PPUDialect",
     "mlir::scf::SCFDialect"
-  ];
-}
-
-def ConvertVectorToPPU: Pass<"convert-vector-to-ppu", "::mlir::ModuleOp"> {
-  let summary = "effettua il lowering da vector ops a ppu ops";
-  let description = [{
-    il lowering introduce una sequenza di operazioni per estrarre l'aligned
-    pointer delle memref usate come argomento; ad esempio:
-
-    Trasformiamo questo:
-
-    %2 =
-    vector.transfer_write %5, %arg2[%arg4] : vector<16xi32>, memref<?xi32>
-
-    In questo:
-
-    %intptr = memref.extract_aligned_pointer_as_index %arg0 : memref<?xi32> -> index
-    %1 = arith.index_cast %intptr : index to i64
-    %2 = llvm.inttoptr %1 : i64 to !llvm.ptr<4>
-    %3 = arith.index_cast %arg4 : index to i64
-    %4 = llvm.getelementptr %2[%3] : (!llvm.ptr<4>, i64) -> !llvm.ptr<4>, i32
-    "ppu.vec_store"(%val, %4) : (vector<16xi32>, !llvm.ptr<4>) -> ()
-  }];
-
-  let dependentDialects = [
-    "mlir::memref::MemRefDialect",
-    "mlir::LLVM::LLVMDialect",
-    "mlir::ppu::PPUDialect",
-    "mlir::arith::ArithDialect",
   ];
 }
 
