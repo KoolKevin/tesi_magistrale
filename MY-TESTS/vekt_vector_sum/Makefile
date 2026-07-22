@@ -6,7 +6,7 @@ OPT ?= -O2
 AUTOVEC = -fvectorize -fslp-vectorize -ffast-math
 DEBUG_FLAGS = -Rpass=loop-vectorize -Rpass-missed=loop-vectorize -Rpass-analysis=loop-vectorize
 
-MAIN_SRC = vekt_main.c
+MAIN_SRC = vekt_main.c vectorized_vec_sum.c
 # Definisci il secondo sorgente con un valore di default
 # Se l'utente non passa nulla da riga di comando, usa questo valore
 # -> invoca make SECOND_SRC=altro_file.v2.ll per usare un altro file

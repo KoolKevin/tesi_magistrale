@@ -1,5 +1,7 @@
 ; ModuleID = 'LLVMDialectModule'
 source_filename = "LLVMDialectModule"
+target datalayout = "e-m:e-p:32:32-p1:32:32-p3:32:32-p5:32:32-i64:32-f64:32-v64:32-v128:32-a:0:32-v256:32-v512:32-n8:16:32"
+target triple = "arc-pc-unknown-gnu"
 
 define void @vekt_vec_sum(ptr %0, ptr addrspace(4) %1, i64 %2, i64 %3, i64 %4, ptr %5, ptr addrspace(4) %6, i64 %7, i64 %8, i64 %9, ptr %10, ptr addrspace(4) %11, i64 %12, i64 %13, i64 %14, i32 %15) {
   ; %17 = sext i32 %15 to i64 ; perchè n è sign-extended??
