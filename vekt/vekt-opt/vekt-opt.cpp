@@ -24,7 +24,6 @@
 int main(int argc, char **argv) {
   // Registra i passi in maniera tale da renderli disponibili al tool
   mlir::registerAllPasses();
-  // registriamo i miei passi
   mlir::ppu::registerPasses();
 
   // TODO: dato che la specializzazione mi richiede un altro tool, devo spezzare
@@ -45,7 +44,7 @@ int main(int argc, char **argv) {
         // uso questo passo invece di aggiungere i suoi pattern in quello sotto
         // dato che non riesco a farlo funzionare ;)
         pm.addPass(mlir::ppu::createConvertLinalgToPPUAlgorithm());
-        pm.addPass(mlir::createCanonicalizerPass()); // post-walk canon.
+        pm.addPass(mlir::createCanonicalizerPass()); // importante
         pm.addPass(mlir::createConvertVectorToLLVMPass());
         pm.addPass(mlir::ppu::createPPULowerToLLVM());
 
@@ -61,7 +60,7 @@ int main(int argc, char **argv) {
   //                   mlir::arith::ArithDialect, mlir::func::FuncDialect>();
   // Add the following to include *all* MLIR Core dialects, or selectively
   // include what you need like above. You only need to register dialects that
-  // will be *parsed* by the tool, not the one generated
+  // will be parsed by the tool, not generated ones
   registerAllDialects(registry);
   registry.insert<mlir::ppu::PPUDialect>();
 

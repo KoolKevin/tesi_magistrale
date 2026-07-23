@@ -212,10 +212,59 @@ struct ConvertVectorTransferWrite
   }
 };
 
-struct ConvertLinalgElementwiseBinary
-    : public OpRewritePattern<mlir::linalg::AddOp> {
+// HELPER utili per ottenere un puntatore da cui fare load/store con ppu ops a
+// partire da una memref
+//
+// Ad esempio, trasformiamo questo:
+//
+// %2 =
+//   vector.transfer_write %5, %arg2[%arg4] : vector<16xi32>, memref<?xi32>
+//
+// In questo:
+//
+// %intptr =
+//   memref.extract_aligned_pointer_as_index %arg0 : memref<?xi32> -> index
+// %1 = arith.index_cast %intptr : index to i64
+// %2 = llvm.inttoptr %1 : i64 to !llvm.ptr<4>
+// %3 = arith.index_cast %arg4 : index to i64
+// %4 = llvm.getelementptr %2[%3] : (!llvm.ptr<4>, i64) -> !llvm.ptr<4>, i32
+// "ppu.vec_store"(%val, %4) : (vector<16xi32>, !llvm.ptr<4>) -> ()
+Value materializeAlignedPtr(PatternRewriter &rewriter, Location loc,
+                            Value memref, LLVM::LLVMPointerType ptrTy) {
+  auto extractOp =
+      rewriter.create<memref::ExtractAlignedPointerAsIndexOp>(loc, memref);
+  auto indexCastOp = rewriter.create<arith::IndexCastOp>(
+      loc, rewriter.getI64Type(), extractOp);
+  auto alignedPtr = rewriter.create<LLVM::IntToPtrOp>(loc, ptrTy, indexCastOp);
 
-  ConvertLinalgElementwiseBinary(mlir::MLIRContext *context)
+  return alignedPtr;
+}
+
+// materializza la gep dati gli indici di una operazione di accesso alla memoria
+Value materializeGEPForAccess(OpBuilder &builder, Location loc, Value basePtr,
+                              LLVM::LLVMPointerType ptrTy, Type elemTy,
+                              ValueRange indices) {
+  if (indices.empty())
+    return basePtr;
+
+  // crea i cast da index a i32 per gli indici passati come argomento
+  SmallVector<Value> gepIndices;
+  for (Value idx : indices)
+    gepIndices.push_back(
+        builder.create<arith::IndexCastOp>(loc, builder.getI32Type(), idx));
+
+  auto gepOp =
+      builder.create<LLVM::GEPOp>(loc, ptrTy, elemTy, basePtr, gepIndices);
+
+  return gepOp;
+}
+
+// TODO: questo cambia tra PPU diverse e quindi andrebbe reso configurabile
+const int vectorRegisterBits = 512;
+
+struct ConvertLinalgAdd : public OpRewritePattern<mlir::linalg::AddOp> {
+
+  ConvertLinalgAdd(mlir::MLIRContext *context)
       : OpRewritePattern<mlir::linalg::AddOp>(context) {}
 
   using OpRewritePattern::OpRewritePattern;
@@ -223,6 +272,7 @@ struct ConvertLinalgElementwiseBinary
   LogicalResult matchAndRewrite(mlir::linalg::AddOp op,
                                 PatternRewriter &rewriter) const final {
 
+    MLIRContext *ctx = rewriter.getContext();
     mlir::Location loc = op.getLoc();
 
     // recuperiamo i ranges dei loop (start, stop, step)
@@ -235,96 +285,123 @@ struct ConvertLinalgElementwiseBinary
     mlir::SmallVector<mlir::Range> loopRanges =
         linalgOp.createLoopRanges(rewriter, loc);
 
-    // In questo momento ho un vettore di Range, ma il builder sotto ha bisogno
-    // di vettori separati per lbs, ubs e steps. Me li ricavo scorrendo
-    llvm::SmallVector<mlir::Value, 4> lbs, ubs;
-    llvm::SmallVector<int64_t, 4> steps;
-    for (const auto &range : loopRanges) {
-      // Materializza offset e size in creando delle arith.constand se sono
-      // costanti statiche (mi serve per avere dei Value per il builder sotto)
-      lbs.push_back(
-          mlir::getValueOrCreateConstantIndexOp(rewriter, loc, range.offset));
-      ubs.push_back(
-          mlir::getValueOrCreateConstantIndexOp(rewriter, loc, range.size));
-      // Estrai lo step come int64_t da OpFoldResult
-      int64_t stepVal = 1;
-      if (auto optInt = mlir::getConstantIntValue(range.stride)) {
-        stepVal = *optInt;
-      }
-      steps.push_back(stepVal);
-    }
-
-    // 2. Recupera gli operandi
+    // Recuperiamo gli operandi
     mlir::Value lhs = op.getInputs()[0];
     mlir::Value rhs = op.getInputs()[1];
     mlir::Value out = op.getOutputs()[0];
 
-    // 3. Costruisci il loop nest usando i limiti estratti
-    mlir::affine::buildAffineLoopNest(
-        rewriter, loc, lbs, ubs, steps,
-        [&](mlir::OpBuilder &nestedBuilder, mlir::Location nestedLoc,
-            mlir::ValueRange ivs) {
-          mlir::Value lhsVal = nestedBuilder.create<mlir::affine::AffineLoadOp>(
-              nestedLoc, lhs, ivs);
-          mlir::Value rhsVal = nestedBuilder.create<mlir::affine::AffineLoadOp>(
-              nestedLoc, rhs, ivs);
+    // recuperiamo vari tipi e il numero di lane considerando il tipo degli
+    // operandi
+    Type elemTy = mlir::cast<MemRefType>(lhs.getType()).getElementType();
+    if (!elemTy.isIntOrFloat())
+      return rewriter.notifyMatchFailure(
+          op, "tipo elemento non supportato per vettorizzazione");
+    unsigned bitWidth = elemTy.getIntOrFloatBitWidth();
+    int numLanes = vectorRegisterBits / bitWidth;
+    auto vecTy = mlir::VectorType::get({numLanes}, elemTy);
+    // NB: qua sto hardcodando l'address space della vector memory (4)
+    auto ppuPtrTy = LLVM::LLVMPointerType::get(rewriter.getContext(), 4);
 
-          // Esegui la somma (es. interi)
-          mlir::Value resVal = nestedBuilder.create<mlir::arith::AddIOp>(
-              nestedLoc, lhsVal, rhsVal);
+    // estraiamo dalle memref degli operandi l'alignedPtr
+    Value lhsBase = materializeAlignedPtr(rewriter, loc, lhs, ppuPtrTy);
+    Value rhsBase = materializeAlignedPtr(rewriter, loc, rhs, ppuPtrTy);
+    Value outBase = materializeAlignedPtr(rewriter, loc, out, ppuPtrTy);
 
-          nestedBuilder.create<mlir::affine::AffineStoreOp>(nestedLoc, resVal,
-                                                            out, ivs);
-        });
+    // L'ultima dimensione è quella che vettorizziamo, le altre restano
+    // loop scalari affine come nel pattern originale.
+    mlir::Range innerRange = loopRanges.back();
+    SmallVector<mlir::Range> outerRanges(loopRanges.begin(),
+                                         loopRanges.end() - 1);
+
+    // In questo momento ho un vettore di Range, ma il builder sotto ha bisogno
+    // di vettori separati per lbs, ubs e steps. Me li ricavo scorrendo i range
+    llvm::SmallVector<mlir::Value, 4> outerLbs, outerUbs;
+    llvm::SmallVector<int64_t, 4> outerSteps;
+    for (const auto &range : loopRanges) {
+      // Materializza offset e size in creando delle arith.constant se sono
+      // costanti statiche (mi serve per avere dei Value per il builder sotto)
+      outerLbs.push_back(
+          mlir::getValueOrCreateConstantIndexOp(rewriter, loc, range.offset));
+      outerUbs.push_back(
+          mlir::getValueOrCreateConstantIndexOp(rewriter, loc, range.size));
+      // Estrai lo step come int64_t da range.stride (OpFoldResult)
+      int64_t stepVal = 1;
+      if (auto optInt = mlir::getConstantIntValue(range.stride)) {
+        stepVal = *optInt;
+      }
+      outerSteps.push_back(stepVal);
+    }
+
+    Value innerLb =
+        mlir::getValueOrCreateConstantIndexOp(rewriter, loc, innerRange.offset);
+    Value innerUb =
+        mlir::getValueOrCreateConstantIndexOp(rewriter, loc, innerRange.size);
+
+    // dim_rounded = (dim floordiv 16) * 16, espresso come affine.apply
+    AffineExpr s0 = rewriter.getAffineSymbolExpr(0);
+    AffineMap roundingMap =
+        AffineMap::get(0, 1, {s0.floorDiv(numLanes) * numLanes}, ctx);
+    Value dimRounded = rewriter.create<affine::AffineApplyOp>(
+        loc, roundingMap, ValueRange{innerUb});
+
+    // lambda per la costruzione dell'inner loop
+    auto buildInnerLoops = [&](OpBuilder &b0, Location loc0,
+                               ValueRange outerIvs) {
+      // mappa identità a 1 dimensione: (d0) -> (d0) per gli ub e lb dei loop
+      mlir::AffineMap identityMap = b0.getMultiDimIdentityMap(1);
+
+      // main loop vettorizzato
+      b0.create<affine::AffineForOp>(
+          loc0, innerLb, identityMap, dimRounded, identityMap, numLanes,
+          std::nullopt,
+          [&](OpBuilder &b, Location l, Value iv, ValueRange /* iterArgs */) {
+            SmallVector<Value> idxs(outerIvs.begin(), outerIvs.end());
+            idxs.push_back(iv);
+
+            Value lhsPtr =
+                materializeGEPForAccess(b, l, lhsBase, ppuPtrTy, elemTy, idxs);
+            Value rhsPtr =
+                materializeGEPForAccess(b, l, rhsBase, ppuPtrTy, elemTy, idxs);
+            Value outPtr =
+                materializeGEPForAccess(b, l, outBase, ppuPtrTy, elemTy, idxs);
+
+            Value lhsVec = b.create<ppu::VecLoadOp>(l, vecTy, lhsPtr);
+            Value rhsVec = b.create<ppu::VecLoadOp>(l, vecTy, rhsPtr);
+            Value resVec = b.create<ppu::VecAddOp>(l, vecTy, lhsVec, rhsVec);
+            b.create<ppu::VecStoreOp>(l, resVec, outPtr);
+
+            b.create<affine::AffineYieldOp>(l);
+          });
+
+      // remainder loop scalare
+      b0.create<affine::AffineForOp>(
+          loc0, dimRounded, identityMap, innerUb, identityMap, 1, std::nullopt,
+          [&](OpBuilder &b, Location l, Value iv, ValueRange /* iterArgs */) {
+            SmallVector<Value> idxs(outerIvs.begin(), outerIvs.end());
+            idxs.push_back(iv);
+
+            Value lhsVal = b.create<affine::AffineLoadOp>(l, lhs, idxs);
+            Value rhsVal = b.create<affine::AffineLoadOp>(l, rhs, idxs);
+            Value resVal = b.create<arith::AddIOp>(l, lhsVal, rhsVal);
+            b.create<affine::AffineStoreOp>(l, resVal, out, idxs);
+
+            b.create<affine::AffineYieldOp>(l);
+          });
+    };
+
+    // se ci sono outer-loops usa la utility già pronto per creare il nest
+    // altrimenti usa solo la lambda
+    if (outerRanges.empty()) {
+      buildInnerLoops(rewriter, loc, ValueRange{});
+    } else {
+      mlir::affine::buildAffineLoopNest(
+          rewriter, loc, outerLbs, outerUbs, outerSteps,
+          [&](OpBuilder &nestedBuilder, Location nestedLoc, ValueRange ivs) {
+            buildInnerLoops(nestedBuilder, nestedLoc, ivs);
+          });
+    }
 
     rewriter.eraseOp(op);
-
-    // %intptr =
-    //   memref.extract_aligned_pointer_as_index %arg0 : memref<?xi32> -> index
-    // %1 = arith.index_cast %intptr : index to i64
-    // %2 = llvm.inttoptr %1 : i64 to !llvm.ptr<4>
-    // %3 = arith.index_cast %arg4 : index to i64
-    // %4 = llvm.getelementptr %2[%3] : (!llvm.ptr<4>, i64) -> !llvm.ptr<4>, i32
-    // "ppu.vec_store"(%val, %4) : (vector<16xi32>, !llvm.ptr<4>) -> ()
-
-    // auto extractOp = rewriter.create<memref::ExtractAlignedPointerAsIndexOp>(
-    //     op.getLoc(), op.getSource());
-    // auto indexCastOp = rewriter.create<arith::IndexCastOp>(
-    //     op.getLoc(), rewriter.getI64Type(), extractOp);
-    // // NB: qua stiamo hardcodando l'addrespace(4) della PPU
-    // auto PPUPtrTy = LLVM::LLVMPointerType::get(rewriter.getContext(), 4);
-    // auto basePtr =
-    //     rewriter.create<LLVM::IntToPtrOp>(op.getLoc(), PPUPtrTy,
-    //     indexCastOp);
-
-    // // costruire una GEP è un po' più complicato dato che bisogna gestire
-    // indici
-    // // potenzialmente multidimensionali
-    // auto indices = op.getIndices();
-    // // la GEP vuole vuole interi e non index types
-    // SmallVector<Value> gepIndices;
-    // for (Value idx : indices) {
-    //   auto castedIdx = rewriter.create<arith::IndexCastOp>(
-    //       op.getLoc(), rewriter.getI64Type(), idx);
-    //   gepIndices.push_back(castedIdx);
-    // }
-    // // recuperiamo il tipo di dato puntato dalla memref (si continua a
-    // chiamare
-    // // source e non dest)
-    // Type elemTy = op.getSource().getType().getElementType();
-    // Value finalPtr = basePtr;
-    // if (!gepIndices.empty()) {
-    //   auto gepOp = rewriter.create<LLVM::GEPOp>(op.getLoc(), PPUPtrTy,
-    //   elemTy,
-    //                                             basePtr, gepIndices);
-    //   finalPtr = gepOp.getResult();
-    // }
-
-    // auto ppuVecStoreOp =
-    //     rewriter.create<ppu::VecStoreOp>(op.getLoc(), op.getVector(),
-    //     finalPtr);
-
-    // rewriter.replaceOp(op.getOperation(), ppuVecStoreOp);
 
     return success();
   }
@@ -346,7 +423,7 @@ struct ConvertLinalgToPPUAlgorithm
     ModuleOp module = getOperation();
 
     RewritePatternSet patterns(ctx);
-    patterns.add<ConvertLinalgElementwiseBinary>(ctx);
+    patterns.add<ConvertLinalgAdd>(ctx);
     // Post-order, forward walk traversal of ops (excluding input `op`).
     walkAndApplyPatterns(module, std::move(patterns));
   }

@@ -10,6 +10,9 @@ def PPUInsertVecLoad : Pass<"ppu-insert-vec-load", "::mlir::ModuleOp"> {
     into the module to validate the op definition.
   }];
 
+  // Questo dichiara che questo passo genererà/userà questi dialetti. In questa
+  // maniera il costruttore generato del passo si assicurerà di caricare questi
+  // dialetti prima che il passo esegua.
   let dependentDialects = [
     "mlir::memref::MemRefDialect",
     "mlir::func::FuncDialect"
