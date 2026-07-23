@@ -39,9 +39,41 @@ namespace mlir::ppu {
 #define GEN_PASS_DEF_PPULOWERTOLLVM
 #define GEN_PASS_DEF_CONVERTVECTORTOPPU
 #define GEN_PASS_DEF_CONVERTLINALGTOPPUALGORITHM
+#define GEN_PASS_DEF_PPUADDDLTIINFO
 #include "ppu/PPUPasses.h.inc"
 
 namespace {
+
+//===----------------------------------------------------------------------===//
+// PPUAddDLTIInfo
+//===----------------------------------------------------------------------===//
+
+class PPUAddDLTIInfo : public impl::PPUAddDLTIInfoBase<PPUAddDLTIInfo> {
+public:
+  using impl::PPUAddDLTIInfoBase<PPUAddDLTIInfo>::PPUAddDLTIInfoBase;
+
+  void runOnOperation() override {
+    ModuleOp module = getOperation();
+    MLIRContext *ctx = &getContext();
+    OpBuilder builder(ctx);
+
+    // DLTI Spec per index a 32-bit
+    auto indexType = builder.getIndexType();
+    auto bitwidthAttr = builder.getI32IntegerAttr(32);
+    auto entry = DataLayoutEntryAttr::get(indexType, bitwidthAttr);
+    auto layoutSpec = DataLayoutSpecAttr::get(ctx, {entry});
+    module->setAttr(DLTIDialect::kDataLayoutAttrName, layoutSpec);
+    // target triple
+    module->setAttr(LLVM::LLVMDialect::getTargetTripleAttrName(),
+                    builder.getStringAttr("arc-pc-unknown-gnu"));
+    // LLVM data-layout string
+    module->setAttr(
+        LLVM::LLVMDialect::getDataLayoutAttrName(),
+        builder.getStringAttr("e-m:e-p:32:32-p1:32:32-p3:32:32-p5:32:32-i64:32-"
+                              "f64:32-v64:32-v128:"
+                              "32-a:0:32-v256:32-v512:32-n8:16:32"));
+  }
+};
 
 //===----------------------------------------------------------------------===//
 // PPUInsertVecLoad

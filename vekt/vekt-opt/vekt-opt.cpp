@@ -31,6 +31,7 @@ int main(int argc, char **argv) {
   // specializzazione (con mlir24), vettorizzazione e lowering)
   mlir::PassPipelineRegistration<>(
       "vekt16", "naive vectorization", [](mlir::OpPassManager &pm) {
+        pm.addPass(mlir::ppu::createPPUAddDLTIInfo());
         pm.addPass(mlir::createCanonicalizerPass());
         mlir::affine::AffineVectorizeOptions vectorizeOpts;
         vectorizeOpts.vectorSizes = {16};
