@@ -1,66 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include <stdint.h>
 
 #include <arc_vector.h>
 
+#include "vec_sum.h"
+
 #define N 1024*8
-
-void init_vector(int *a, int dim, int value) {
-  for (int i = 0; i < dim; i++) {
-    a[i] = value;
-  }
-}
-
-void vekt_vec_sum_wrapper(int* a, int* b, int* c, int n) {
-    vekt_vec_sum(
-        a, a, 0, n, 1,
-        b, b, 0, n, 1,
-        c, c, 0, n, 1,
-        n
-    );
-}
-
-// extern void vekt_vec_sum(int* a, int* b, int* c, int n);
-
-void vec_sum(int* a, int* b, int* c, int n) {
-    #pragma clang loop vectorize(disable)
-	for(int i = 0; i < n; i++)
-		c[i] = a[i] + b[i];
-}
-
-extern void vectorized_vec_sum(__vccm int* restrict a, 
-                        __vccm int* restrict b, 
-                        __vccm int* restrict c, 
-                        int n);
-// void vectorized_vec_sum(__vccm int* restrict a, 
-//                         __vccm int* restrict b, 
-//                         __vccm int* restrict c, 
-//                         int n) {
-    
-//     vNint_t va = 0;
-//     vNint_t vb = 0;
-//     vNint_t vc = 0;
-
-//     int lanes = _VDSP_NUM_32BIT_LANES;
-//     int num_vectors = n / lanes;
-
-//     for (int i = 0; i < num_vectors; i++) {
-//         va = vvld(&a[i*lanes]);
-//         vb = vvld(&b[i*lanes]);
-//         vc = vvadd(va, vb);
-//         vvst(vc, &c[i*lanes]);
-//     }
-
-//     // commentiamo via per semplificare l'output
-//     // // loop scalare per la gestione degli ultimi elementi
-//     // int start = num_vectors*lanes;
-//     // int end = start + n%lanes;
-//     // for (int i = start; i < end; i++) {
-// 	// 	c[i] = a[i] + b[i];
-//     // }
-// }
 
 __vccm int a[N];
 __vccm int b[N];
@@ -106,16 +52,31 @@ int main() {
 
     printf("\n");
 
+    /******** versione autovettorizzata ********/
+    printf("Versione autovettorizzata\n");
+
+    init_vector(c, N, -1);
+
+    start = clock();
+    autovectorized_vec_sum(a, b, c, N);
+    end = clock();   
+    double time_autovectorized = ((double)(end-start) / CLOCKS_PER_SEC)*1000; // in ms
+    printf("Tempo di esecuzione di autovectorized_vec_sum: %.2fms\n", time_autovectorized);
+    printf("Speedup: %.2f\n", time_scalar/time_autovectorized);
+    printf("Primi 5 elementi della somma:\n");
+    for (int i = 0; i < 5; i++) {
+        printf("a[%d]=%d, b[%d]=%d, c[%d]=%d\n", i, a[i], i, b[i], i, c[i]);
+    }
+
+    printf("\n");
+
     /******** versione vekt-vettorizzata ********/
     printf("Versione vekt-vettorizzata\n");
-
-    // printf("\tpuntatori array: %p, %p, %p\n", a, b, c);
 
     init_vector(c, N, -1);
 
     start = clock();
     vekt_vec_sum_wrapper(a, b, c, N);
-    // vekt_vec_sum(a, b, c, N);
     end = clock();   
     double time_vekt = ((double)(end-start) / CLOCKS_PER_SEC)*1000; // in ms
     printf("Tempo di esecuzione di autovectorized_vec_sum: %.2fms\n", time_vekt);
