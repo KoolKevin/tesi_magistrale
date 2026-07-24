@@ -1,100 +1,68 @@
 ; ModuleID = 'LLVMDialectModule'
 source_filename = "LLVMDialectModule"
+target datalayout = "e-m:e-p:32:32-p1:32:32-p3:32:32-p5:32:32-i64:32-f64:32-v64:32-v128:32-a:0:32-v256:32-v512:32-n8:16:32"
+target triple = "arc-pc-unknown-gnu"
 
-define void @vec_sum(ptr %0, ptr %1, i64 %2, i64 %3, i64 %4, ptr %5, ptr %6, i64 %7, i64 %8, i64 %9, ptr %10, ptr %11, i64 %12, i64 %13, i64 %14, i32 %15) {
-  ; ricostruzione memref c
-  %17 = insertvalue { ptr, ptr, i64, [1 x i64], [1 x i64] } poison, ptr %10, 0
-  %18 = insertvalue { ptr, ptr, i64, [1 x i64], [1 x i64] } %17, ptr %11, 1
-  %19 = insertvalue { ptr, ptr, i64, [1 x i64], [1 x i64] } %18, i64 %12, 2
-  %20 = insertvalue { ptr, ptr, i64, [1 x i64], [1 x i64] } %19, i64 %13, 3, 0 ; elemento 3 campo 0
-  ; il campo 4 degli strides si vede che non viene mai utilizzato e quindi viene lasciato uninitialized
-  ; ricostruzione memref b
-  %21 = insertvalue { ptr, ptr, i64, [1 x i64], [1 x i64] } poison, ptr %5, 0
-  %22 = insertvalue { ptr, ptr, i64, [1 x i64], [1 x i64] } %21, ptr %6, 1
-  %23 = insertvalue { ptr, ptr, i64, [1 x i64], [1 x i64] } %22, i64 %7, 2
-  %24 = insertvalue { ptr, ptr, i64, [1 x i64], [1 x i64] } %23, i64 %8, 3, 0
-  ; ricostruzione memref a
-  %25 = insertvalue { ptr, ptr, i64, [1 x i64], [1 x i64] } poison, ptr %0, 0
-  %26 = insertvalue { ptr, ptr, i64, [1 x i64], [1 x i64] } %25, ptr %1, 1
-  %27 = insertvalue { ptr, ptr, i64, [1 x i64], [1 x i64] } %26, i64 %2, 2
-  %28 = insertvalue { ptr, ptr, i64, [1 x i64], [1 x i64] } %27, i64 %3, 3, 0
-  %29 = sext i32 %15 to i64
+define void @vec_sum(ptr %0, ptr %1, i32 %2, i32 %3, i32 %4, ptr %5, ptr %6, i32 %7, i32 %8, i32 %9, ptr %10, ptr %11, i32 %12, i32 %13, i32 %14, i32 %15) {
+  %17 = ptrtoint ptr %1 to i32
+  %18 = inttoptr i32 %17 to ptr addrspace(4)
+  %19 = ptrtoint ptr %6 to i32
+  %20 = inttoptr i32 %19 to ptr addrspace(4)
+  %21 = ptrtoint ptr %11 to i32
+  %22 = inttoptr i32 %21 to ptr addrspace(4)
+  %23 = icmp slt i32 %3, 0
+  %24 = sub i32 -1, %3
+  %25 = select i1 %23, i32 %24, i32 %3
+  %26 = sdiv i32 %25, 16
+  %27 = sub i32 -1, %26
+  %28 = select i1 %23, i32 %27, i32 %26
+  %29 = mul nsw i32 %28, 16
   br label %30
 
 30:                                               ; preds = %33, %16
-  %31 = phi i64 [ %67, %33 ], [ 0, %16 ]
-  %32 = icmp slt i64 %31, %29
-  br i1 %32, label %33, label %68
+  %31 = phi i32 [ %40, %33 ], [ 0, %16 ]
+  %32 = icmp slt i32 %31, %29
+  br i1 %32, label %33, label %41
 
 33:                                               ; preds = %30
-  ; sequenza in cui recuperiamo size di a, lo salviamo sullo stack e lo carichiamo
-  ; (viene ottimizzata via con O2 da qualcosa come mem2reg)
-  %34 = extractvalue { ptr, ptr, i64, [1 x i64], [1 x i64] } %28, 3
-  %35 = alloca [1 x i64], i64 1, align 8
-  store [1 x i64] %34, ptr %35, align 4
-  %36 = getelementptr [1 x i64], ptr %35, i32 0, i32 0
-  %37 = load i64, ptr %36, align 4
-  ; qua facciamo remaining = size_a - indice_multiplo_di_16
-  %38 = sub i64 %37, %31
-  %39 = trunc i64 %38 to i32
-  ; qua stiamo costruendo la maschera per fare le operazioni vettoriali
-  ; vettore con remaining in testa
-  %40 = insertelement <16 x i32> poison, i32 %39, i32 0
-  ; broadcast di remaining a tutte le posizioni del vettore
-  %41 = shufflevector <16 x i32> %40, <16 x i32> poison, <16 x i32> zeroinitializer
-  ; se remaining >=16 la maschera conterrà tutti 1, altrimenti avrà delle posizioni invalida marcate con 0
-  %42 = icmp sgt <16 x i32> %41, <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
-  ; masked load di un vettore da a
-  %43 = getelementptr i32, ptr %1, i64 %31 ; a[i]
-  %44 = call <16 x i32> @llvm.masked.load.v16i32.p0(ptr align 4 %43, <16 x i1> %42, <16 x i32> poison)
-
-  ; stessa sequenza per fare load da b
-  %45 = extractvalue { ptr, ptr, i64, [1 x i64], [1 x i64] } %24, 3
-  %46 = alloca [1 x i64], i64 1, align 8
-  store [1 x i64] %45, ptr %46, align 4
-  %47 = getelementptr [1 x i64], ptr %46, i32 0, i32 0
-  %48 = load i64, ptr %47, align 4
-  %49 = sub i64 %48, %31
-  %50 = trunc i64 %49 to i32
-  %51 = insertelement <16 x i32> poison, i32 %50, i32 0
-  %52 = shufflevector <16 x i32> %51, <16 x i32> poison, <16 x i32> zeroinitializer
-  %53 = icmp sgt <16 x i32> %52, <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
-  %54 = getelementptr i32, ptr %6, i64 %31
-  %55 = call <16 x i32> @llvm.masked.load.v16i32.p0(ptr align 4 %54, <16 x i1> %53, <16 x i32> poison)
-
-  ; somma dei due vettori
-  %56 = add <16 x i32> %44, %55
-
-  ; solita sequenza per fare la store del vettore in c
-  %57 = extractvalue { ptr, ptr, i64, [1 x i64], [1 x i64] } %20, 3
-  %58 = alloca [1 x i64], i64 1, align 8
-  store [1 x i64] %57, ptr %58, align 4
-  %59 = getelementptr [1 x i64], ptr %58, i32 0, i32 0
-  %60 = load i64, ptr %59, align 4
-  %61 = sub i64 %60, %31
-  %62 = trunc i64 %61 to i32
-  %63 = insertelement <16 x i32> poison, i32 %62, i32 0
-  %64 = shufflevector <16 x i32> %63, <16 x i32> poison, <16 x i32> zeroinitializer
-  %65 = icmp sgt <16 x i32> %64, <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
-  %66 = getelementptr i32, ptr %11, i64 %31
-  call void @llvm.masked.store.v16i32.p0(<16 x i32> %56, ptr align 4 %66, <16 x i1> %65)
-
-  ; i+=VL e loop
-  %67 = add i64 %31, 16
+  %34 = getelementptr i32, ptr addrspace(4) %18, i32 %31
+  %35 = getelementptr i32, ptr addrspace(4) %20, i32 %31
+  %36 = getelementptr i32, ptr addrspace(4) %22, i32 %31
+  %37 = call <16 x i32> @llvm.arc.vvld.w.v512(ptr addrspace(4) %34)
+  %38 = call <16 x i32> @llvm.arc.vvld.w.v512(ptr addrspace(4) %35)
+  %39 = call <16 x i32> @llvm.arc.vvadd.w.v512(<16 x i32> %37, <16 x i32> %38)
+  call void @llvm.arc.vvst.w.v512(<16 x i32> %39, ptr addrspace(4) %36)
+  %40 = add i32 %31, 16
   br label %30
 
-68:                                               ; preds = %30
+41:                                               ; preds = %30
+  br label %42
+
+42:                                               ; preds = %45, %41
+  %43 = phi i32 [ %52, %45 ], [ %29, %41 ]
+  %44 = icmp slt i32 %43, %3
+  br i1 %44, label %45, label %53
+
+45:                                               ; preds = %42
+  %46 = getelementptr i32, ptr %1, i32 %43
+  %47 = load i32, ptr %46, align 4
+  %48 = getelementptr i32, ptr %6, i32 %43
+  %49 = load i32, ptr %48, align 4
+  %50 = add i32 %47, %49
+  %51 = getelementptr i32, ptr %11, i32 %43
+  store i32 %50, ptr %51, align 4
+  %52 = add i32 %43, 1
+  br label %42
+
+53:                                               ; preds = %42
   ret void
 }
 
-; Function Attrs: nocallback nofree nosync nounwind willreturn memory(argmem: read)
-declare <16 x i32> @llvm.masked.load.v16i32.p0(ptr captures(none), <16 x i1>, <16 x i32>) #0
+declare <16 x i32> @llvm.arc.vvld.w.v512(ptr addrspace(4))
 
-; Function Attrs: nocallback nofree nosync nounwind willreturn memory(argmem: write)
-declare void @llvm.masked.store.v16i32.p0(<16 x i32>, ptr captures(none), <16 x i1>) #1
+declare <16 x i32> @llvm.arc.vvadd.w.v512(<16 x i32>, <16 x i32>)
 
-attributes #0 = { nocallback nofree nosync nounwind willreturn memory(argmem: read) }
-attributes #1 = { nocallback nofree nosync nounwind willreturn memory(argmem: write) }
+declare void @llvm.arc.vvst.w.v512(<16 x i32>, ptr addrspace(4))
 
 !llvm.module.flags = !{!0}
 

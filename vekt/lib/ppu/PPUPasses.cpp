@@ -1,8 +1,10 @@
+#include "mlir/Analysis/DataLayoutAnalysis.h"
 #include "mlir/Dialect/Affine/Analysis/AffineAnalysis.h"
 #include "mlir/Dialect/Affine/IR/AffineValueMap.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/ControlFlow/IR/ControlFlow.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Index/IR/IndexDialect.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
@@ -13,6 +15,7 @@
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Rewrite/FrozenRewritePatternSet.h"
+#include "mlir/Target/LLVMIR/Import.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/WalkPatternRewriteDriver.h"
@@ -22,6 +25,7 @@
 #include "mlir/Conversion/ArithToLLVM/ArithToLLVM.h"
 #include "mlir/Conversion/ControlFlowToLLVM/ControlFlowToLLVM.h"
 #include "mlir/Conversion/FuncToLLVM/ConvertFuncToLLVM.h"
+#include "mlir/Conversion/IndexToLLVM/IndexToLLVM.h"
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"
 #include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
@@ -116,134 +120,6 @@ public:
 // ConvertLinalgToPPUAlgorithm
 //===----------------------------------------------------------------------===//
 
-struct ConvertVectorTransferRead
-    : public OpRewritePattern<mlir::vector::TransferReadOp> {
-
-  ConvertVectorTransferRead(mlir::MLIRContext *context)
-      : OpRewritePattern<mlir::vector::TransferReadOp>(context) {}
-
-  using OpRewritePattern::OpRewritePattern;
-
-  LogicalResult matchAndRewrite(mlir::vector::TransferReadOp op,
-                                PatternRewriter &rewriter) const final {
-
-    // Trasformiamo questo:
-    //
-    // %2 =
-    //   vector.transfer_read %arg0[%arg4], %1 : memref<?xi32>, vector<16xi32>
-    //
-    // In questo:
-    //
-    // %intptr =
-    //   memref.extract_aligned_pointer_as_index %arg0 : memref<?xi32> -> index
-    // %1 = arith.index_cast %intptr : index to i64
-    // %2 = llvm.inttoptr %1 : i64 to !llvm.ptr<4>
-    // %3 = arith.index_cast %arg4 : index to i64
-    // %4 = llvm.getelementptr %2[%3] : (!llvm.ptr<4>, i64) -> !llvm.ptr<4>, i32
-    // %5 = "ppu.vec_load"(%4) : (!llvm.ptr<4>) -> vector<16xi32>
-
-    auto extractOp = rewriter.create<memref::ExtractAlignedPointerAsIndexOp>(
-        op.getLoc(), op.getSource());
-    auto indexCastOp = rewriter.create<arith::IndexCastOp>(
-        op.getLoc(), rewriter.getI64Type(), extractOp);
-    // NB: qua stiamo hardcodando l'addrespace(4) della PPU
-    auto PPUPtrTy = LLVM::LLVMPointerType::get(rewriter.getContext(), 4);
-    auto basePtr =
-        rewriter.create<LLVM::IntToPtrOp>(op.getLoc(), PPUPtrTy, indexCastOp);
-
-    // costruire una GEP è un po' più complicato dato che bisogna gestire indici
-    // potenzialmente multidimensionali
-    auto indices = op.getIndices();
-    // la GEP vuole vuole interi e non index types
-    SmallVector<Value> gepIndices;
-    for (Value idx : indices) {
-      auto castedIdx = rewriter.create<arith::IndexCastOp>(
-          op.getLoc(), rewriter.getI64Type(), idx);
-      gepIndices.push_back(castedIdx);
-    }
-    // recuperiamo il tipo di dato puntato dalla memref
-    Type elemTy = op.getSource().getType().getElementType();
-    Value finalPtr = basePtr;
-    if (!gepIndices.empty()) {
-      auto gepOp = rewriter.create<LLVM::GEPOp>(op.getLoc(), PPUPtrTy, elemTy,
-                                                basePtr, gepIndices);
-      finalPtr = gepOp.getResult();
-    }
-
-    auto vecTy = VectorType::get({16}, elemTy);
-    auto ppuVecLoadOp =
-        rewriter.create<ppu::VecLoadOp>(op.getLoc(), vecTy, finalPtr);
-
-    rewriter.replaceOp(op.getOperation(), ppuVecLoadOp.getRes());
-
-    return success();
-  }
-};
-
-struct ConvertVectorTransferWrite
-    : public OpRewritePattern<mlir::vector::TransferWriteOp> {
-
-  ConvertVectorTransferWrite(mlir::MLIRContext *context)
-      : OpRewritePattern<mlir::vector::TransferWriteOp>(context) {}
-
-  using OpRewritePattern::OpRewritePattern;
-
-  LogicalResult matchAndRewrite(mlir::vector::TransferWriteOp op,
-                                PatternRewriter &rewriter) const final {
-
-    // Trasformiamo questo:
-    //
-    // %2 =
-    //   vector.transfer_write %5, %arg2[%arg4] : vector<16xi32>, memref<?xi32>
-    //
-    // In questo:
-    //
-    // %intptr =
-    //   memref.extract_aligned_pointer_as_index %arg0 : memref<?xi32> -> index
-    // %1 = arith.index_cast %intptr : index to i64
-    // %2 = llvm.inttoptr %1 : i64 to !llvm.ptr<4>
-    // %3 = arith.index_cast %arg4 : index to i64
-    // %4 = llvm.getelementptr %2[%3] : (!llvm.ptr<4>, i64) -> !llvm.ptr<4>, i32
-    // "ppu.vec_store"(%val, %4) : (vector<16xi32>, !llvm.ptr<4>) -> ()
-
-    auto extractOp = rewriter.create<memref::ExtractAlignedPointerAsIndexOp>(
-        op.getLoc(), op.getSource());
-    auto indexCastOp = rewriter.create<arith::IndexCastOp>(
-        op.getLoc(), rewriter.getI64Type(), extractOp);
-    // NB: qua stiamo hardcodando l'addrespace(4) della PPU
-    auto PPUPtrTy = LLVM::LLVMPointerType::get(rewriter.getContext(), 4);
-    auto basePtr =
-        rewriter.create<LLVM::IntToPtrOp>(op.getLoc(), PPUPtrTy, indexCastOp);
-
-    // costruire una GEP è un po' più complicato dato che bisogna gestire indici
-    // potenzialmente multidimensionali
-    auto indices = op.getIndices();
-    // la GEP vuole vuole interi e non index types
-    SmallVector<Value> gepIndices;
-    for (Value idx : indices) {
-      auto castedIdx = rewriter.create<arith::IndexCastOp>(
-          op.getLoc(), rewriter.getI64Type(), idx);
-      gepIndices.push_back(castedIdx);
-    }
-    // recuperiamo il tipo di dato puntato dalla memref (si continua a chiamare
-    // source e non dest)
-    Type elemTy = op.getSource().getType().getElementType();
-    Value finalPtr = basePtr;
-    if (!gepIndices.empty()) {
-      auto gepOp = rewriter.create<LLVM::GEPOp>(op.getLoc(), PPUPtrTy, elemTy,
-                                                basePtr, gepIndices);
-      finalPtr = gepOp.getResult();
-    }
-
-    auto ppuVecStoreOp =
-        rewriter.create<ppu::VecStoreOp>(op.getLoc(), op.getVector(), finalPtr);
-
-    rewriter.replaceOp(op.getOperation(), ppuVecStoreOp);
-
-    return success();
-  }
-};
-
 // HELPER utili per ottenere un puntatore da cui fare load/store con ppu ops a
 // partire da una memref
 //
@@ -266,7 +142,7 @@ Value materializeAlignedPtr(PatternRewriter &rewriter, Location loc,
   auto extractOp =
       rewriter.create<memref::ExtractAlignedPointerAsIndexOp>(loc, memref);
   auto indexCastOp = rewriter.create<arith::IndexCastOp>(
-      loc, rewriter.getI64Type(), extractOp);
+      loc, rewriter.getI32Type(), extractOp);
   auto alignedPtr = rewriter.create<LLVM::IntToPtrOp>(loc, ptrTy, indexCastOp);
 
   return alignedPtr;
@@ -472,16 +348,23 @@ struct PPULowerToLLVM : impl::PPULowerToLLVMBase<PPULowerToLLVM> {
     MLIRContext *context = &getContext();
     ModuleOp module = getOperation();
 
+    // leggiamo le dlti del modulo e le passiamo come opzioni al type converter
+    // usato dai pattern di conversion verso llvm
+    mlir::DataLayout mlirDL(module);
+    LowerToLLVMOptions options(context, mlirDL);
+    // options.overrideIndexBitwidth(32); // posso forzare invece che leggere
+    LLVMTypeConverter typeConverter(&getContext(), options);
+    // llvm::errs() << "\tDEBUG:\t index bitwidth = "
+    //              << typeConverter.getIndexTypeBitwidth() << "\n";
+
     ConversionTarget target(*context);
     target.addLegalDialect<LLVM::LLVMDialect>();
     target.addLegalDialect<ppu::PPUDialect>();
     // target.addLegalOp<ModuleOp>(); // not doing a full conversion
     target.addIllegalDialect<arith::ArithDialect, scf::SCFDialect,
                              cf::ControlFlowDialect, func::FuncDialect,
-                             memref::MemRefDialect, vector::VectorDialect>();
-
-    // During this lowering, we will also be lowering the MemRef types.
-    LLVMTypeConverter typeConverter(&getContext());
+                             memref::MemRefDialect, vector::VectorDialect,
+                             index::IndexDialect>();
 
     // NB: l'ordine con cui popolo i pattern non conta! Molto meglio rispetto a
     // fare un lowering manuale con una pass pipeline come facevo prima
@@ -490,6 +373,7 @@ struct PPULowerToLLVM : impl::PPULowerToLLVMBase<PPULowerToLLVM> {
     populateSCFToControlFlowConversionPatterns(patterns);
     ub::populateUBToLLVMConversionPatterns(typeConverter, patterns);
     arith::populateArithToLLVMConversionPatterns(typeConverter, patterns);
+    index::populateIndexToLLVMConversionPatterns(typeConverter, patterns);
     populateFinalizeMemRefToLLVMConversionPatterns(typeConverter, patterns);
     cf::populateControlFlowToLLVMConversionPatterns(typeConverter, patterns);
     // TODO: il lowering di memrefs con dimensione dinamica non è ammesso anche

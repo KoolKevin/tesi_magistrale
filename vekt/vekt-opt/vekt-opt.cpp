@@ -1,4 +1,5 @@
 #include "mlir/Dialect/Affine/Passes.h"
+#include "mlir/Dialect/Linalg/Passes.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/InitAllDialects.h"
 #include "mlir/InitAllPasses.h"
@@ -33,19 +34,17 @@ int main(int argc, char **argv) {
       "vekt16", "naive vectorization", [](mlir::OpPassManager &pm) {
         pm.addPass(mlir::ppu::createPPUAddDLTIInfo());
         pm.addPass(mlir::createCanonicalizerPass());
-        mlir::affine::AffineVectorizeOptions vectorizeOpts;
-        vectorizeOpts.vectorSizes = {16};
-        pm.addPass(mlir::affine::createAffineVectorize(vectorizeOpts));
 
-        // il lowering di memrefs con dimensione dinamica non è ammesso 😭​
-        // https://mlir.llvm.org/doxygen/LLVMCommon_2TypeConverter_8cpp_source.html#l00593
-        // funcToLLVMOpts.useBarePtrCallConv = false;
-        // pm.addPass(mlir::createConvertFuncToLLVMPass(funcToLLVMOpts));
+        pm.addPass(mlir::ppu::createPPUNormalizeIterargsReductions());
+        pm.addPass(mlir::ppu::createPPURaiseAffineToLinalgGeneric());
 
-        // uso questo passo invece di aggiungere i suoi pattern in quello sotto
-        // dato che non riesco a farlo funzionare ;)
+        // NB: questo fa schifo
+        pm.addPass(mlir::createLinalgSpecializeGenericOpsPass());
+
         pm.addPass(mlir::ppu::createConvertLinalgToPPUAlgorithm());
         pm.addPass(mlir::createCanonicalizerPass()); // importante
+        // uso questo passo invece di aggiungere i suoi pattern in quello sotto
+        // dato che non riesco a farlo funzionare ;)
         pm.addPass(mlir::createConvertVectorToLLVMPass());
         pm.addPass(mlir::ppu::createPPULowerToLLVM());
 
