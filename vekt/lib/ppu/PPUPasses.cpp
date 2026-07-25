@@ -170,6 +170,8 @@ Value materializeGEPForAccess(OpBuilder &builder, Location loc, Value basePtr,
 // TODO: questo cambia tra PPU diverse e quindi andrebbe reso configurabile
 const int vectorRegisterBits = 512;
 
+// TODO: invege di generare un loop nest di uguale rank possiamo usare un unico
+// loop
 struct ConvertLinalgAdd : public OpRewritePattern<mlir::linalg::AddOp> {
 
   ConvertLinalgAdd(mlir::MLIRContext *context)

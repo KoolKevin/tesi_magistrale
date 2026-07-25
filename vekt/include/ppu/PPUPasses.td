@@ -3,6 +3,22 @@
 
 include "mlir/Pass/PassBase.td"
 
+def PPUInsertVecLoad : Pass<"ppu-insert-vec-load", "::mlir::ModuleOp"> {
+  let summary = "Insert a fake ppu.vec_load op for debugging";
+  let description = [{
+    This pass inserts a dummy a ppu.vec_load op and a memref as its argument
+    into the module to validate the op definition.
+  }];
+
+  // Questo dichiara che questo passo dipende da questi dialetti (~= genera ops
+  // di questi dialetti). In questa maniera il costruttore generato del passo si
+  // assicurerà di caricare questi dialetti prima che il passo esegua.
+  let dependentDialects = [
+    "mlir::memref::MemRefDialect",
+    "mlir::func::FuncDialect"
+  ];
+}
+
 def PPUAddDLTIInfo : Pass<"ppu-add-dlti-info", "::mlir::ModuleOp"> {
   let summary = "aggiunge le informazioni di data-layout per la ppu al modulo mlir";
   let description = [{
@@ -17,28 +33,10 @@ def PPUAddDLTIInfo : Pass<"ppu-add-dlti-info", "::mlir::ModuleOp"> {
   ];
 }
 
-
-def PPUInsertVecLoad : Pass<"ppu-insert-vec-load", "::mlir::ModuleOp"> {
-  let summary = "Insert a fake ppu.vec_load op for debugging";
-  let description = [{
-    This pass inserts a dummy a ppu.vec_load op and a memref as its argument
-    into the module to validate the op definition.
-  }];
-
-  // Questo dichiara che questo passo genererà/userà questi dialetti. In questa
-  // maniera il costruttore generato del passo si assicurerà di caricare questi
-  // dialetti prima che il passo esegua.
-  let dependentDialects = [
-    "mlir::memref::MemRefDialect",
-    "mlir::func::FuncDialect"
-  ];
-}
-
 def PPURaiseAffineToLinalgGeneric: Pass<"ppu-raise-affine-to-linalg-generic", "::mlir::ModuleOp"> {
-  let summary = "Effettua il raising di un loop nest affine perfetto nella "
-                "versione equivalente espressa da linalg.generic. Inoltre, "
-                "aggiunge alle memref con size dinamica generate da Polygeist, "
-                "i valori per i loro campo 'sizes'";
+  let summary = "Effettua il raising di un loop nest affine nella versione "
+                "equivalente espressa da linalg.generic.";
+
   let description = [{
     Il passo esegue le seguenti macro-operazioni logiche:
 
@@ -203,13 +201,29 @@ def PPUNormalizeIterargsReductions: Pass<"ppu-normalize-iterargs-reductions", ":
   ];
 }
 
+def PPUSpecializeLinalgGeneric: Pass<"ppu-specialize-linalg-generic", "::mlir::ModuleOp"> {
+  let summary = "Passo che specializza le linalg.generic ops in una versione"
+                "named. Gestisce i casi che mi interessano non gestiti dal"
+                "passo già presente di linalg";
+
+  let description = [{
+    Casi gestiti in più:
+
+    - linalg.dotp
+  }];
+
+  let dependentDialects = [
+    "mlir::linalg::LinalgDialect"
+  ];
+}
+
 def ConvertLinalgToPPUAlgorithm: Pass<"convert-linalg-to-ppu-algorithm", "::mlir::ModuleOp"> {
   let summary = "Effettua il lowering di alcune linalg ops ad algoritmi vettorizzati destinati alla PPU";
   let description = [{
     Il lowering consiste nel sostituire la linalg op con:
 
     - Affine ops per il control flow
-    - PPU ops per la computzione e il caricamento dei registri vettoriali
+    - PPU ops per la computazione e il caricamento dei registri vettoriali
 
     In caso di memref con dimensione dimanica si effettua anche uno splitting del
     loop in un main loop vettorizzato e un remainder loop scalare.

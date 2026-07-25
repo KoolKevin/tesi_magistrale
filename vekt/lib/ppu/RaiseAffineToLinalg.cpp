@@ -19,6 +19,7 @@ namespace mlir::ppu {
 
 #define GEN_PASS_DEF_PPURAISEAFFINETOLINALGGENERIC
 #define GEN_PASS_DEF_PPUNORMALIZEITERARGSREDUCTIONS
+#define GEN_PASS_DEF_PPUSPECIALIZELINALGGENERIC
 #include "ppu/PPUPasses.h.inc"
 
 namespace {
@@ -720,9 +721,9 @@ struct LinalgGenericOpInfo {
 //   // - shape con TUTTE le dimensioni dinamiche nel tipo per semplicità
 //   //    - tanto, probabilmente lo erano già e sizes porta comunque
 //   //    l'informazione e -canonicalize aggiusterà dove possibile
-//   // TODO: risultato dinamico sempre e comunque
-//   // TODO: materializza un sacco di costanti
-//   // TODO: stasha i changes e vedi se le sizes c'erano già con VLA
+//   // todo: risultato dinamico sempre e comunque
+//   // todo: materializza un sacco di costanti
+//   // todo: stasha i changes e vedi se le sizes c'erano già con VLA
 //   SmallVector<int64_t> dynamicStrides(rank, ShapedType::kDynamic);
 //   auto layout = StridedLayoutAttr::get(builder.getContext(), 0,
 //   dynamicStrides); auto resultTy =
@@ -976,6 +977,71 @@ struct PPURaiseAffineToLinalgGeneric
     RewritePatternSet patterns(ctx);
     patterns.add<ConvertAffineLoopNestToLinalgGeneric>(ctx);
     // Post-order, forward walk traversal of ops (excluding input `op`).
+    walkAndApplyPatterns(module, std::move(patterns));
+  }
+};
+
+//===----------------------------------------------------------------------===//
+// PPURaiseAffineToLinalgGeneric
+//===----------------------------------------------------------------------===//
+
+struct ConvertGenericToDotp : public OpRewritePattern<mlir::linalg::GenericOp> {
+
+  ConvertGenericToDotp(mlir::MLIRContext *context)
+      : OpRewritePattern<mlir::linalg::GenericOp>(context) {}
+
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(mlir::linalg::GenericOp op,
+                                PatternRewriter &rewriter) const final {
+    // NB: Utilizziamo un interfaccia già pronta per verificare
+    // - mul + add body
+    //   - con anche tutte le varianti di tipo gestite
+    // - projected-permutation indexing maps
+    //   - solo permutazioni degli iteratori; no +1, *2 etc.
+    // - 2 ins and 1 out
+    //
+    // Da mlir/include/mlir/Dialect/Linalg/IR/LinalgInterfaces.td:
+    //
+    // "A Linalg contraction is defined in general terms:
+    //  1. Has 2 input and 1 output shapes.
+    //  2. Has at least one reduction dimension.
+    //  3. Has only projected permutation indexing maps.
+    //  4. its body computes `u5(u1(c) + u2(u3(a) * u4(b)))` on some field
+    //  (AddOpType, MulOpType), where u1, u2, u3, u4 and u5 represent scalar
+    //  unary operations that may change the type (e.g. for mixed-precision)."
+    if (!isaContractionOpInterface(op))
+      return rewriter.notifyMatchFailure(op, "not a contraction");
+
+    // un dotp è una contraction con solamente una reduction dimension
+    // (questo implicitamente controlla anche che il rango degli operandi sia 1)
+    if (op.getNumParallelLoops() != 0 || op.getNumReductionLoops() != 1)
+      return rewriter.notifyMatchFailure(op, "not a dotp contraction");
+
+    // una dotp ha due identity indexingMaps per i vettori di input, e una
+    // indexingMap vuota per lo scalare di output
+    auto maps = op.getIndexingMapsArray();
+    if (!maps[0].isIdentity() || !maps[1].isIdentity() ||
+        maps[2].getNumResults() != 0)
+      return rewriter.notifyMatchFailure(op, "indexing map sbagliate");
+
+    rewriter.replaceOpWithNewOp<linalg::DotOp>(op, op.getDpsInputs(),
+                                               op.getDpsInits());
+
+    return success();
+  }
+};
+
+struct PPUSpecializeLinalgGeneric
+    : impl::PPUSpecializeLinalgGenericBase<PPUSpecializeLinalgGeneric> {
+  using PPUSpecializeLinalgGenericBase::PPUSpecializeLinalgGenericBase;
+
+  void runOnOperation() override {
+    MLIRContext *ctx = &getContext();
+    ModuleOp module = getOperation();
+
+    RewritePatternSet patterns(ctx);
+    patterns.add<ConvertGenericToDotp>(ctx);
     walkAndApplyPatterns(module, std::move(patterns));
   }
 };
