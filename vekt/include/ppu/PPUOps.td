@@ -187,7 +187,7 @@ def PPU_AccToVecOp: PPU_Op<"acc_to_vec", [Pure, SameOperandsAndResultType]> {
     }];
 
     let arguments = (ins
-        AnyVectorOfAnyRank:$acc,
+        AnyVectorOfAnyRank:$acc
     );
     let results = (outs AnyVectorOfAnyRank:$res);
 }

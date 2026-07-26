@@ -361,10 +361,18 @@ struct ConvertLinalgDot : public OpRewritePattern<mlir::linalg::DotOp> {
     // NB: qua sto hardcodando l'address space della vector memory (4)
     auto ppuPtrTy = LLVM::LLVMPointerType::get(rewriter.getContext(), 4);
 
+    // costruiamo un registro accumulatore inizializzato a 0 (devo costruire
+    // anche una costante di inizializzazione piena di zeri da usare come arg)
+    Value zero = rewriter.create<arith::ConstantOp>(
+        loc, vecTy, rewriter.getZeroAttr(vecTy));
+    auto accumulator =
+        rewriter.create<ppu::VecMpyLowAccOp>(loc, vecTy, zero, zero);
+
     // estraiamo dalle memref degli operandi l'alignedPtr
     Value lhsBase = materializeAlignedPtr(rewriter, loc, lhs, ppuPtrTy);
     Value rhsBase = materializeAlignedPtr(rewriter, loc, rhs, ppuPtrTy);
-    Value outBase = materializeAlignedPtr(rewriter, loc, out, ppuPtrTy);
+    // TODO: togli
+    // Value outBase = materializeAlignedPtr(rewriter, loc, out, ppuPtrTy);
 
     // Materializza offset e size in creando delle arith.constant se sono
     // costanti statiche (mi serve per avere dei Value per il builder sotto)
@@ -382,9 +390,10 @@ struct ConvertLinalgDot : public OpRewritePattern<mlir::linalg::DotOp> {
     mlir::AffineMap identityMap = rewriter.getMultiDimIdentityMap(1);
 
     // main loop vettorizzato
-    rewriter.create<affine::AffineForOp>(
-        loc, lb, identityMap, dimRounded, identityMap, numLanes, std::nullopt,
-        [&](OpBuilder &b, Location l, Value iv, ValueRange /* iterArgs */) {
+    affine::AffineForOp mainLoop = rewriter.create<affine::AffineForOp>(
+        loc, lb, identityMap, dimRounded, identityMap, numLanes,
+        ValueRange{accumulator},
+        [&](OpBuilder &b, Location l, Value iv, ValueRange acc) {
           Value lhsPtr =
               materializeGEPForAccess(b, l, lhsBase, ppuPtrTy, elemTy, iv);
           Value rhsPtr =
@@ -393,25 +402,29 @@ struct ConvertLinalgDot : public OpRewritePattern<mlir::linalg::DotOp> {
 
           Value lhsVec = b.create<ppu::VecLoadOp>(l, vecTy, lhsPtr);
           Value rhsVec = b.create<ppu::VecLoadOp>(l, vecTy, rhsPtr);
-          Value resVec = b.create<ppu::VecAddOp>(l, vecTy, lhsVec, rhsVec);
-          b.create<ppu::VecStoreOp>(l, resVec, outBase);
+          Value mac = b.create<ppu::VecMACLowOp>(l, acc[0], lhsVec, rhsVec);
 
-          b.create<affine::AffineYieldOp>(l);
+          b.create<affine::AffineYieldOp>(l, mac);
         });
+
+    auto reductionOp =
+        rewriter.create<ppu::VecReduceAddOp>(loc, mainLoop->getResults()[0]);
 
     // remainder loop scalare
-    rewriter.create<affine::AffineForOp>(
-        loc, dimRounded, identityMap, lb, identityMap, 1, std::nullopt,
-        [&](OpBuilder &b, Location l, Value iv, ValueRange /* iterArgs */) {
+    affine::AffineForOp remainderLoop = rewriter.create<affine::AffineForOp>(
+        loc, dimRounded, identityMap, ub, identityMap, 1,
+        ValueRange{reductionOp},
+        [&](OpBuilder &b, Location l, Value iv, ValueRange acc) {
           Value lhsVal = b.create<affine::AffineLoadOp>(l, lhs, iv);
           Value rhsVal = b.create<affine::AffineLoadOp>(l, rhs, iv);
-          Value resVal = b.create<arith::AddIOp>(l, lhsVal, rhsVal);
-          // niente indici dato che scriviamo uno scalare
-          b.create<affine::AffineStoreOp>(l, resVal, out, ValueRange{});
+          Value mulVal = b.create<arith::MulIOp>(l, lhsVal, rhsVal);
+          Value macVal = b.create<arith::AddIOp>(l, acc[0], mulVal);
 
-          b.create<affine::AffineYieldOp>(l);
+          b.create<affine::AffineYieldOp>(l, macVal);
         });
 
+    rewriter.create<affine::AffineStoreOp>(loc, remainderLoop->getResults()[0],
+                                           out, ValueRange{});
     rewriter.eraseOp(op);
 
     return success();

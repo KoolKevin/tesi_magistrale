@@ -4,5 +4,6 @@
     "mlir.pdll_server_path": "/usr/local/bin/mlir-pdll-lsp-server",
     "mlir.tablegen_compilation_databases": [
         "/home/kevin/Git_learning_repos/tesi_magistrale/vekt/build/tablegen_compile_commands.yml"
-    ]
+    ],
+    "cmake.sourceDirectory": "/home/kevin/Git_learning_repos/tesi_magistrale/vekt"
 }

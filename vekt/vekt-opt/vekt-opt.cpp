@@ -37,18 +37,22 @@ int main(int argc, char **argv) {
 
         pm.addPass(mlir::ppu::createPPUNormalizeIterargsReductions());
         pm.addPass(mlir::ppu::createPPURaiseAffineToLinalgGeneric());
-        // NB: questo fa schifo
+        // NB: questo fa schifo e quindi lo devo complementare con il mio passo
         pm.addPass(mlir::createLinalgSpecializeGenericOpsPass());
+        pm.addPass(mlir::ppu::createPPUSpecializeLinalgGeneric());
         pm.addPass(mlir::ppu::createConvertLinalgToPPUAlgorithm());
-        pm.addPass(mlir::createCanonicalizerPass()); // importante
+        // cleanup intermedio importante dato che introduco costanti e
+        // load/store ridondanti sopra
+        pm.addPass(mlir::createCanonicalizerPass());
 
         // loweriamo ad llvm
         pm.addPass(mlir::createConvertLinalgToAffineLoopsPass());
         pm.addPass(mlir::createConvertVectorToLLVMPass());
         pm.addPass(mlir::ppu::createPPULowerToLLVM());
 
-        // cleanup
+        // cleanup finale
         pm.addPass(mlir::createCanonicalizerPass());
+        pm.addPass(mlir::createMem2Reg());
         pm.addPass(mlir::createSCCPPass());
         pm.addPass(mlir::createCSEPass());
         pm.addPass(mlir::createSymbolDCEPass());
