@@ -37,14 +37,13 @@ int main(int argc, char **argv) {
 
         pm.addPass(mlir::ppu::createPPUNormalizeIterargsReductions());
         pm.addPass(mlir::ppu::createPPURaiseAffineToLinalgGeneric());
-
         // NB: questo fa schifo
         pm.addPass(mlir::createLinalgSpecializeGenericOpsPass());
-
         pm.addPass(mlir::ppu::createConvertLinalgToPPUAlgorithm());
         pm.addPass(mlir::createCanonicalizerPass()); // importante
-        // uso questo passo invece di aggiungere i suoi pattern in quello sotto
-        // dato che non riesco a farlo funzionare ;)
+
+        // loweriamo ad llvm
+        pm.addPass(mlir::createConvertLinalgToAffineLoopsPass());
         pm.addPass(mlir::createConvertVectorToLLVMPass());
         pm.addPass(mlir::ppu::createPPULowerToLLVM());
 

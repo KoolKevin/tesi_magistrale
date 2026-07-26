@@ -317,6 +317,107 @@ struct ConvertLinalgAdd : public OpRewritePattern<mlir::linalg::AddOp> {
   }
 };
 
+struct ConvertLinalgDot : public OpRewritePattern<mlir::linalg::DotOp> {
+
+  ConvertLinalgDot(mlir::MLIRContext *context)
+      : OpRewritePattern<mlir::linalg::DotOp>(context) {}
+
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(mlir::linalg::DotOp op,
+                                PatternRewriter &rewriter) const final {
+
+    MLIRContext *ctx = rewriter.getContext();
+    mlir::Location loc = op.getLoc();
+
+    // recuperiamo i ranges dei loop (start, stop, step)
+    auto linalgOp = ::llvm::cast<mlir::linalg::LinalgOp>(op.getOperation());
+    // createLoopRanges() è un utility che analizza le shape degli operandi e le
+    // indexing_maps della linalg-op per estrarre i range (start, stop, step)
+    // (== (offset, size, stride)) dello spazio di iterazione.
+    // NB: Supporta automaticamente anche dimensioni dinamiche materializzando
+    // delle memref.dim ops
+    mlir::SmallVector<mlir::Range> loopRanges =
+        linalgOp.createLoopRanges(rewriter, loc);
+    if (loopRanges.size() != 1)
+      return rewriter.notifyMatchFailure(op,
+                                         "panico, dotp ha più di un loop?!");
+    auto range = loopRanges[0];
+
+    // Recuperiamo gli operandi
+    mlir::Value lhs = op.getInputs()[0];
+    mlir::Value rhs = op.getInputs()[1];
+    mlir::Value out = op.getOutputs()[0];
+
+    // recuperiamo vari tipi e il numero di lane considerando il tipo degli
+    // operandi
+    Type elemTy = mlir::cast<MemRefType>(lhs.getType()).getElementType();
+    if (!elemTy.isIntOrFloat())
+      return rewriter.notifyMatchFailure(
+          op, "tipo elemento non supportato per vettorizzazione");
+    unsigned bitWidth = elemTy.getIntOrFloatBitWidth();
+    int numLanes = vectorRegisterBits / bitWidth;
+    auto vecTy = mlir::VectorType::get({numLanes}, elemTy);
+    // NB: qua sto hardcodando l'address space della vector memory (4)
+    auto ppuPtrTy = LLVM::LLVMPointerType::get(rewriter.getContext(), 4);
+
+    // estraiamo dalle memref degli operandi l'alignedPtr
+    Value lhsBase = materializeAlignedPtr(rewriter, loc, lhs, ppuPtrTy);
+    Value rhsBase = materializeAlignedPtr(rewriter, loc, rhs, ppuPtrTy);
+    Value outBase = materializeAlignedPtr(rewriter, loc, out, ppuPtrTy);
+
+    // Materializza offset e size in creando delle arith.constant se sono
+    // costanti statiche (mi serve per avere dei Value per il builder sotto)
+    Value lb =
+        mlir::getValueOrCreateConstantIndexOp(rewriter, loc, range.offset);
+    Value ub = mlir::getValueOrCreateConstantIndexOp(rewriter, loc, range.size);
+    // dim_rounded = (dim floordiv 16) * 16, espresso come affine.apply
+    AffineExpr s0 = rewriter.getAffineSymbolExpr(0);
+    AffineMap roundingMap =
+        AffineMap::get(0, 1, {s0.floorDiv(numLanes) * numLanes}, ctx);
+    Value dimRounded = rewriter.create<affine::AffineApplyOp>(loc, roundingMap,
+                                                              ValueRange{ub});
+
+    // mappa identità a 1 dimensione: (d0) -> (d0) per gli ub e lb dei loop
+    mlir::AffineMap identityMap = rewriter.getMultiDimIdentityMap(1);
+
+    // main loop vettorizzato
+    rewriter.create<affine::AffineForOp>(
+        loc, lb, identityMap, dimRounded, identityMap, numLanes, std::nullopt,
+        [&](OpBuilder &b, Location l, Value iv, ValueRange /* iterArgs */) {
+          Value lhsPtr =
+              materializeGEPForAccess(b, l, lhsBase, ppuPtrTy, elemTy, iv);
+          Value rhsPtr =
+              materializeGEPForAccess(b, l, rhsBase, ppuPtrTy, elemTy, iv);
+          // per il dotproduct outPtr == outBase siccome scriviamo uno scalare
+
+          Value lhsVec = b.create<ppu::VecLoadOp>(l, vecTy, lhsPtr);
+          Value rhsVec = b.create<ppu::VecLoadOp>(l, vecTy, rhsPtr);
+          Value resVec = b.create<ppu::VecAddOp>(l, vecTy, lhsVec, rhsVec);
+          b.create<ppu::VecStoreOp>(l, resVec, outBase);
+
+          b.create<affine::AffineYieldOp>(l);
+        });
+
+    // remainder loop scalare
+    rewriter.create<affine::AffineForOp>(
+        loc, dimRounded, identityMap, lb, identityMap, 1, std::nullopt,
+        [&](OpBuilder &b, Location l, Value iv, ValueRange /* iterArgs */) {
+          Value lhsVal = b.create<affine::AffineLoadOp>(l, lhs, iv);
+          Value rhsVal = b.create<affine::AffineLoadOp>(l, rhs, iv);
+          Value resVal = b.create<arith::AddIOp>(l, lhsVal, rhsVal);
+          // niente indici dato che scriviamo uno scalare
+          b.create<affine::AffineStoreOp>(l, resVal, out, ValueRange{});
+
+          b.create<affine::AffineYieldOp>(l);
+        });
+
+    rewriter.eraseOp(op);
+
+    return success();
+  }
+};
+
 struct ConvertLinalgToPPUAlgorithm
     : impl::ConvertLinalgToPPUAlgorithmBase<ConvertLinalgToPPUAlgorithm> {
   using ConvertLinalgToPPUAlgorithmBase::ConvertLinalgToPPUAlgorithmBase;
@@ -333,7 +434,7 @@ struct ConvertLinalgToPPUAlgorithm
     ModuleOp module = getOperation();
 
     RewritePatternSet patterns(ctx);
-    patterns.add<ConvertLinalgAdd>(ctx);
+    patterns.add<ConvertLinalgAdd, ConvertLinalgDot>(ctx);
     // Post-order, forward walk traversal of ops (excluding input `op`).
     walkAndApplyPatterns(module, std::move(patterns));
   }
