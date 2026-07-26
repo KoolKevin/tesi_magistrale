@@ -10,54 +10,20 @@ include "mlir/Dialect/LLVMIR/LLVMOpBase.td"
 include "mlir/Interfaces/InferTypeOpInterface.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 
-//===----------------------------------------------------------------------===//
-// FooOp
-//===----------------------------------------------------------------------===//
 
-def PPU_FooOp : PPU_Op<"foo", [Pure, SameOperandsAndResultType]> {
-    let summary = "Illustrates how to define an operation.";
-    let description = [{
-        The `ppu.foo` operation illustrates how to define a new
-        operation in a dialect. It uses an operation trait to declare that it
-        has no side effects.
-
-        This operation takes an integer argument and returns an integer.
-
-        Example:
-
-        ```mlir
-        %0 = arith.constant 2 : i32
-        // Apply the foo operation to %0
-        %1 = standalone.foo %0 : i32
-        ```
-    }];
-
-    let arguments = (ins I32:$input);
-    let results = (outs I32:$res);
-
-    let assemblyFormat = [{
-        $input attr-dict `:` type($input)
-    }];
-}
+// TODO: aggiungi supporto (tramite attributi?) per tipi di dato diversi da int
+// e per dimensioni del registro diverse dai full 512 bit
+// TODO: sarebbe bene modellare l'addrspace(4) che qualifica i puntatori come
+// _vccm pointer
+// TODO: sarebbe bene aggiustare anche i tipi dei vettori ammessi (rank 1,
+// 8/16/32/64 elementi)
 
 //===----------------------------------------------------------------------===//
 // VecLoadOp
 //===----------------------------------------------------------------------===//
 
-// TODO: completa aggiungendo attributi per la dimensione del registro e
-// dimensione del tipo di dato
-// TODO: capisci meglio come vengono gestiti i tipi di dato. Le load vettoriali
-// della ppu sembrano semplicemente preoccuparsi della dimensione in bit dell'
-// elemento (b, h, w, d), sono poi le istruzioni successive a definire come
-// interpretare gli elementi nelle lane (ad esempio se faccio vvadd sto facendo
-// una somma vettoriale tra interi, mentre se faccio vvfadd sto facendo una
-// somma tra float). Nella llvm-ir però, il tipo sembra esserci e quindi forse
-// lo devo propagare anche io.
-// TODO: vedi se è necessario modellare il 'addrspace(4)' che dice che l'input è
-// un _vccm pointer
 def PPU_VecLoadOp : PPU_Op<"vec_load", [Pure]> {
     let summary = "Load di un registro vettoriale della PPU";
-    // TODO: aggiusta anche la descrizione quando completi l'op
     let description = [{
         Per adesso modella ESATTAMENTE questo intrinseco llvm-ir:
 
@@ -75,32 +41,16 @@ def PPU_VecLoadOp : PPU_Op<"vec_load", [Pure]> {
         ```
     }];
 
-    let arguments = (ins AnyTypeOf<[AnyMemRef, LLVM_AnyPointer]>:$src);
+    let arguments = (ins LLVM_AnyPointer:$src);
     let results = (outs AnyVectorOfAnyRank:$res);
-
-    // let assemblyFormat = [{
-    //     $src attr-dict `:` type($res)
-    // }];
 }
 
 //===----------------------------------------------------------------------===//
 // VecStoreOp
 //===----------------------------------------------------------------------===//
 
-// TODO: completa aggiungendo attributi per la dimensione del registro e
-// dimensione del tipo di dato
-// TODO: capisci meglio come vengono gestiti i tipi di dato. Le load vettoriali
-// della ppu sembrano semplicemente preoccuparsi della dimensione in bit dell'
-// elemento (b, h, w, d), sono poi le istruzioni successive a definire come
-// interpretare gli elementi nelle lane (ad esempio se faccio vvadd sto facendo
-// una somma vettoriale tra interi, mentre se faccio vvfadd sto facendo una
-// somma tra float). Nella llvm-ir però, il tipo sembra esserci e quindi forse
-// lo devo propagare anche io.
-// TODO: vedi se è necessario modellare il 'addrspace(4)' che dice che l'input è
-// un _vccm pointer
 def PPU_VecStoreOp : PPU_Op<"vec_store", []> {
     let summary = "Store di un registro vettoriale della PPU";
-    // TODO: aggiusta anche la descrizione quando completi l'op
     let description = [{
         Per adesso modella ESATTAMENTE questo intrinseco llvm-ir:
 
@@ -121,12 +71,8 @@ def PPU_VecStoreOp : PPU_Op<"vec_store", []> {
 
     let arguments = (ins
         AnyVectorOfAnyRank:$vecToStore,
-        AnyTypeOf<[AnyMemRef, LLVM_AnyPointer]>:$dest
+        LLVM_AnyPointer:$dest
     );
-
-    // let assemblyFormat = [{
-    //     $src attr-dict `:` type($res)
-    // }];
 }
 
 
@@ -134,20 +80,9 @@ def PPU_VecStoreOp : PPU_Op<"vec_store", []> {
 // VecAddOp
 //===----------------------------------------------------------------------===//
 
-// TODO: completa aggiungendo attributi per la dimensione del registro e
-// dimensione del tipo di dato
-// TODO: capisci meglio come vengono gestiti i tipi di dato. Le load vettoriali
-// della ppu sembrano semplicemente preoccuparsi della dimensione in bit dell'
-// elemento (b, h, w, d), sono poi le istruzioni successive a definire come
-// interpretare gli elementi nelle lane (ad esempio se faccio vvadd sto facendo
-// una somma vettoriale tra interi, mentre se faccio vvfadd sto facendo una
-// somma tra float). Nella llvm-ir però, il tipo sembra esserci e quindi forse
-// lo devo propagare anche io.
-// TODO: vedi se è necessario modellare il 'addrspace(4)' che dice che l'input è
-// un _vccm pointer
+
 def PPU_VecAddOp : PPU_Op<"vec_add", [Pure, SameOperandsAndResultType]> {
     let summary = "Somma due registri vettoriali della PPU";
-    // TODO: aggiusta anche la descrizione quando completi l'op
     let description = [{
         Per adesso modella ESATTAMENTE questo intrinseco llvm-ir:
 
@@ -172,16 +107,90 @@ def PPU_VecAddOp : PPU_Op<"vec_add", [Pure, SameOperandsAndResultType]> {
         AnyVectorOfAnyRank:$arg2
     );
     let results = (outs AnyVectorOfAnyRank:$res);
-
-    // let assemblyFormat = [{
-    //     $src attr-dict `:` type($res)
-    // }];
 }
 
+//===----------------------------------------------------------------------===//
+// VecReduceAddOp
+//===----------------------------------------------------------------------===//
 
+def PPU_VecReduceAddOp : PPU_Op<"vec_reduce_add", [Pure]> {
+    let summary = "Somma gli elementi di un registro vettoriale";
 
+    let description = [{
+        Per adesso modella ESATTAMENTE questo intrinseco llvm-ir:
 
+        %25 = tail call i32 @llvm.vector.reduce.add.v16i32(<16 x i32> %rdx73)
+    }];
 
+    let arguments = (ins
+        AnyVectorOfAnyRank:$arg1
+    );
+    let results = (outs I32:$res);
+}
+
+//===----------------------------------------------------------------------===//
+// VecMpyLowAccOp
+//===----------------------------------------------------------------------===//
+
+def PPU_VecMpyLowAccOp: PPU_Op<"vec_mpy_low_acc", [Pure, SameOperandsAndResultType]> {
+    let summary = "Moltiplicazione element-wise di due registri vettoriali"
+                  " contenenti INTERI; il risultato viene salvato in un"
+                  " registro accumulatore";
+
+    let description = [{
+        Per adesso modella ESATTAMENTE questo intrinseco llvm-ir:
+
+        %0 = tail call <16 x i32> @llvm.arc.vvcmpy.lo.acc.w.v512(<16 x i32> zeroinitializer, <16 x i32> zeroinitializer)
+    }];
+
+    let arguments = (ins
+        AnyVectorOfAnyRank:$arg1,
+        AnyVectorOfAnyRank:$arg2
+    );
+    let results = (outs AnyVectorOfAnyRank:$res);
+}
+
+//===----------------------------------------------------------------------===//
+// VecMACLowOp
+//===----------------------------------------------------------------------===//
+
+def PPU_VecMACLowOp: PPU_Op<"vec_mac_low", [Pure, SameOperandsAndResultType]> {
+    let summary = "Moltiplicazione element-wise di due registri vettoriali fusa"
+                  " alla somma con un registro accumulatore; dati INTERI";
+
+    let description = [{
+        Per adesso modella ESATTAMENTE questo intrinseco llvm-ir:
+
+        %35 = tail call <16 x i32> @llvm.arc.vvcmac.lo.acc.w.v512(<16 x i32> %acc.sroa.0.056, <16 x i32> %33, <16 x i32> %34)
+    }];
+
+    let arguments = (ins
+        AnyVectorOfAnyRank:$acc,
+        AnyVectorOfAnyRank:$arg1,
+        AnyVectorOfAnyRank:$arg2
+    );
+    let results = (outs AnyVectorOfAnyRank:$res);
+}
+
+//===----------------------------------------------------------------------===//
+// AccToVecOp
+//===----------------------------------------------------------------------===//
+
+def PPU_AccToVecOp: PPU_Op<"acc_to_vec", [Pure, SameOperandsAndResultType]> {
+    let summary = "converte un registro accumulatore in un registro vettoriale"
+                  "senza bit di guardia; dati interi";
+
+    let description = [{
+        Per adesso modella ESATTAMENTE questo intrinseco llvm-ir:
+
+        %5 = tail call <16 x i32> @llvm.arc.acc.to.vec.w.v512(<16 x i32> %4)
+    }];
+
+    let arguments = (ins
+        AnyVectorOfAnyRank:$acc,
+    );
+    let results = (outs AnyVectorOfAnyRank:$res);
+}
 
 
 #endif // PPU_OPS
