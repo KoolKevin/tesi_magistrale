@@ -1,61 +1,41 @@
 # Vector sum
 
-Compilato con -O2:
+**Compilato con -O2**
 
-- Versione sequenziale
-    - Tempo di esecuzione: 32.83ms
-- Versione vettorizzato a mano
-    - Tempo di esecuzione: 2.12ms
-    - Speedup: 15.47
-- Versione autovettorizzata
-    - Tempo di esecuzione: 1.61ms
-    - Speedup: 20.40
-- Versione vekt-vettorizzata
-    - Tempo di esecuzione: 2.18ms
-    - Speedup: 15.08
+| Versione | Tempo di esecuzione | Speedup |
+|---|---:|---:|
+| Sequenziale | 32.83 ms | 1.00× |
+| Vettorizzata a mano | 2.12 ms | 15.47× |
+| Autovettorizzata | 1.61 ms | 20.40× |
+| Vekt-vettorizzata | 2.18 ms | 15.08× |
 
 -> NB: loop unrolling permette di fare software pipelining
 
-Versione senza loop unrolling (-fno-unroll-loops):
+**Versione senza loop unrolling (-fno-unroll-loops)**
 
-- Versione sequenziale
-    -  Tempo di esecuzione di vec_sum: 32.83ms
-- Versione vettorizata a mano
-    - Tempo di esecuzione: 2.12ms
-    - Speedup: 15.47
-- Versione autovettorizzata
-    - Tempo di esecuzione: 2.12ms
-    - Speedup: 15.48
-- Versione vekt-vettorizzata
-    - Tempo di esecuzione: 2.18ms
-    - Speedup: 15.07
+| Versione | Tempo di esecuzione | Speedup |
+|---|---:|---:|
+| Sequenziale | 32.83 ms | 1.00× |
+| Vettorizzata a mano | 2.12 ms | 15.47× |
+| Autovettorizzata | 2.12 ms | 15.48× |
+| Vekt-vettorizzata | 2.18 ms | 15.07× |
 
 # Dotp
 
-Compilato con -O2
+**Compilato con -O2**
 
-- Versione sequenziale
-    - Tempo di esecuzione: 24.66ms
-- Versione vettorizzata a mano
-    - Tempo di esecuzione: 1.61ms
-    - Speedup: 15.29
-- Versione autovettorizzata
-    - Tempo di esecuzione: 1.24ms
-    - Speedup: 19.93
-- Versione vekt-vettorizzata
-    - Tempo di esecuzione: 1.66ms
-    - Speedup: 14.87
+| Versione | Tempo di esecuzione | Speedup |
+|---|---:|---:|
+| Sequenziale | 24.66 ms | 1.00× |
+| Vettorizzata a mano | 1.61 ms | 15.29× |
+| Autovettorizzata | 1.24 ms | 19.93× |
+| Vekt-vettorizzata | 1.66 ms | 14.87× |
 
-Versione senza loop unrolling (-fno-unroll-loops):
+**Versione senza loop unrolling (-fno-unroll-loops)**
 
-- Versione sequenziale
-    - Tempo di esecuzione: 24.64ms
-- Versione vettorizzata a mano
-    - Tempo di esecuzione: 1.61ms
-    - Speedup: 15.27
-- Versione autovettorizzata
-    - Tempo di esecuzione: 1.62ms
-    - Speedup: 15.23
-- Versione vekt-vettorizzata
-    - Tempo di esecuzione: 1.66ms
-    - Speedup: 14.86
+| Versione | Tempo di esecuzione | Speedup |
+|---|---:|---:|
+| Sequenziale | 24.64 ms | 1.00× |
+| Vettorizzata a mano | 1.61 ms | 15.27× |
+| Autovettorizzata | 1.62 ms | 15.23× |
+| Vekt-vettorizzata | 1.66 ms | 14.86× |
