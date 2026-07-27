@@ -19,7 +19,7 @@ void check_result(int* A, int* B, int M, int N) {
         }
     }
 
-    printf("SUCCESSO! Le matrici sono uguali");
+    printf("SUCCESSO! Le matrici sono uguali\n");
 }
 
 int* copy_matrix(int* dst, int* src, int M, int N) {
