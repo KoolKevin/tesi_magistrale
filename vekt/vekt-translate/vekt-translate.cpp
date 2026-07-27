@@ -24,6 +24,7 @@ static mlir::TranslateFromMLIRRegistration registration(
     // this lambda registers the dialects that need to be known to parse the
     // input mlir that is being translated
     [](mlir::DialectRegistry &registry) {
+      // TODO: qua dovrei registrare solo llvmDialect
       mlir::registerAllDialects(registry);
       registry.insert<mlir::ppu::PPUDialect>();
       // registriamo anche le interfacce che definiscono come effettuare la

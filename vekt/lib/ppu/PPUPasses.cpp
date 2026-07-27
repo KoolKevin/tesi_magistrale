@@ -371,8 +371,6 @@ struct ConvertLinalgDot : public OpRewritePattern<mlir::linalg::DotOp> {
     // estraiamo dalle memref degli operandi l'alignedPtr
     Value lhsBase = materializeAlignedPtr(rewriter, loc, lhs, ppuPtrTy);
     Value rhsBase = materializeAlignedPtr(rewriter, loc, rhs, ppuPtrTy);
-    // TODO: togli
-    // Value outBase = materializeAlignedPtr(rewriter, loc, out, ppuPtrTy);
 
     // Materializza offset e size in creando delle arith.constant se sono
     // costanti statiche (mi serve per avere dei Value per il builder sotto)

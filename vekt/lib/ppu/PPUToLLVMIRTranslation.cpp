@@ -25,7 +25,8 @@ convertVecLoad(VecLoadOp &vecLoad, llvm::IRBuilderBase &builder,
   // Creiamo una chiamata alla funzione intrinseca:
   //  -> %13 = call <16 x i32> @llvm.arc.vvld.w.v512(ptr addrspace(4) %12)
 
-  // TODO: guarda meglio che cos'è uno scalable vector
+  // bello il supporto per scalable vectors (vector<[16]xi32> == 16 x vscale
+  // interi con vscale uguale ad una costante hardware (pensa a RVV))
   llvm::Type *resultTy =
       llvm::VectorType::get(llvm::Type::getInt32Ty(ctx), 16, false);
   llvm::Type *ptrTy = llvm::PointerType::get(ctx, 4);
@@ -35,14 +36,6 @@ convertVecLoad(VecLoadOp &vecLoad, llvm::IRBuilderBase &builder,
   // modulo se non esiste già
   llvm::FunctionCallee callee =
       module->getOrInsertFunction("llvm.arc.vvld.w.v512", funcTy);
-  // ppu.vec_load può accettare sia una memref che un llvm.ptr.  Una memref
-  // dovrebbe essere già stata lowerata prima di arrivare qua dato che non è
-  // traducibile direttamente.
-  if (isa<MemRefType>(vecLoad.getSrc().getType())) {
-    return vecLoad.emitError(
-        "l'argomento di ppu.vec_load deve essere lowerato a "
-        "llvm.ptr prima della traduzione");
-  }
   // NB: quando arriviamo a tradurre ppu.vec_load, il suo operando %src è già
   // stato tradotto dalla visita di qualche op precedente e il suo
   // llvm::Value* corrispondente è già in mappa pronto ad essere recuperato
@@ -55,6 +48,7 @@ convertVecLoad(VecLoadOp &vecLoad, llvm::IRBuilderBase &builder,
   llvm::CallInst *call = builder.CreateCall(callee, {ptr});
   // aggiungiamo anche il mapping per la chiamata appena creata
   moduleTranslation.mapValue(vecLoad.getRes(), call);
+
   return success();
 }
 
@@ -76,10 +70,6 @@ convertVecStore(VecStoreOp &vecStore, llvm::IRBuilderBase &builder,
       llvm::FunctionType::get(voidTy, {vectorTy, ptrTy}, false);
   llvm::FunctionCallee callee =
       module->getOrInsertFunction("llvm.arc.vvst.w.v512", funcTy);
-  if (isa<MemRefType>(vecStore.getDest().getType()))
-    return vecStore.emitError(
-        "l'argomento dest di ppu.vec_store deve essere lowerato a "
-        "llvm.ptr prima della traduzione");
 
   llvm::Value *vec = moduleTranslation.lookupValue(vecStore.getVecToStore());
   llvm::Value *ptr = moduleTranslation.lookupValue(vecStore.getDest());
@@ -118,6 +108,90 @@ static LogicalResult convertVecAdd(VecAddOp &vecAdd,
   return success();
 }
 
+static LogicalResult
+convertVecMpyLowAcc(VecMpyLowAccOp &vecMpy, llvm::IRBuilderBase &builder,
+                    LLVM::ModuleTranslation &moduleTranslation) {
+
+  llvm::Module *module = builder.GetInsertBlock()->getModule();
+  llvm::LLVMContext &ctx = module->getContext();
+
+  // Creiamo una chiamata alla funzione intrinseca:
+  // %0 = tail call <16 x i32> @llvm.arc.vvcmpy.lo.acc.w.v512(
+  //    <16 x i32> %1, <16x i32> %2)
+
+  llvm::Type *vectorTy =
+      llvm::VectorType::get(llvm::Type::getInt32Ty(ctx), 16, false);
+  llvm::FunctionType *funcTy =
+      llvm::FunctionType::get(vectorTy, {vectorTy, vectorTy}, false);
+  llvm::FunctionCallee callee =
+      module->getOrInsertFunction("llvm.arc.vvcmpy.lo.acc.w.v512", funcTy);
+
+  llvm::Value *arg1 = moduleTranslation.lookupValue(vecMpy.getArg1());
+  llvm::Value *arg2 = moduleTranslation.lookupValue(vecMpy.getArg2());
+  llvm::CallInst *call = builder.CreateCall(callee, {arg1, arg2});
+
+  moduleTranslation.mapValue(vecMpy.getRes(), call);
+
+  return success();
+}
+
+static LogicalResult
+convertVecMACLow(VecMACLowOp &vecMAC, llvm::IRBuilderBase &builder,
+                 LLVM::ModuleTranslation &moduleTranslation) {
+
+  llvm::Module *module = builder.GetInsertBlock()->getModule();
+  llvm::LLVMContext &ctx = module->getContext();
+
+  // Creiamo una chiamata alla funzione intrinseca:
+  // %35 = tail call <16 x i32> @llvm.arc.vvcmac.lo.acc.w.v512(
+  //    <16 x i32> %acc, <16 x i32> %33, <16 x i32> %34)
+
+  llvm::Type *vectorTy =
+      llvm::VectorType::get(llvm::Type::getInt32Ty(ctx), 16, false);
+  llvm::FunctionType *funcTy =
+      llvm::FunctionType::get(vectorTy, {vectorTy, vectorTy, vectorTy}, false);
+  llvm::FunctionCallee callee =
+      module->getOrInsertFunction("llvm.arc.vvcmac.lo.acc.w.v512", funcTy);
+
+  llvm::Value *acc = moduleTranslation.lookupValue(vecMAC.getAcc());
+  llvm::Value *arg1 = moduleTranslation.lookupValue(vecMAC.getArg1());
+  llvm::Value *arg2 = moduleTranslation.lookupValue(vecMAC.getArg2());
+  llvm::CallInst *call = builder.CreateCall(callee, {acc, arg1, arg2});
+
+  moduleTranslation.mapValue(vecMAC.getRes(), call);
+
+  return success();
+}
+
+static LogicalResult
+convertVecReduceAdd(VecReduceAddOp &vecReduceAdd, llvm::IRBuilderBase &builder,
+                    LLVM::ModuleTranslation &moduleTranslation) {
+
+  llvm::Module *module = builder.GetInsertBlock()->getModule();
+  llvm::LLVMContext &ctx = module->getContext();
+
+  // Creiamo una chiamata alla funzione intrinseca:
+  // %25 = tail call i32 @llvm.vector.reduce.add.v16i32(<16 x i32> %rdx73)
+
+  llvm::Type *intTy = llvm::Type::getInt32Ty(ctx);
+  llvm::Type *vectorTy = llvm::VectorType::get(intTy, 16, false);
+  llvm::FunctionType *funcTy =
+      llvm::FunctionType::get(intTy, {vectorTy}, false);
+  // NB: qua sto chiamando un intrinseco LLVM e non della ppu; qust'ultimo viene
+  // legalizzato in una tree reduction usando istruzioni per la ppu. Non ho
+  // trovato un intrinseco singolo che me lo faccia in un colpo solo e quindi
+  // faccio così (anche l'autovettorizzatore fa così)
+  llvm::FunctionCallee callee =
+      module->getOrInsertFunction("llvm.vector.reduce.add.v16i32", funcTy);
+
+  llvm::Value *arg1 = moduleTranslation.lookupValue(vecReduceAdd.getArg1());
+  llvm::CallInst *call = builder.CreateCall(callee, {arg1});
+
+  moduleTranslation.mapValue(vecReduceAdd.getRes(), call);
+
+  return success();
+}
+
 namespace {
 
 class PPUDialectLLVMIRTranslationInterface
@@ -126,7 +200,7 @@ public:
   using LLVMTranslationDialectInterface::LLVMTranslationDialectInterface;
 
   // L'argomento ModuleTranslation mantiene una mappa bidirezionale tra
-  // valori/BB/funzioni MLIR e LLVM-IR, costruita mano a mano che la
+  // valori/BB/funzioni MLIR e LLVM-IR; viene costruita mano a mano che la
   // traduzione procede. Quando 'translateModuleToLLVMIR' (la funzione chiamata
   // in vekt-translate.cpp per esportare llvm dialect in llvm-ir) visita le op,
   // ogni op tradotta registra i suoi risultati nella mappa. Questa mappa è
@@ -138,16 +212,22 @@ public:
 
     return TypeSwitch<Operation *, LogicalResult>(op)
         .Case<VecLoadOp>([&](VecLoadOp vecLoad) {
-          // ... la tua implementazione attuale
           return convertVecLoad(vecLoad, builder, moduleTranslation);
         })
         .Case<VecStoreOp>([&](VecStoreOp vecStore) {
-          // ...
           return convertVecStore(vecStore, builder, moduleTranslation);
         })
         .Case<VecAddOp>([&](VecAddOp vecAdd) {
-          // ...
           return convertVecAdd(vecAdd, builder, moduleTranslation);
+        })
+        .Case<VecMpyLowAccOp>([&](VecMpyLowAccOp vecMpy) {
+          return convertVecMpyLowAcc(vecMpy, builder, moduleTranslation);
+        })
+        .Case<VecMACLowOp>([&](VecMACLowOp vecMAC) {
+          return convertVecMACLow(vecMAC, builder, moduleTranslation);
+        })
+        .Case<VecReduceAddOp>([&](VecReduceAddOp vecReduceAdd) {
+          return convertVecReduceAdd(vecReduceAdd, builder, moduleTranslation);
         })
         .Default([](Operation *op) {
           return op->emitError(
@@ -161,12 +241,12 @@ public:
 
 } // namespace
 
-// Questo metodo registra una callback che viene eseguita quando il dialetto
-// specificato viene caricato nel contesto della traduzione. La callback
-// aggiunge A RUNTIME (strano) l'interfaccia che specifica come tradurre il
-// dialetto in llvm-ir.
+// Questo metodo registra una callback che viene eseguita dall'oggetto
+// 'TranslateFromMLIRRegistration' in vekt-translate.cpp. La callback aggiunge
+// a runtime l'interfaccia che specifica come tradurre il dialetto in llvm-ir.
+//
 // "This interface is what 'translateModuleToLLVMIR' queries when it walks the
-// ops and needs to know how to convert them to LLVM IR".
+// (ppu) ops and needs to know how to convert them to LLVM IR".
 void mlir::registerPPUDialectTranslation(DialectRegistry &registry) {
   registry.addExtension(+[](MLIRContext *ctx, PPUDialect *dialect) {
     dialect->addInterfaces<PPUDialectLLVMIRTranslationInterface>();
