@@ -1,6 +1,6 @@
 # Vector sum
 
-**Compilato con -O2**
+**Compilato con -O3**
 
 | Versione            |    Tempo | Speedup | Tempo (no unrolling) | Speedup (no unrolling) |
 |---------------------|---------:|--------:|---------------------:|-----------------------:|
@@ -14,7 +14,7 @@
 
 # Dotp
 
-**Compilato con -O2**
+**Compilato con -O3**
 
 | Versione            |    Tempo | Speedup | Tempo (no unrolling) | Speedup (no unrolling) |
 |---------------------|---------:|--------:|---------------------:|-----------------------:|
@@ -22,3 +22,14 @@
 | Vettorizzata a mano |  1.61 ms |  15.29× |              1.61 ms |                 15.27× |
 | Autovettorizzata    |  1.24 ms |  19.93× |              1.62 ms |                 15.23× |
 | Vekt-vettorizzata   |  1.66 ms |  14.87× |              1.66 ms |                 14.86× |
+
+# Matmul
+
+**Compilato con -O3**
+
+| Versione            |    Tempo | Speedup | Tempo (no unrolling) | Speedup (no unrolling) |
+|---------------------|---------:|--------:|---------------------:|-----------------------:|
+| Sequenziale         | 154.91ms |   1.00× |            154.91 ms |                  1.00× |
+| Vettorizzata a mano |  11.32ms |  13.69× |             11.29 ms |                 13.72× |
+| Autovettorizzata    | 120.07ms |   1.29× |            120.08 ms |                  1.29× |
+| Vekt-vettorizzata   |  11.36ms |  13.63× |             11.43 ms |                 13.55× |

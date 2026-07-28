@@ -27,11 +27,15 @@ void autovectorized_matmul(__vccm int* restrict A,
                            int N,
                            int K); 
 
-// TODO: aggiusta la firma di sizes e strides
-extern void vekt_matmul(int* a_alloc, int* a_align, int a_offset, int a_size, int a_stride,
-                    int* b_alloc, int* b_align, int b_offset, int b_size, int b_stride,
-                    int* c_alloc, int* c_align, int c_offset, int c_size, int c_stride,
-                    int M, int N, int K);
+extern void vekt_matmul(
+    int M, int N, int K,
+    int* a_alloc, int* a_align, int a_offset,
+    int a_size_1, int a_size_2, int a_stride_1, int a_stride_2,
+    int* b_alloc, int* b_align, int b_offset,
+    int b_size_1, int b_size_2, int b_stride_1, int b_stride_2,
+    int* c_alloc, int* c_align, int c_offset,
+    int c_size_1, int c_size_2, int c_stride_1, int c_stride_2
+    );
 
 void vekt_matmul_wrapper(int* a, int* b, int* c, int M, int N, int K);
 

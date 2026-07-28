@@ -137,12 +137,11 @@ void autovectorized_matmul(__vccm int* restrict A,
     }
 }
 
-// TODO: aggiusta i parametri
 void vekt_matmul_wrapper(int* a, int* b, int* c, int M, int N, int K) {
     vekt_matmul(
-        a, a, 0, n, 1,
-        b, b, 0, n, 1,
-        c, c, 0, n, 1,
-        n
+        M, N, K,
+        a, a, 0, M, K, K, 1,
+        b, b, 0, K, N, N, 1,
+        c, c, 0, M, N, N, 1
     );
 }

@@ -2,8 +2,8 @@ CC = ccac
 ARCH = -tcf=ev71_vfpu
 
 HEADERS = -Hvdsp_vector_c
-OPT = -O2
-# OPT = -O2 -fno-unroll-loops
+OPT = -O3
+# OPT = -O3 -fno-unroll-loops
 AUTOVEC = -fvectorize -fslp-vectorize -ffast-math
 AUTOVECTORIZATION_DEBUG_FLAGS = -Rpass=loop-vectorize -Rpass-missed=loop-vectorize -Rpass-analysis=loop-vectorize
 

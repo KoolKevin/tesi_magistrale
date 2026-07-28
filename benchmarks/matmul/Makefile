@@ -2,7 +2,7 @@ CC = ccac
 ARCH = -tcf=ev71_vfpu
 
 HEADERS = -Hvdsp_vector_c
-OPT = -O2
+OPT = -O3
 AUTOVEC = -fvectorize -fslp-vectorize -ffast-math
 DEBUG_FLAGS = -Rpass=loop-vectorize -Rpass-missed=loop-vectorize -Rpass-analysis=loop-vectorize
 
