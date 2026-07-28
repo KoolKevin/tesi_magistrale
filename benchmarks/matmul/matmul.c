@@ -108,9 +108,10 @@ void vectorized_matmul(__vccm int* restrict A,
     }
 
     // remainder loop scalare
-    for (int j = N_rounded; j < N; j++) {
-        // Ciclo sulle righe di C
-        for (int i = 0; i < M; i++) {
+
+    // Ciclo sulle righe di C
+    for (int i = 0; i < M; i++) {
+        for (int j = N_rounded; j < N; j++) {
             int acc = 0;
             // Ciclo sulla dimensione interna K (somma degli outer product)
             for (int k = 0; k < K; k++) {
