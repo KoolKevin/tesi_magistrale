@@ -245,6 +245,7 @@ def ConvertLinalgToPPUAlgorithm: Pass<"convert-linalg-to-ppu-algorithm", "::mlir
     "mlir::ppu::PPUDialect",
     "mlir::LLVM::LLVMDialect",
     "mlir::arith::ArithDialect",
+    "mlir::vector::VectorDialect"
   ];
 }
 
