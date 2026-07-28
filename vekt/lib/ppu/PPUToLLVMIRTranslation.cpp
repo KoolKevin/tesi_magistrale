@@ -192,6 +192,31 @@ convertVecReduceAdd(VecReduceAddOp &vecReduceAdd, llvm::IRBuilderBase &builder,
   return success();
 }
 
+static LogicalResult
+convertAccToVec(AccToVecOp &accToVec, llvm::IRBuilderBase &builder,
+                LLVM::ModuleTranslation &moduleTranslation) {
+
+  llvm::Module *module = builder.GetInsertBlock()->getModule();
+  llvm::LLVMContext &ctx = module->getContext();
+
+  // Creiamo una chiamata alla funzione intrinseca:
+  // %5 = tail call <16 x i32> @llvm.arc.acc.to.vec.w.v512(<16 x i32> %4)
+
+  llvm::Type *vectorTy =
+      llvm::VectorType::get(llvm::Type::getInt32Ty(ctx), 16, false);
+  llvm::FunctionType *funcTy =
+      llvm::FunctionType::get(vectorTy, {vectorTy}, false);
+  llvm::FunctionCallee callee =
+      module->getOrInsertFunction("llvm.arc.acc.to.vec.w.v512", funcTy);
+
+  llvm::Value *acc = moduleTranslation.lookupValue(accToVec.getAcc());
+  llvm::CallInst *call = builder.CreateCall(callee, {acc});
+
+  moduleTranslation.mapValue(accToVec.getRes(), call);
+
+  return success();
+}
+
 namespace {
 
 class PPUDialectLLVMIRTranslationInterface
@@ -228,6 +253,9 @@ public:
         })
         .Case<VecReduceAddOp>([&](VecReduceAddOp vecReduceAdd) {
           return convertVecReduceAdd(vecReduceAdd, builder, moduleTranslation);
+        })
+        .Case<AccToVecOp>([&](AccToVecOp accToVec) {
+          return convertAccToVec(accToVec, builder, moduleTranslation);
         })
         .Default([](Operation *op) {
           return op->emitError(
