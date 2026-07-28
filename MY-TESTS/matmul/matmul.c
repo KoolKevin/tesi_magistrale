@@ -76,12 +76,13 @@ void vectorized_matmul(__vccm int* restrict A,
                        int N,
                        int K) {
 
-    // Ciclo sulle colonne di B da un vettore all'altro
     int lanes = _VDSP_NUM_32BIT_LANES;
     int N_rounded = (N/lanes) * lanes;
-    for (int j_vec = 0; j_vec < N_rounded; j_vec += lanes) {
-        // Ciclo sulle righe di C
-        for (int i = 0; i < M; i++) {
+
+    // Ciclo sulle righe di C
+    for (int i = 0; i < M; i++) {
+        // Ciclo sulle colonne di B da un vettore all'altro
+        for (int j_vec = 0; j_vec < N_rounded; j_vec += lanes) {
             // Inizializzazione dell'accumulatore a zero tramite intrinseco
             // di moltiplicazione (purtroppo non ho vdsp=5 e quindi non ho 
             // vvcmov(0))
@@ -93,9 +94,10 @@ void vectorized_matmul(__vccm int* restrict A,
                 // Recupero lo scalare A[i][k] con cui moltiplicare l'intera
                 // riga B[k], un vettore B[k][j] alla volta
                 int scalarA = A[i*K + k];
-                // vvcmac_lo() esegue un broadcast implicito di scalarA.
-                // Moltiplica scalarA per ogni elemento di vecB_row 
-                // e accumula in acc.
+                // vvcmac_lo() esegue un broadcast implicito di scalarA
+                // (l'istruzione assembly ha un registro scalare come 
+                // operando). Moltiplica scalarA per ogni elemento di
+                // vecB_row e accumula in acc.
                 acc = vvcmac_lo(acc, vecB_row, scalarA);
             }
             // Store finale del vettore in C[i][j].
