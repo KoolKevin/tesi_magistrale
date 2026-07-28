@@ -76,12 +76,13 @@ void vectorized_matmul(__vccm int* restrict A,
                        int N,
                        int K) {
 
-    // Ciclo sulle colonne di B da un vettore all'altro
     int lanes = _VDSP_NUM_32BIT_LANES;
     int N_rounded = (N/lanes) * lanes;
-    for (int j_vec = 0; j_vec < N_rounded; j_vec += lanes) {
-        // Ciclo sulle righe di C
-        for (int i = 0; i < M; i++) {
+
+    // Ciclo sulle righe di A == righe di C
+    for (int i = 0; i < M; i++) {
+        // Ciclo sulle colonne di B da un vettore all'altro
+        for (int j_vec = 0; j_vec < N_rounded; j_vec += lanes) {
             // Inizializzazione dell'accumulatore a zero tramite intrinseco
             // di moltiplicazione (purtroppo non ho vdsp=5 e quindi non ho 
             // vvcmov(0))
