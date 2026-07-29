@@ -14,7 +14,7 @@
 // K è la dimensione comune
 #define M 33
 #define K 33
-#define N 33 // N == 1 è un caso importante dato che elimina accessi strided a B
+#define N 33
 
 __vccm int a[M * K];
 __vccm int b[K * N];

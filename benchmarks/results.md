@@ -33,3 +33,11 @@
 | Vettorizzata a mano |  11.32ms |  13.69× |             11.29 ms |                 13.72× |
 | Autovettorizzata    | 120.07ms |   1.29× |            120.08 ms |                  1.29× |
 | Vekt-vettorizzata   |  11.36ms |  13.63× |             11.43 ms |                 13.55× |
+
+NB: questi risultati sono stati ottenuti con matrici quadrate 33x33. Con dimensioni multiple di VL, ottengo speedup di circa 20 (no remainder loop sequenziale)
+
+NB: autovettorizzatore vettorizza solo se N==1, altrimenti esegue in maniera scalare
+
+# Conv1d
+
+NB: autovettorizzatore vettorizza il loop interno (dotproduct vettorizzata per ogni elemento di output). Scalare se il kernel è piccolo (< 8) 
