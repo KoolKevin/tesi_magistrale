@@ -6,8 +6,8 @@
 
 #include "conv1d.h"
 
-#define K 9
-#define N_in 32
+#define K 3
+#define N_in 1024
 #define N_out (N_in - (K-1))
 
 __vccm int in[N_in];
@@ -15,7 +15,9 @@ __vccm int out[N_out];
 __vccm int kernel[K];
 
 int main() {
-    init_vector(in, N_in, 1);
+    for (int i=0; i < N_in; i++) {
+        in[i] = i % 10;
+    }
     init_vector(out, N_out, 0);
     init_vector(kernel, K, 1);
 

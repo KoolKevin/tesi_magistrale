@@ -29,3 +29,16 @@ in sostanza, l'autovettorizzatore ha vettorizzato il loop interno facendo un dot
 Il compilatore ha poi generato tante versioni di conv1d in base alla dimensione della finestra (< 8 == scalare; 8 <= w < 16 == vettori da 8; w >= 16 == vettori da 16)
 
 Le load, mul e add vettoriali dovrebbero dare uno speedup alto, però questo non sembra funzionare in realtà (per K=9 e N=1024 -> speedup = 1.5x). Non ho ben capito bene il perchè, penso che la colpa sia delle somme orizzontali fatte per ogni elemento dell'output che annullano il beneficio dei calcoli vettorizzati
+
+# version vettorizzata
+
+speedup maggiore di > 16 grazie ad ILP
+
+```
+.vvsbundle  "v1sc" 
+ ;	 { 
+	vvld.ab.w	%vr0,%r12,4             ; @0x260
+	ld.ab	%r14,[%r13,4]                   ; @0x260
+ ;	 }
+	vvcmac.lo.w	%vr17, %vr0, %r14       ; @0x26a
+```

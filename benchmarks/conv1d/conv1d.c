@@ -3,7 +3,7 @@
 
 void init_vector(int *a, int dim, int value) {
   for (int i = 0; i < dim; i++) {
-    a[i] = value + i;
+    a[i] = value;
   }
 }
 
@@ -42,10 +42,13 @@ void vectorized_conv1d(int N_out, int N_in, int W,
     for (int i = 0; i < N_out_rounded; i+=lanes) {
         vNaccint_t acc = vvcmpy_lo ((vNint_t)0, (vNint_t)0);
         for (int w_i = 0; w_i < W; w_i++) {
-            // scalare che verrà broadcastato
             int window_scalar = window[w_i];
             vNint_t input_vec = vvld(&input[i + w_i]);
-
+            // accumulo un vettore di input moltiplicato
+            // per uno dei pesi del kernel. Shiftando di 
+            // una posizione il peso considerato e il 
+            // vettore di input, arrivo ad accumulare
+            // tutti i contributi per un vettore di output
             acc = vvcmac_lo(acc, input_vec, window_scalar);
         }
         vvst(to_vNint_t(acc), &output[i]);
