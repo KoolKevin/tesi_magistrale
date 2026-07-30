@@ -99,15 +99,15 @@ void vectorized_conv2d(int rows_out, int cols_out, int rows_in, int cols_in, int
                 // di una riga del kernel). Variando kj sto shiftando 
                 // di una posizione il peso considerato e il vettore 
                 // di input
-                vNaccint_t conv1d_acc = vvcadd_init((vNint_t)0, (vNint_t)0);
                 for (int k_j = 0; k_j < K; k_j++) {
                     int kernel_scalar = kernel[k_i*K + k_j];
                     vNint_t input_vec = vvld(&input[(i+k_i)*cols_in + (j_vec+k_j)]);
-                    conv1d_acc = vvcmac_lo(conv1d_acc, input_vec, kernel_scalar);
+                    conv2d_acc = vvcmac_lo(conv2d_acc, input_vec, kernel_scalar);
                 }
 
-                // accumulo la conv1d della riga ki
-                conv2d_acc = vvcmac_lo(conv2d_acc, to_vNint_t(conv1d_acc), 1);
+                // Qua ho finito di calcolare la conv1d di una riga.
+                // Itero per K righe e accumulo il tutto sempre nello
+                // accumulatore
             }
 
             // ho finito di accumulare conv1d e qundi ho il vettore
