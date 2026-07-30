@@ -136,6 +136,33 @@ convertVecMpyLowAcc(VecMpyLowAccOp &vecMpy, llvm::IRBuilderBase &builder,
 }
 
 static LogicalResult
+convertVecAddInitAcc(VecAddInitAccOp &vecAddInit, llvm::IRBuilderBase &builder,
+                     LLVM::ModuleTranslation &moduleTranslation) {
+
+  llvm::Module *module = builder.GetInsertBlock()->getModule();
+  llvm::LLVMContext &ctx = module->getContext();
+
+  // Creiamo una chiamata alla funzione intrinseca:
+  // %0 = tail call <16 x i32> @llvm.arc.vvcmpy.lo.acc.w.v512(
+  //    <16 x i32> %1, <16x i32> %2)
+
+  llvm::Type *vectorTy =
+      llvm::VectorType::get(llvm::Type::getInt32Ty(ctx), 16, false);
+  llvm::FunctionType *funcTy =
+      llvm::FunctionType::get(vectorTy, {vectorTy, vectorTy}, false);
+  llvm::FunctionCallee callee =
+      module->getOrInsertFunction("llvm.arc.vvcadd.init.acc.w.v512", funcTy);
+
+  llvm::Value *arg1 = moduleTranslation.lookupValue(vecAddInit.getArg1());
+  llvm::Value *arg2 = moduleTranslation.lookupValue(vecAddInit.getArg2());
+  llvm::CallInst *call = builder.CreateCall(callee, {arg1, arg2});
+
+  moduleTranslation.mapValue(vecAddInit.getRes(), call);
+
+  return success();
+}
+
+static LogicalResult
 convertVecMACLow(VecMACLowOp &vecMAC, llvm::IRBuilderBase &builder,
                  LLVM::ModuleTranslation &moduleTranslation) {
 
@@ -247,6 +274,9 @@ public:
         })
         .Case<VecMpyLowAccOp>([&](VecMpyLowAccOp vecMpy) {
           return convertVecMpyLowAcc(vecMpy, builder, moduleTranslation);
+        })
+        .Case<VecAddInitAccOp>([&](VecAddInitAccOp vecAccInit) {
+          return convertVecAddInitAcc(vecAccInit, builder, moduleTranslation);
         })
         .Case<VecMACLowOp>([&](VecMACLowOp vecMAC) {
           return convertVecMACLow(vecMAC, builder, moduleTranslation);

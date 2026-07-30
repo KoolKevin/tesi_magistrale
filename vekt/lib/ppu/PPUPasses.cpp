@@ -530,10 +530,10 @@ struct ConvertLinalgMatmul : public OpRewritePattern<mlir::linalg::MatmulOp> {
                 Value outInit = b1.create<ppu::VecLoadOp>(l1, vecTy, outPtr);
                 // inizializziamo l'accumulatore con il vettore di C
                 // moltiplicato per un vettore di 1
-                Value ones = rewriter.create<arith::ConstantOp>(
-                    loc, vecTy, rewriter.getOneAttr(vecTy));
-                auto accumulator = rewriter.create<ppu::VecMpyLowAccOp>(
-                    loc, vecTy, outInit, ones);
+                Value zeros = rewriter.create<arith::ConstantOp>(
+                    loc, vecTy, rewriter.getZeroAttr(vecTy));
+                auto accumulator = rewriter.create<ppu::VecAddInitAccOp>(
+                    loc, vecTy, outInit, zeros);
 
                 /**** Loop K ****/
                 auto kLoop = rewriter.create<affine::AffineForOp>(

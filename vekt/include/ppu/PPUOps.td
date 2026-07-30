@@ -151,6 +151,28 @@ def PPU_VecMpyLowAccOp: PPU_Op<"vec_mpy_low_acc", [Pure, SameOperandsAndResultTy
 }
 
 //===----------------------------------------------------------------------===//
+// VecAddInitAccOp
+//===----------------------------------------------------------------------===//
+
+def PPU_VecAddInitAccOp: PPU_Op<"vec_add_init_acc", [Pure, SameOperandsAndResultType]> {
+    let summary = "Somma element-wise di due registri vettoriali contenenti"
+                  " INTERI; il risultato viene salvato in un registro"
+                  " accumulatore";
+
+    let description = [{
+        Per adesso modella ESATTAMENTE questo intrinseco llvm-ir:
+
+        %5 = tail call <16 x i32> @llvm.arc.vvcadd.init.acc.w.v512(<16 x i32> %4, <16 x i32> zeroinitializer)
+    }];
+
+    let arguments = (ins
+        AnyVectorOfAnyRank:$arg1,
+        AnyVectorOfAnyRank:$arg2
+    );
+    let results = (outs AnyVectorOfAnyRank:$res);
+}
+
+//===----------------------------------------------------------------------===//
 // VecMACLowOp
 //===----------------------------------------------------------------------===//
 

@@ -35,7 +35,7 @@ define void @matmul(i32 %0, i32 %1, i32 %2, ptr %3, ptr %4, i32 %5, i32 %6, i32 
   %45 = add i32 %44, %41
   %46 = getelementptr i32, ptr addrspace(4) %28, i32 %45
   %47 = call <16 x i32> @llvm.arc.vvld.w.v512(ptr addrspace(4) %46)
-  %48 = call <16 x i32> @llvm.arc.vvcmpy.lo.acc.w.v512(<16 x i32> %47, <16 x i32> splat (i32 1))
+  %48 = call <16 x i32> @llvm.arc.vvcadd.init.acc.w.v512(<16 x i32> %47, <16 x i32> zeroinitializer)
   br label %49
 
 49:                                               ; preds = %53, %43
@@ -133,7 +133,7 @@ define void @matmul(i32 %0, i32 %1, i32 %2, ptr %3, ptr %4, i32 %5, i32 %6, i32 
 
 declare <16 x i32> @llvm.arc.vvld.w.v512(ptr addrspace(4))
 
-declare <16 x i32> @llvm.arc.vvcmpy.lo.acc.w.v512(<16 x i32>, <16 x i32>)
+declare <16 x i32> @llvm.arc.vvcadd.init.acc.w.v512(<16 x i32>, <16 x i32>)
 
 declare <16 x i32> @llvm.arc.acc.to.vec.w.v512(<16 x i32>)
 
