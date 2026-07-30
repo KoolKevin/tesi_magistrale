@@ -2,9 +2,26 @@
 #include <stdio.h>
 
 void init_vector(int *a, int dim, int value) {
-  for (int i = 0; i < dim; i++) {
-    a[i] = value;
-  }
+    for (int i = 0; i < dim; i++) {
+        a[i] = value;
+    }
+}
+
+void copy_vector(int* src, int* dst, int N) {
+    for (int i = 0; i < N; i++) {
+        dst[i] = src[i];
+    }
+}
+
+void check_result(int* result, int* groundtruth, int N) {
+    for (int i = 0; i < N; i++) {
+        if (result[i] != groundtruth[i]) {
+            printf("ERRORE! All'indice %d: result = %d, groundtruth = %d\n", i, result[i], groundtruth[i]);
+            return;
+        }
+    }
+
+    printf("SUCCESSO! Vettori uguali\n");
 }
 
 void print_vector(int* A, int N) {
@@ -40,7 +57,8 @@ void vectorized_conv1d(int N_out, int N_in, int W,
     int lanes = _VDSP_NUM_32BIT_LANES;
     int N_out_rounded = (N_out/lanes) * lanes;
     for (int i = 0; i < N_out_rounded; i+=lanes) {
-        vNaccint_t acc = vvcmpy_lo(vvld(&output[i]), (vNint_t)1);
+        vNaccint_t acc = vvcadd_init(vvld(&output[i]), 0);
+
         for (int w_i = 0; w_i < W; w_i++) {
             int window_scalar = window[w_i];
             vNint_t input_vec = vvld(&input[i + w_i]);

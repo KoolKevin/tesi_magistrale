@@ -32,6 +32,9 @@ int main() {
 
     printf("\n");
 
+    int groundtruth[N_out];
+    copy_vector(out, (int*)groundtruth, N_out);
+
 	/******** versione vettorizzata ********/
     printf("Vettorizzo su %d lane\n", _VDSP_NUM_32BIT_LANES);
 
@@ -44,7 +47,7 @@ int main() {
     printf("Tempo di esecuzione di vectorized_conv1d: %.2fms\n", time_vectorized);
     printf("Speedup: %.2f\n", time_scalar/time_vectorized);
     print_vector(out, N_out);
-
+    check_result(out, (int*)groundtruth, N_out);
 
     printf("\n");
 
@@ -60,6 +63,7 @@ int main() {
     printf("Tempo di esecuzione di autovectorized_conv1d: %.2fms\n", time_autovectorized);
     printf("Speedup: %.2f\n", time_scalar/time_autovectorized);
     print_vector(out, N_out);
+    check_result(out, (int*)groundtruth, N_out);
 
     printf("\n");
 
@@ -75,6 +79,9 @@ int main() {
     printf("Tempo di esecuzione di vekt_conv1d: %.2fms\n", time_vekt);
     printf("Speedup: %.2f\n", time_scalar/time_vekt);
     print_vector(out, N_out);
+    check_result(out, (int*)groundtruth, N_out);
+
+
 
 
     return 0;

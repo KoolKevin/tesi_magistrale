@@ -7,6 +7,10 @@ void init_vector(int *a, int dim, int value);
 
 void print_vector(int* a, int N);
 
+void copy_vector(int* src, int* dst, int N);
+
+void check_result(int* result, int* groundtruth, int N);
+
 void conv1d(int N_out, int N_in, int W, int output[N_out], int input[N_in], int window[W]);
 
 void vectorized_conv1d(int N_out, int N_in, int W,
