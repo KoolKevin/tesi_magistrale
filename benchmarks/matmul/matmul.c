@@ -86,7 +86,7 @@ void vectorized_matmul(__vccm int* restrict A,
             // Inizializzazione dell'accumulatore a zero tramite intrinseco
             // di moltiplicazione (purtroppo non ho vdsp=5 e quindi non ho 
             // vvcmov(0))
-            vNaccint_t acc = vvcmpy_lo ((vNint_t)0, (vNint_t)0);
+            vNaccint_t acc = vvcmpy_lo (vvld(&C[i*N + j_vec]), (vNint_t)1);
             // Ciclo sulla dimensione interna K (somma degli outer product)
             for (int k = 0; k < K; k++) {
                 // caricamento di un vettore dalla riga k ad offset j
