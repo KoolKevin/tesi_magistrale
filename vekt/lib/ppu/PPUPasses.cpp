@@ -518,21 +518,29 @@ struct ConvertLinalgMatmul : public OpRewritePattern<mlir::linalg::MatmulOp> {
               l0, lbN, identityMap, dimRounded, identityMap, numLanes,
               std::nullopt,
               [&](OpBuilder &b1, Location l1, Value ivJ, ValueRange) {
-                // costruiamo un registro accumulatore inizializzato a 0
-                Value zero = rewriter.create<arith::ConstantOp>(
-                    loc, vecTy, rewriter.getZeroAttr(vecTy));
+                // costruiamo un registro accumulatore inizializzato con quello
+                // che c'è a partire da: linearIndex di C = i*N + j
+                // NB: devo anche linearizzare la coppia di indici dato che
+                // ppu.load_vec accetta solo llvm.ptr e non memref
+                Value rowOffset = b1.create<arith::MulIOp>(l1, ivI, NValue);
+                Value linearIndex =
+                    b1.create<arith::AddIOp>(l1, rowOffset, ivJ);
+                Value outPtr = materializeGEPForAccess(
+                    b1, l1, outBase, ppuPtrTy, elemTy, ValueRange{linearIndex});
+                Value outInit = b1.create<ppu::VecLoadOp>(l1, vecTy, outPtr);
+                // inizializziamo l'accumulatore con il vettore di C
+                // moltiplicato per un vettore di 1
+                Value ones = rewriter.create<arith::ConstantOp>(
+                    loc, vecTy, rewriter.getOneAttr(vecTy));
                 auto accumulator = rewriter.create<ppu::VecMpyLowAccOp>(
-                    loc, vecTy, zero, zero);
+                    loc, vecTy, outInit, ones);
 
                 /**** Loop K ****/
                 auto kLoop = rewriter.create<affine::AffineForOp>(
                     loc, lbK, identityMap, ubK, identityMap, 1,
                     ValueRange{accumulator},
                     [&](OpBuilder &b2, Location l2, Value ivK, ValueRange acc) {
-                      // load di un pezzo di riga di B
-                      // NB: devo anche linearizzare la coppia di indici dato
-                      // che ppu.load_vec accetta solo llvm.ptr e non memref
-                      // linearIndex di B = k*N + j
+                      // load di un pezzo di riga di B: linearIndex di B=k*N + j
                       Value rowOffset =
                           b2.create<arith::MulIOp>(l2, ivK, NValue);
                       Value linearIndex =
@@ -562,12 +570,6 @@ struct ConvertLinalgMatmul : public OpRewritePattern<mlir::linalg::MatmulOp> {
                 // store del vettore (anche qui c'è bisogno di linearizzare)
                 Value acc2vec =
                     b1.create<ppu::AccToVecOp>(l1, kLoop.getResults()[0]);
-                // linearIndex di C = i*N + j
-                Value rowOffset = b1.create<arith::MulIOp>(l1, ivI, NValue);
-                Value linearIndex =
-                    b1.create<arith::AddIOp>(l1, rowOffset, ivJ);
-                Value outPtr = materializeGEPForAccess(
-                    b1, l1, outBase, ppuPtrTy, elemTy, ValueRange{linearIndex});
                 b1.create<ppu::VecStoreOp>(l1, acc2vec, outPtr);
 
                 b1.create<affine::AffineYieldOp>(l1);
