@@ -623,6 +623,151 @@ struct ConvertLinalgMatmul : public OpRewritePattern<mlir::linalg::MatmulOp> {
   }
 };
 
+struct ConvertLinalgConv1D : public OpRewritePattern<mlir::linalg::Conv1DOp> {
+
+  ConvertLinalgConv1D(mlir::MLIRContext *context)
+      : OpRewritePattern<mlir::linalg::Conv1DOp>(context) {}
+
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(mlir::linalg::Conv1DOp op,
+                                PatternRewriter &rewriter) const final {
+
+    MLIRContext *ctx = rewriter.getContext();
+    mlir::Location loc = op.getLoc();
+
+    // recuperiamo i ranges dei loop (start, stop, step)
+    auto linalgOp = ::llvm::cast<mlir::linalg::LinalgOp>(op.getOperation());
+    mlir::SmallVector<mlir::Range> loopRanges =
+        linalgOp.createLoopRanges(rewriter, loc);
+    if (loopRanges.size() != 2)
+      return rewriter.notifyMatchFailure(op, "panico, conv1d non ha 2 loop?");
+    auto rangeOut = loopRanges[0];
+    auto rangeWindow = loopRanges[1];
+
+    // Recuperiamo gli operandi
+    mlir::Value in = op.getInputs()[0];
+    mlir::Value window = op.getInputs()[1];
+    mlir::Value out = op.getOutputs()[0];
+
+    // recuperiamo vari tipi e il numero di lane considerando il tipo degli
+    // operandi
+    Type elemTy = mlir::cast<MemRefType>(in.getType()).getElementType();
+    if (!elemTy.isIntOrFloat())
+      return rewriter.notifyMatchFailure(
+          op, "tipo elemento non supportato per vettorizzazione");
+    unsigned bitWidth = elemTy.getIntOrFloatBitWidth();
+    int numLanes = vectorRegisterBits / bitWidth;
+    auto vecTy = mlir::VectorType::get({numLanes}, elemTy);
+    // NB: qua sto hardcodando l'address space della vector memory (4)
+    auto ppuPtrTy = LLVM::LLVMPointerType::get(rewriter.getContext(), 4);
+
+    // estraiamo l'alignedPtr dalle memref degli operandi
+    Value inBase = materializeAlignedPtr(rewriter, loc, in, ppuPtrTy);
+    Value outBase = materializeAlignedPtr(rewriter, loc, out, ppuPtrTy);
+
+    // recuperiamo lb e ub come Value
+    Value lbWindow = mlir::getValueOrCreateConstantIndexOp(rewriter, loc,
+                                                           rangeWindow.offset);
+    Value ubWindow =
+        mlir::getValueOrCreateConstantIndexOp(rewriter, loc, rangeWindow.size);
+    // vettorizzo la dimensione esterna che itera sopra ad Nout
+    Value lbOut =
+        mlir::getValueOrCreateConstantIndexOp(rewriter, loc, rangeOut.offset);
+    Value ubOut =
+        mlir::getValueOrCreateConstantIndexOp(rewriter, loc, rangeOut.size);
+    // dim_rounded = (dim floordiv 16) * 16, espresso come affine.apply
+    AffineExpr s0 = rewriter.getAffineSymbolExpr(0);
+    AffineMap roundingMap =
+        AffineMap::get(0, 1, {s0.floorDiv(numLanes) * numLanes}, ctx);
+    Value dimRounded = rewriter.create<affine::AffineApplyOp>(
+        loc, roundingMap, ValueRange{ubOut});
+
+    // mappa identità a 1 dimensione: (d0) -> (d0) per gli ub e lb dei loop
+    mlir::AffineMap identityMap = rewriter.getMultiDimIdentityMap(1);
+
+    // main loop vettorizzato (Nout_rounded, W)
+    rewriter.create<affine::AffineForOp>(
+        loc, lbOut, identityMap, dimRounded, identityMap, numLanes,
+        std::nullopt, [&](OpBuilder &b0, Location l0, Value ivI, ValueRange) {
+          // costruiamo un registro accumulatore inizializzato con quello
+          // che c'è in out[i] + 0
+          Value outPtr = materializeGEPForAccess(b0, l0, outBase, ppuPtrTy,
+                                                 elemTy, ValueRange{ivI});
+          Value outInit = b0.create<ppu::VecLoadOp>(l0, vecTy, outPtr);
+          Value zeros = rewriter.create<arith::ConstantOp>(
+              loc, vecTy, rewriter.getZeroAttr(vecTy));
+          auto accumulator =
+              rewriter.create<ppu::VecAddInitAccOp>(loc, vecTy, outInit, zeros);
+
+          auto windowLoop = rewriter.create<affine::AffineForOp>(
+              l0, lbWindow, identityMap, ubWindow, identityMap, 1,
+              ValueRange{accumulator},
+              [&](OpBuilder &b1, Location l1, Value ivW, ValueRange acc) {
+                // carichiamo un vettore dall'input
+                Value inIndex = b1.create<arith::AddIOp>(l1, ivI, ivW);
+                Value inPtr = materializeGEPForAccess(
+                    b1, l1, inBase, ppuPtrTy, elemTy, ValueRange{inIndex});
+                Value inVec = b1.create<ppu::VecLoadOp>(l1, vecTy, inPtr);
+                // carichiamo lo scalare delle finestra e facciamo il broadcast
+                Value windowScalar =
+                    b1.create<affine::AffineLoadOp>(l1, window, ivW);
+                Value windowScalarBroadcasted =
+                    b1.create<vector::BroadcastOp>(l1, vecTy, windowScalar);
+
+                Value mac = b1.create<ppu::VecMACLowOp>(
+                    l1, acc[0], inVec, windowScalarBroadcasted);
+
+                b1.create<affine::AffineYieldOp>(l1, mac);
+              });
+
+          Value acc2vec =
+              b0.create<ppu::AccToVecOp>(l0, windowLoop.getResults()[0]);
+          b0.create<ppu::VecStoreOp>(l0, acc2vec, outPtr);
+
+          b0.create<affine::AffineYieldOp>(l0);
+        });
+
+    // remainder loop (NoutRounded:Nout, W)
+    rewriter.create<affine::AffineForOp>(
+        loc, dimRounded, identityMap, ubOut, identityMap, 1, std::nullopt,
+        [&](OpBuilder &b0, Location l0, Value ivI, ValueRange) {
+          // valore iniziale per l'accumulatore
+          Value outInit =
+              b0.create<affine::AffineLoadOp>(l0, out, ValueRange{ivI});
+          auto windowLoop = rewriter.create<affine::AffineForOp>(
+              l0, lbWindow, identityMap, ubWindow, identityMap, 1,
+              ValueRange{outInit},
+              [&](OpBuilder &b1, Location l1, Value ivW, ValueRange acc) {
+                // mappa per sommare due dimensioni (d0, d1) -> (d0 + d1)
+                auto sumMap = AffineMap::get(2, 0,
+                                             rewriter.getAffineDimExpr(0) +
+                                                 rewriter.getAffineDimExpr(1));
+                // NB: in questa load sto applicando la sumMap per ottenere
+                // l'indice i + w_i con cui fare l'accesso. Prima stavo
+                // generando una somma esplicita, ma il verifier non faceva
+                // passare
+                Value inVal = b1.create<affine::AffineLoadOp>(
+                    l1, in, sumMap, ValueRange{ivI, ivW});
+                Value windowVal = b1.create<affine::AffineLoadOp>(
+                    l1, window, ValueRange{ivW});
+                Value mulVal = b1.create<arith::MulIOp>(l1, inVal, windowVal);
+                Value macVal = b1.create<arith::AddIOp>(l1, acc[0], mulVal);
+
+                b1.create<affine::AffineYieldOp>(l1, macVal);
+              });
+
+          b0.create<affine::AffineStoreOp>(l0, windowLoop.getResults()[0], out,
+                                           ValueRange{ivI});
+          b0.create<affine::AffineYieldOp>(l0);
+        });
+
+    rewriter.eraseOp(op);
+
+    return success();
+  }
+};
+
 struct ConvertLinalgToPPUAlgorithm
     : impl::ConvertLinalgToPPUAlgorithmBase<ConvertLinalgToPPUAlgorithm> {
   using ConvertLinalgToPPUAlgorithmBase::ConvertLinalgToPPUAlgorithmBase;
@@ -639,7 +784,8 @@ struct ConvertLinalgToPPUAlgorithm
     ModuleOp module = getOperation();
 
     RewritePatternSet patterns(ctx);
-    patterns.add<ConvertLinalgAdd, ConvertLinalgDot, ConvertLinalgMatmul>(ctx);
+    patterns.add<ConvertLinalgAdd, ConvertLinalgDot, ConvertLinalgMatmul,
+                 ConvertLinalgConv1D>(ctx);
     // Post-order, forward walk traversal of ops (excluding input `op`).
     walkAndApplyPatterns(module, std::move(patterns));
   }
