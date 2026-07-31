@@ -93,12 +93,12 @@ void autovectorized_conv1d(int N_out, int N_in, int W,
 }
 
 void vekt_conv1d_wrapper(int N_out, int N_in, int W, int output[N_out], int input[N_in], int window[W]) {
-    // vekt_conv1d(
-    //     a, a, 0, n, 1,
-    //     b, b, 0, n, 1,
-    //     c, c, 0, n, 1,
-    //     n
-    // );
+    vekt_conv1d(
+        N_out, N_in, W,
+        output, output, 0, N_out, 1,
+        input, input, 0, N_in, 1,
+        window, window, 0, W, 1
+    );
 
     return;
 }

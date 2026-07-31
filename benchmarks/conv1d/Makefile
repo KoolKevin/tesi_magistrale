@@ -7,7 +7,7 @@ OPT = -O3
 AUTOVEC = -fvectorize -fslp-vectorize -ffast-math
 AUTOVECTORIZATION_DEBUG_FLAGS = -Rpass=loop-vectorize -Rpass-missed=loop-vectorize -Rpass-analysis=loop-vectorize
 
-SRCS = main.c conv1d.c 
+SRCS = main.c conv1d.c vekt_conv1d.ll
 TARGET = a.out
 
 all: build

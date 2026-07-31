@@ -7,7 +7,7 @@
 #include "conv1d.h"
 
 #define K 3
-#define N_in 1024
+#define N_in 2050
 #define N_out (N_in - (K-1))
 
 __vccm int in[N_in];
@@ -28,7 +28,7 @@ int main() {
     clock_t end = clock();   
     double time_scalar = ((double)(end-start) / CLOCKS_PER_SEC)*1000; // in ms
     printf("Tempo di esecuzione di conv1d: %.2fms\n", time_scalar);
-    print_vector(out, N_out);
+    // print_vector(out, N_out);
 
     printf("\n");
 
@@ -46,7 +46,7 @@ int main() {
     double time_vectorized = ((double)(end-start) / CLOCKS_PER_SEC)*1000; // in ms
     printf("Tempo di esecuzione di vectorized_conv1d: %.2fms\n", time_vectorized);
     printf("Speedup: %.2f\n", time_scalar/time_vectorized);
-    print_vector(out, N_out);
+    // print_vector(out, N_out);
     check_result(out, (int*)groundtruth, N_out);
 
     printf("\n");
@@ -62,7 +62,7 @@ int main() {
     double time_autovectorized = ((double)(end-start) / CLOCKS_PER_SEC)*1000; // in ms
     printf("Tempo di esecuzione di autovectorized_conv1d: %.2fms\n", time_autovectorized);
     printf("Speedup: %.2f\n", time_scalar/time_autovectorized);
-    print_vector(out, N_out);
+    // print_vector(out, N_out);
     check_result(out, (int*)groundtruth, N_out);
 
     printf("\n");
@@ -78,7 +78,7 @@ int main() {
     double time_vekt = ((double)(end-start) / CLOCKS_PER_SEC)*1000; // in ms
     printf("Tempo di esecuzione di vekt_conv1d: %.2fms\n", time_vekt);
     printf("Speedup: %.2f\n", time_scalar/time_vekt);
-    print_vector(out, N_out);
+    // print_vector(out, N_out);
     check_result(out, (int*)groundtruth, N_out);
 
 

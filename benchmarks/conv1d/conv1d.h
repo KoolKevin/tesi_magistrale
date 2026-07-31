@@ -23,10 +23,10 @@ void autovectorized_conv1d(int N_out, int N_in, int W,
     __vccm int* restrict input, 
     __vccm int* restrict window);
 
-// extern void vekt_conv1d(int* a_alloc, int* a_align, int a_offset, int a_size, int a_stride,
-//                     int* b_alloc, int* b_align, int b_offset, int b_size, int b_stride,
-//                     int* c_alloc, int* c_align, int c_offset, int c_size, int c_stride,
-//                     int32_t n);
+extern void vekt_conv1d(int N_out, int N_in, int W,
+                    int* out_alloc, int* out_align, int out_offset, int out_size, int out_stride,
+                    int* in_alloc, int* in_align, int in_offset, int in_size, int in_stride,
+                    int* window_alloc, int* window_align, int window_offset, int window_size, int window_stride);
 
 void vekt_conv1d_wrapper(int N_out, int N_in, int W, int output[N_out], int input[N_in], int window[W]);
 

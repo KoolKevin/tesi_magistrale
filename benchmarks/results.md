@@ -40,4 +40,13 @@ NB: autovettorizzatore vettorizza solo se N==1, altrimenti esegue in maniera sca
 
 # Conv1d
 
+**Compilato con -O3**
+
+| Versione            |    Tempo | Speedup | Tempo (no unrolling) | Speedup (no unrolling) |
+|---------------------|---------:|--------:|---------------------:|-----------------------:|
+| Sequenziale         |  43.07ms |   1.00× |             43.07 ms |                  1.00× |
+| Vettorizzata a mano |   1.88ms |  22.97× |              2.00 ms |                 21.53× |
+| Autovettorizzata    |  38.98ms |   1.10× |             38.98 ms |                  1.10× |
+| Vekt-vettorizzata   |   1.93ms |  22.34× |              1.93 ms |                 22.34× |
+
 NB: autovettorizzatore vettorizza il loop interno (dotproduct vettorizzata per ogni elemento di output). Scalare se il kernel è piccolo (< 8) 
