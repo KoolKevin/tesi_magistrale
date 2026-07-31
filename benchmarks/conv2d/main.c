@@ -10,8 +10,8 @@
 
 // K è la dimensione comune
 #define K 3
-#define ROWS_IN 35
-#define COLS_IN 35
+#define ROWS_IN 50
+#define COLS_IN 50
 #define ROWS_OUT (ROWS_IN - (K-1))
 #define COLS_OUT (COLS_IN - (K-1))
 

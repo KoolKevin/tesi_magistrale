@@ -150,12 +150,12 @@ void autovectorized_conv2d(int rows_out, int cols_out, int rows_in, int cols_in,
 
 void vekt_conv2d_wrapper(int rows_out, int cols_out, int rows_in, int cols_in, int K,
            int* output, int* input, int* kernel) {
-    // vekt_conv2d(
-    //     M, N, K,
-    //     a, a, 0, M, K, K, 1,
-    //     b, b, 0, K, N, N, 1,
-    //     c, c, 0, M, N, N, 1
-    // );
+    vekt_conv2d(
+        rows_out, cols_out, rows_in, cols_in, K,
+        output, output, 0, rows_out, cols_out, cols_out, 1,
+        input, input, 0, rows_in, cols_in, cols_in, 1,
+        kernel, kernel, 0, K, K, K, 1
+    );
 
     return;
 }
