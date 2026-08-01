@@ -35,7 +35,7 @@ int main() {
     clock_t end = clock();   
     double time_scalar = ((double)(end-start) / CLOCKS_PER_SEC)*1000; // in ms
     printf("Tempo di esecuzione: %.2fms\n", time_scalar);
-    print_matrix(out, ROWS_OUT, COLS_OUT);
+    // print_matrix(out, ROWS_OUT, COLS_OUT);
 
     // copio il risultato scalare per confrontarlo con i 
     // risultati delle altre versioni
@@ -55,7 +55,7 @@ int main() {
     printf("Tempo di esecuzione di vectorized_conv2d: %.2fms\n", time_vectorized);
     printf("Speedup: %.2f\n", time_scalar/time_vectorized);
 
-    print_matrix(out, ROWS_OUT, COLS_OUT);
+    // print_matrix(out, ROWS_OUT, COLS_OUT);
     check_result((int*)groundtruth, out, ROWS_OUT, COLS_OUT);
 
     printf("\n");
@@ -71,7 +71,7 @@ int main() {
     printf("Tempo di esecuzione di autovectorized_conv2d: %.2fms\n", time_autovectorized);
     printf("Speedup: %.2f\n", time_scalar/time_autovectorized);
 
-    print_matrix(out, ROWS_OUT, COLS_OUT);
+    // print_matrix(out, ROWS_OUT, COLS_OUT);
     printf("\n");
 
 	/******** versione vekt-vettorizzata ********/
@@ -85,7 +85,7 @@ int main() {
     printf("Tempo di esecuzione di vekt_conv2d: %.2fms\n", time_vekt);
     printf("Speedup: %.2f\n", time_scalar/time_vekt);
 
-    print_matrix(out, ROWS_OUT, COLS_OUT);
+    // print_matrix(out, ROWS_OUT, COLS_OUT);
     check_result((int*)groundtruth, out, ROWS_OUT, COLS_OUT);
 
     printf("\n");

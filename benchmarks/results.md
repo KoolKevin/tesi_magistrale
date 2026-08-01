@@ -50,3 +50,18 @@ NB: autovettorizzatore vettorizza solo se N==1, altrimenti esegue in maniera sca
 | Vekt-vettorizzata   |   1.93ms |  22.34× |              1.93 ms |                 22.34× |
 
 NB: autovettorizzatore vettorizza il loop interno (dotproduct vettorizzata per ogni elemento di output). Scalare se il kernel è piccolo (< 8) 
+
+# Conv2d
+
+**Compilato con -O3**
+
+| Versione            |    Tempo | Speedup |
+|---------------------|---------:|--------:|
+| Sequenziale         | 138.60ms |   1.00× |
+| Vettorizzata a mano |   6.29ms |  22.05× |
+| Autovettorizzata    | 120.19ms |   1.15× |
+| Vekt-vettorizzata   |   7.21ms |  19.22× |
+
+**NB**: sembra che nella versione vekt-vettorizzata avvenga dello stack spilling che causano un calo di performance. Dovrei esplorare meglio dove (nel loop interno con la mac non c'è) e come mai avviene (mi sembra strano che sia dovuto al numero elevato di parametri dato che la maggior parte non viene usata e quindi non dovrebbe consumare un registro)
+
+**NB**: disabilitare l'unrolling non ha alcun effetto dato che non viene applicato (immagino che sia per la già elevata register pressure)
