@@ -45,9 +45,20 @@ int main(int argc, char **argv) {
         // load/store ridondanti sopra
         pm.addPass(mlir::createCanonicalizerPass());
 
-        // loweriamo ad llvm
+        // Loop optimizations
         pm.addPass(mlir::createConvertLinalgToAffineLoopsPass());
-        pm.addPass(mlir::createConvertVectorToLLVMPass());
+        // affineLoopFusion
+        // affineUnrolling
+        pm.addPass(mlir::createLowerAffinePass());
+        // NB: questo lo faccio al livello di scf dato che l'arrotondamento
+        // dell'upperbound di un loop interno viene espanso a questo livello.
+        // Questo rounding è loop-invariant e quindi può essere hoistato al di
+        // fuori del loop nest
+        pm.addPass(mlir::createLoopInvariantCodeMotionPass());
+
+        // loweriamo ad llvm
+        pm.addPass(
+            mlir::createConvertVectorToLLVMPass()); // non dovrebbe servire
         pm.addPass(mlir::ppu::createPPULowerToLLVM());
 
         // cleanup finale
