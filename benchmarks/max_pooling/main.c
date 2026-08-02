@@ -6,7 +6,7 @@
 
 #include "max_pooling.h"
 
-#define W 3
+#define W 2
 #define ROWS_IN 64
 #define COLS_IN 64
 #define ROWS_OUT (ROWS_IN / W)

@@ -100,7 +100,6 @@ void vectorized_max_pooling(int rows_out, int cols_out, int rows_in, int cols_in
 
             vNaccint_t max_acc = vvcadd_init(vvld(&output[i*cols_out + j_vec]), 0);
             for (int w_i = 0; w_i < W; w_i++) {
-
                 for (int w_j = 0; w_j < W; w_j++) {
                     vNint_t input_vec = vgather(&input[(i*W + w_i)*cols_in + (j_vec*W + w_j)], offsets);
                     max_acc = vvcmax(max_acc, input_vec);
@@ -112,16 +111,19 @@ void vectorized_max_pooling(int rows_out, int cols_out, int rows_in, int cols_in
     }
 
     // remainder loop
-    // for (int i = 0; i < rows_out; i++) {
-    //     for (int j = cols_out_rounded; j < cols_out; j++) {
-    //         for (int w_i = 0; w_i < W; w_i++) {
-    //             for (int w_j = 0; w_j < W; w_j++) {
-    //                 output[i*cols_out + j] +=
-    //                     input[(i+w_i)*cols_in + (j+w_j)] * kernel[w_i*W + w_j];
-    //             }
-    //         }
-    //     }
-    // }
+    for (int i = 0; i < rows_out; i++) {
+        for (int j = cols_out_rounded; j < cols_out; j++) {
+            int max = input[(i*W)*cols_in + (j*W)];
+            for (int w_i = 0; w_i < W; w_i++) {
+                for (int w_j = 0; w_j < W; w_j++) {
+                    if (input[(i*W + w_i)*cols_in + (j*W +w_j)] > max) {
+                        max = input[(i*W + w_i)*cols_in + (j*W +w_j)];  
+                    }
+                }
+            }
+            output[i*cols_out  + j] = max;
+        }
+    }
 
     return;
 }
