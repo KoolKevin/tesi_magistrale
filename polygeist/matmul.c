@@ -51,3 +51,14 @@ void matmul(int M, int N, int K, int A[M][K], int B[K][N], int C[M][N]) {
     }
   }
 }
+
+// anche questo sarebbe da normalizzare
+// void matmul(int **A, int **B, int **C, int M, int N, int K) {
+//   for (int i = 0; i < M; i++) {
+//     for (int j = 0; j < N; j++) {
+//       for (int k = 0; k < K; k++) {
+//         C[i][j] += A[i][k] * B[k][j];
+//       }
+//     }
+//   }
+// }
