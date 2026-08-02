@@ -80,18 +80,29 @@ void vectorized_max_pooling(int rows_out, int cols_out, int rows_in, int cols_in
            __vccm int* restrict input) {
 
     int lanes = _VDSP_NUM_32BIT_LANES;
+    // NB: cols_out == cols_in / W
+    // se W comincia ad essere grande, è facile che
+    // cols_out < 16 è quindi che la vettorizzazione
+    // non agisca a causa di un numero di colonne
+    // insufficiente
     int cols_out_rounded = (cols_out/lanes) * lanes;
 
+    // contiene [0, 1, 2, ..., 15]
+    vNint_t idx = vvci_w();
+    // faccio confronti strided
+    //
+    // contiene [0, W, 2W, ..., 15W]
+    vNint_t offsets = idx * (vNint_t)W;
 
     for (int i = 0; i < rows_out; i++) {
         // calcolo 'lanes' elementi della riga i-esima di out per volta
         for (int j_vec = 0; j_vec < cols_out_rounded; j_vec+=lanes) {
 
-            vNaccint_t max_acc = vvcadd_init(vvld(&input[(i*W)*cols_in + j_vec*W]), 0);
+            vNaccint_t max_acc = vvcadd_init(vvld(&output[i*cols_out + j_vec]), 0);
             for (int w_i = 0; w_i < W; w_i++) {
 
                 for (int w_j = 0; w_j < W; w_j++) {
-                    vNint_t input_vec = vvld(&input[(i*W +w_i)*cols_in + (j_vec*W + w_j)]);
+                    vNint_t input_vec = vgather(&input[(i*W + w_i)*cols_in + (j_vec*W + w_j)], offsets);
                     max_acc = vvcmax(max_acc, input_vec);
                 }
             }
