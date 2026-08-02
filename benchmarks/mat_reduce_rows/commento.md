@@ -1,0 +1,1 @@
+la versione autovettorizzata sembra scalare meglio al crescere della dimensione della riga
