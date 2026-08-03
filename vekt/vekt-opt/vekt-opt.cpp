@@ -39,6 +39,8 @@ int main(int argc, char **argv) {
         pm.addPass(mlir::ppu::createPPURaiseAffineToLinalgGeneric());
         // NB: questo fa schifo e quindi lo devo complementare con il mio passo
         pm.addPass(mlir::createLinalgSpecializeGenericOpsPass());
+        // TODO: evetuali ottimizzazioni al livello di linalg
+        // pm.addPass(mlir::createCanonicalizerPass());
         pm.addPass(mlir::ppu::createPPUSpecializeLinalgGeneric());
         pm.addPass(mlir::ppu::createConvertLinalgToPPUAlgorithm());
         // cleanup intermedio importante dato che introduco costanti e
