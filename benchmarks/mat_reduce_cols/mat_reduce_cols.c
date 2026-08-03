@@ -67,7 +67,7 @@ void mat_reduce_cols(int *A, int *res, int M, int N) {
         int acc = 0;
         #pragma clang loop vectorize(disable)
         for (int i = 0; i < M; i++) {
-            acc += A[i*M + j];
+            acc += A[i*N + j];
         }
         res[j] = acc;
     }
