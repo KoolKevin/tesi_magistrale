@@ -214,5 +214,61 @@ def PPU_AccToVecOp: PPU_Op<"acc_to_vec", [Pure, SameOperandsAndResultType]> {
     let results = (outs AnyVectorOfAnyRank:$res);
 }
 
+//===----------------------------------------------------------------------===//
+// VecConstantIndexOp
+//===----------------------------------------------------------------------===//
+
+def PPU_VecConstantIndexOp: PPU_Op<"vec_constant_index", [Pure]> {
+    let summary = "crea un vettore con indici da 0 a VL-1";
+
+    let description = [{
+        Per adesso modella ESATTAMENTE questo intrinseco llvm-ir:
+
+        %0 = tail call <16 x i32> @llvm.arc.vvci.w.v512()
+    }];
+
+    let results = (outs AnyVectorOfAnyRank:$res);
+}
+
+//===----------------------------------------------------------------------===//
+// VecScatterOp
+//===----------------------------------------------------------------------===//
+
+def PPU_VecScatterOp : PPU_Op<"vec_scatter", []> {
+    let summary = "Scatter di un registro vettoriale della PPU";
+    let description = [{
+        Per adesso modella ESATTAMENTE questo intrinseco llvm-ir:
+
+        `tail call void @llvm.arc.vscatter.int.v512(
+            ptr addrspace(4) %basePtr, <16 x i32> %offsets, <16 x i32> %values)`
+
+        Gli offset sono in byte.
+    }];
+
+    let arguments = (ins
+        LLVM_AnyPointer:$dest,
+        AnyVectorOfAnyRank:$offsets,
+        AnyVectorOfAnyRank:$values
+    );
+}
+
+//===----------------------------------------------------------------------===//
+// VecGatherOp
+//===----------------------------------------------------------------------===//
+
+def PPU_VecGatherOp : PPU_Op<"vec_gather", [Pure]> {
+    let summary = "Gather di un registro vettoriale della PPU";
+    let description = [{
+        Per adesso modella ESATTAMENTE questo intrinseco llvm-ir:
+
+        `%13 = call <16 x i32> @llvm.arc.vvld.w.v512(ptr addrspace(4) %12)`
+        ```
+    }];
+
+    let arguments = (ins LLVM_AnyPointer:$src);
+    let results = (outs AnyVectorOfAnyRank:$res);
+}
+
+
 
 #endif // PPU_OPS
