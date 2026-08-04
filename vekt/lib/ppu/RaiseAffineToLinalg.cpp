@@ -1081,6 +1081,63 @@ struct ConvertGenericToTranspose
   }
 };
 
+struct ConvertGenericToReduce
+    : public OpRewritePattern<mlir::linalg::GenericOp> {
+
+  ConvertGenericToReduce(mlir::MLIRContext *context)
+      : OpRewritePattern<mlir::linalg::GenericOp>(context) {}
+
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(mlir::linalg::GenericOp op,
+                                PatternRewriter &rewriter) const final {
+
+    SmallVector<int64_t> reductionDims;
+    // recupero il rhs della mappa di input
+    auto inputMap = op.getMatchingIndexingMap(op.getDpsInputOperand(0));
+    auto exprs = inputMap.getResults();
+    // per ogni dimensione nel rhs controllo se il loop associato è di
+    // riduzione; nel caso questo sia vero, salvo la posizione della dimensione
+    // nel rhs come asse di riduzione.
+    //
+    // es mat_reduce_cols:
+    // - accedo alla matrice scorrendo le colonne d0,d1 -> d1,d0
+    // - il loop interno è quello di riduzione
+    //  - ad ogni iterazione accedo ad una riga diversa
+    // - la dimensione di riduzione è quindi 0 (posizione di d1 nel rhs)
+    for (auto [dim, expr] : llvm::enumerate(exprs)) {
+      auto dimExpr = dyn_cast<AffineDimExpr>(expr);
+      unsigned loopDim = dimExpr.getPosition();
+      if (op.getIteratorTypesArray()[loopDim] == utils::IteratorType::reduction)
+        reductionDims.push_back(dim);
+    }
+
+    if (reductionDims.empty())
+      return rewriter.notifyMatchFailure(op, "nessuna dimensione di riduzione");
+
+    rewriter.replaceOpWithNewOp<linalg::ReduceOp>(
+        op, op.getDpsInputs(), op.getDpsInits(), reductionDims,
+        [&](OpBuilder &builder, Location loc, ValueRange args) {
+          Block &oldBlock = op.getRegion().front();
+
+          // creo una mappa che associa gli arg del body della generic
+          // agli arg del body della reduce
+          IRMapping mapping;
+          for (auto [oldArg, newArg] : llvm::zip(oldBlock.getArguments(), args))
+            mapping.map(oldArg, newArg);
+
+          // clono il body della generic nel body della reduce sostituendo gli
+          // argomenti vecchi con il mapping
+          for (Operation &nestedOp : oldBlock.without_terminator()) {
+            builder.clone(nestedOp, mapping);
+          }
+          builder.clone(oldBlock.back(), mapping);
+        });
+
+    return success();
+  }
+};
+
 struct PPUSpecializeLinalgGeneric
     : impl::PPUSpecializeLinalgGenericBase<PPUSpecializeLinalgGeneric> {
   using PPUSpecializeLinalgGenericBase::PPUSpecializeLinalgGenericBase;
@@ -1090,7 +1147,8 @@ struct PPUSpecializeLinalgGeneric
     ModuleOp module = getOperation();
 
     RewritePatternSet patterns(ctx);
-    patterns.add<ConvertGenericToDotp, ConvertGenericToTranspose>(ctx);
+    patterns.add<ConvertGenericToDotp, ConvertGenericToTranspose,
+                 ConvertGenericToReduce>(ctx);
     walkAndApplyPatterns(module, std::move(patterns));
   }
 };
