@@ -1127,6 +1127,143 @@ struct ConvertLinalgTranspose
   }
 };
 
+// NB: qua potrei convertire qualsiasi riduzione. Nel mio caso mi sto limitando
+// a convertire riduzioni di matrici in vettori, in cui la riduzione è una somma
+struct ConvertLinalgReduce : public OpRewritePattern<mlir::linalg::ReduceOp> {
+
+  ConvertLinalgReduce(mlir::MLIRContext *context)
+      : OpRewritePattern<mlir::linalg::ReduceOp>(context) {}
+
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(mlir::linalg::ReduceOp op,
+                                PatternRewriter &rewriter) const final {
+
+    MLIRContext *ctx = rewriter.getContext();
+    mlir::Location loc = op.getLoc();
+
+    // recuperiamo i ranges dei loop (start, stop, step)
+    auto linalgOp = ::llvm::cast<mlir::linalg::LinalgOp>(op.getOperation());
+    mlir::SmallVector<mlir::Range> loopRanges =
+        linalgOp.createLoopRanges(rewriter, loc);
+    // mi sto limitando a riduzioni di matrici
+    if (loopRanges.size() != 2)
+      return rewriter.notifyMatchFailure(
+          op, "mi sto limitando a riduzioni di matrici in vettori");
+    auto rangeM = loopRanges[0];
+    auto rangeN = loopRanges[1];
+
+    // Recuperiamo gli operandi
+    mlir::Value input = op.getInputs()[0];
+    mlir::Value output = op.getInits()[0];
+    auto reductionDimensions = op.getDimensions();
+    if (reductionDimensions.size() != 1)
+      return rewriter.notifyMatchFailure(
+          op, "mi sto limitando a riduzioni di matrici in vettori");
+    int reductionDim = reductionDimensions[0];
+
+    // recuperiamo vari tipi e il numero di lane considerando il tipo degli
+    // operandi
+    Type elemTy = mlir::cast<MemRefType>(input.getType()).getElementType();
+    if (!elemTy.isIntOrFloat())
+      return rewriter.notifyMatchFailure(
+          op, "tipo elemento non supportato per vettorizzazione");
+    unsigned bitWidth = elemTy.getIntOrFloatBitWidth();
+    int numLanes = vectorRegisterBits / bitWidth;
+    auto vecTy = mlir::VectorType::get({numLanes}, elemTy);
+    // NB: qua sto hardcodando l'address space della vector memory (4)
+    auto ppuPtrTy = LLVM::LLVMPointerType::get(rewriter.getContext(), 4);
+
+    // estraiamo l'alignedPtr dalle memref degli operandi
+    Value inBase = materializeAlignedPtr(rewriter, loc, input, ppuPtrTy);
+    Value outBase = materializeAlignedPtr(rewriter, loc, output, ppuPtrTy);
+
+    Value lbM =
+        mlir::getValueOrCreateConstantIndexOp(rewriter, loc, rangeM.offset);
+    Value ubM =
+        mlir::getValueOrCreateConstantIndexOp(rewriter, loc, rangeM.size);
+    // vettorizzo la dimensione N
+    Value lbN =
+        mlir::getValueOrCreateConstantIndexOp(rewriter, loc, rangeN.offset);
+    Value ubN =
+        mlir::getValueOrCreateConstantIndexOp(rewriter, loc, rangeN.size);
+    // dim_rounded = (dim floordiv 16) * 16, espresso come affine.apply
+    AffineExpr s0 = rewriter.getAffineSymbolExpr(0);
+    AffineMap roundingMap =
+        AffineMap::get(0, 1, {s0.floorDiv(numLanes) * numLanes}, ctx);
+    Value dimRounded = rewriter.create<affine::AffineApplyOp>(loc, roundingMap,
+                                                              ValueRange{ubN});
+
+    // mappa identità a 1 dimensione: (d0) -> (d0) per gli ub e lb dei loop
+    mlir::AffineMap identityMap = rewriter.getMultiDimIdentityMap(1);
+
+    if (reductionDim == 0) {
+      /***** riduco le colonne *****/
+
+    } else {
+      /***** riduco le righe *****/
+    }
+
+    // // main loop vettorizzato (M, N/numLanes)
+    // rewriter.create<affine::AffineForOp>(
+    //     loc, lbM, identityMap, ubM, identityMap, 1, std::nullopt,
+    //     [&](OpBuilder &b0, Location l0, Value ivI, ValueRange) {
+    //       rewriter.create<affine::AffineForOp>(
+    //           l0, lbN, identityMap, dimRounded, identityMap, numLanes,
+    //           std::nullopt,
+    //           [&](OpBuilder &b1, Location l1, Value ivJ, ValueRange) {
+    //             // vNint_t row_segment = vvld(&a[i*N + j]);
+    //             Value rowOffset = b1.create<arith::MulIOp>(l1, ivI, ubN);
+    //             Value linearIndex =
+    //                 b1.create<arith::AddIOp>(l1, rowOffset, ivJ);
+    //             Value inPtr = materializeGEPForAccess(
+    //                 b1, l1, inBase, ppuPtrTy, elemTy,
+    //                 ValueRange{linearIndex});
+    //             Value rowSegment = b1.create<ppu::VecLoadOp>(l1, vecTy,
+    //             inPtr);
+
+    //             // vscatter(row_segment, &t[j*M + i], offsets);
+    //             Value rowOffsetTranspose =
+    //                 b1.create<arith::MulIOp>(l1, ivJ, ubM);
+    //             Value linearIndexTranspose =
+    //                 b1.create<arith::AddIOp>(l1, rowOffsetTranspose, ivI);
+    //             Value outPtr =
+    //                 materializeGEPForAccess(b1, l1, outBase, ppuPtrTy,
+    //                 elemTy,
+    //                                         ValueRange{linearIndexTranspose});
+    //             b1.create<ppu::VecScatterOp>(l1, outPtr, offsetVec,
+    //             rowSegment);
+
+    //             b1.create<affine::AffineYieldOp>(l1);
+    //           });
+
+    //       b0.create<affine::AffineYieldOp>(l0);
+    //     });
+
+    // // remainder loop (M, N/numLanes:N)
+    // rewriter.create<affine::AffineForOp>(
+    //     loc, lbM, identityMap, ubM, identityMap, 1, std::nullopt,
+    //     [&](OpBuilder &b0, Location l0, Value ivI, ValueRange) {
+    //       rewriter.create<affine::AffineForOp>(
+    //           l0, dimRounded, identityMap, ubN, identityMap, 1, std::nullopt,
+    //           [&](OpBuilder &b1, Location l1, Value ivJ, ValueRange) {
+    //             Value inVal = b1.create<affine::AffineLoadOp>(
+    //                 l1, input, ValueRange{ivI, ivJ});
+    //             b1.create<affine::AffineStoreOp>(l1, inVal, output,
+    //                                              ValueRange{ivJ, ivI});
+
+    //             b1.create<affine::AffineYieldOp>(l1);
+    //           });
+
+    //       b0.create<affine::AffineYieldOp>(l0);
+    //     });
+
+    rewriter.eraseOp(op);
+
+    return success();
+  }
+};
+
 struct ConvertLinalgToPPUAlgorithm
     : impl::ConvertLinalgToPPUAlgorithmBase<ConvertLinalgToPPUAlgorithm> {
   using ConvertLinalgToPPUAlgorithmBase::ConvertLinalgToPPUAlgorithmBase;
@@ -1143,10 +1280,9 @@ struct ConvertLinalgToPPUAlgorithm
     ModuleOp module = getOperation();
 
     RewritePatternSet patterns(ctx);
-    patterns
-        .add<ConvertLinalgAdd, ConvertLinalgDot, ConvertLinalgMatmul,
-             ConvertLinalgConv1D, ConvertLinalgConv2D, ConvertLinalgTranspose>(
-            ctx);
+    patterns.add<ConvertLinalgAdd, ConvertLinalgDot, ConvertLinalgMatmul,
+                 ConvertLinalgConv1D, ConvertLinalgConv2D,
+                 ConvertLinalgTranspose, ConvertLinalgReduce>(ctx);
     // Post-order, forward walk traversal of ops (excluding input `op`).
     walkAndApplyPatterns(module, std::move(patterns));
   }
