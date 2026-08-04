@@ -299,6 +299,37 @@ LogicalResult convertVecScatter(VecScatterOp &vecScatter,
   return success();
 }
 
+LogicalResult convertVecGather(VecGatherOp &vecGather,
+                               llvm::IRBuilderBase &builder,
+                               LLVM::ModuleTranslation &moduleTranslation) {
+
+  llvm::Module *module = builder.GetInsertBlock()->getModule();
+  llvm::LLVMContext &ctx = module->getContext();
+
+  // Creiamo una chiamata alla funzione intrinseca:
+  //  -> %4 = call <16 x i32> @llvm.arc.vgather.int.v512(
+  //          ptr addrspace(4) %basePtr, <16 x i32> %offsets)
+
+  llvm::Type *vecTy =
+      llvm::VectorType::get(llvm::Type::getInt32Ty(ctx), 16, false);
+  llvm::Type *ptrTy = llvm::PointerType::get(ctx, 4);
+  llvm::FunctionType *funcTy =
+      llvm::FunctionType::get(vecTy, {ptrTy, vecTy}, false);
+  llvm::FunctionCallee callee =
+      module->getOrInsertFunction("llvm.arc.vgather.int.v512", funcTy);
+
+  llvm::Value *ptr = moduleTranslation.lookupValue(vecGather.getSrc());
+  if (ptrTy != ptr->getType())
+    return vecGather.emitError("i puntatori usati dalle ppu op devono avere "
+                               "come attributo addrspace = 4");
+  llvm::Value *offsets = moduleTranslation.lookupValue(vecGather.getOffsets());
+
+  llvm::CallInst *call = builder.CreateCall(callee, {ptr, offsets});
+  moduleTranslation.mapValue(vecGather.getRes(), call);
+
+  return success();
+}
+
 class PPUDialectLLVMIRTranslationInterface
     : public LLVMTranslationDialectInterface {
 public:
@@ -348,9 +379,9 @@ public:
         .Case<VecScatterOp>([&](VecScatterOp scatterOp) {
           return convertVecScatter(scatterOp, builder, moduleTranslation);
         })
-        // .Case<VecGatherOp>([&](VecGatherOp gatherOp) {
-        //   return convertVecGather(gatherOp, builder, moduleTranslation);
-        // })
+        .Case<VecGatherOp>([&](VecGatherOp gatherOp) {
+          return convertVecGather(gatherOp, builder, moduleTranslation);
+        })
         .Default([](Operation *op) {
           return op->emitError(
               "op PPU non supportata nella traduzione LLVM IR");
