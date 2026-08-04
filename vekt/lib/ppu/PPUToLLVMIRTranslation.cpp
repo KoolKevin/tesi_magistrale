@@ -15,9 +15,10 @@
 using namespace mlir;
 using namespace mlir::ppu;
 
-static LogicalResult
-convertVecLoad(VecLoadOp &vecLoad, llvm::IRBuilderBase &builder,
-               LLVM::ModuleTranslation &moduleTranslation) {
+namespace {
+
+LogicalResult convertVecLoad(VecLoadOp &vecLoad, llvm::IRBuilderBase &builder,
+                             LLVM::ModuleTranslation &moduleTranslation) {
 
   llvm::Module *module = builder.GetInsertBlock()->getModule();
   llvm::LLVMContext &ctx = module->getContext();
@@ -52,9 +53,9 @@ convertVecLoad(VecLoadOp &vecLoad, llvm::IRBuilderBase &builder,
   return success();
 }
 
-static LogicalResult
-convertVecStore(VecStoreOp &vecStore, llvm::IRBuilderBase &builder,
-                LLVM::ModuleTranslation &moduleTranslation) {
+LogicalResult convertVecStore(VecStoreOp &vecStore,
+                              llvm::IRBuilderBase &builder,
+                              LLVM::ModuleTranslation &moduleTranslation) {
 
   llvm::Module *module = builder.GetInsertBlock()->getModule();
   llvm::LLVMContext &ctx = module->getContext();
@@ -82,9 +83,8 @@ convertVecStore(VecStoreOp &vecStore, llvm::IRBuilderBase &builder,
   return success();
 }
 
-static LogicalResult convertVecAdd(VecAddOp &vecAdd,
-                                   llvm::IRBuilderBase &builder,
-                                   LLVM::ModuleTranslation &moduleTranslation) {
+LogicalResult convertVecAdd(VecAddOp &vecAdd, llvm::IRBuilderBase &builder,
+                            LLVM::ModuleTranslation &moduleTranslation) {
 
   llvm::Module *module = builder.GetInsertBlock()->getModule();
   llvm::LLVMContext &ctx = module->getContext();
@@ -108,9 +108,9 @@ static LogicalResult convertVecAdd(VecAddOp &vecAdd,
   return success();
 }
 
-static LogicalResult
-convertVecMpyLowAcc(VecMpyLowAccOp &vecMpy, llvm::IRBuilderBase &builder,
-                    LLVM::ModuleTranslation &moduleTranslation) {
+LogicalResult convertVecMpyLowAcc(VecMpyLowAccOp &vecMpy,
+                                  llvm::IRBuilderBase &builder,
+                                  LLVM::ModuleTranslation &moduleTranslation) {
 
   llvm::Module *module = builder.GetInsertBlock()->getModule();
   llvm::LLVMContext &ctx = module->getContext();
@@ -135,9 +135,9 @@ convertVecMpyLowAcc(VecMpyLowAccOp &vecMpy, llvm::IRBuilderBase &builder,
   return success();
 }
 
-static LogicalResult
-convertVecAddInitAcc(VecAddInitAccOp &vecAddInit, llvm::IRBuilderBase &builder,
-                     LLVM::ModuleTranslation &moduleTranslation) {
+LogicalResult convertVecAddInitAcc(VecAddInitAccOp &vecAddInit,
+                                   llvm::IRBuilderBase &builder,
+                                   LLVM::ModuleTranslation &moduleTranslation) {
 
   llvm::Module *module = builder.GetInsertBlock()->getModule();
   llvm::LLVMContext &ctx = module->getContext();
@@ -162,9 +162,9 @@ convertVecAddInitAcc(VecAddInitAccOp &vecAddInit, llvm::IRBuilderBase &builder,
   return success();
 }
 
-static LogicalResult
-convertVecMACLow(VecMACLowOp &vecMAC, llvm::IRBuilderBase &builder,
-                 LLVM::ModuleTranslation &moduleTranslation) {
+LogicalResult convertVecMACLow(VecMACLowOp &vecMAC,
+                               llvm::IRBuilderBase &builder,
+                               LLVM::ModuleTranslation &moduleTranslation) {
 
   llvm::Module *module = builder.GetInsertBlock()->getModule();
   llvm::LLVMContext &ctx = module->getContext();
@@ -190,9 +190,9 @@ convertVecMACLow(VecMACLowOp &vecMAC, llvm::IRBuilderBase &builder,
   return success();
 }
 
-static LogicalResult
-convertVecReduceAdd(VecReduceAddOp &vecReduceAdd, llvm::IRBuilderBase &builder,
-                    LLVM::ModuleTranslation &moduleTranslation) {
+LogicalResult convertVecReduceAdd(VecReduceAddOp &vecReduceAdd,
+                                  llvm::IRBuilderBase &builder,
+                                  LLVM::ModuleTranslation &moduleTranslation) {
 
   llvm::Module *module = builder.GetInsertBlock()->getModule();
   llvm::LLVMContext &ctx = module->getContext();
@@ -219,9 +219,9 @@ convertVecReduceAdd(VecReduceAddOp &vecReduceAdd, llvm::IRBuilderBase &builder,
   return success();
 }
 
-static LogicalResult
-convertAccToVec(AccToVecOp &accToVec, llvm::IRBuilderBase &builder,
-                LLVM::ModuleTranslation &moduleTranslation) {
+LogicalResult convertAccToVec(AccToVecOp &accToVec,
+                              llvm::IRBuilderBase &builder,
+                              LLVM::ModuleTranslation &moduleTranslation) {
 
   llvm::Module *module = builder.GetInsertBlock()->getModule();
   llvm::LLVMContext &ctx = module->getContext();
@@ -244,7 +244,60 @@ convertAccToVec(AccToVecOp &accToVec, llvm::IRBuilderBase &builder,
   return success();
 }
 
-namespace {
+LogicalResult
+convertVecConstantIndex(VecConstantIndexOp &constantIndex,
+                        llvm::IRBuilderBase &builder,
+                        LLVM::ModuleTranslation &moduleTranslation) {
+
+  llvm::Module *module = builder.GetInsertBlock()->getModule();
+  llvm::LLVMContext &ctx = module->getContext();
+
+  // Creiamo una chiamata alla funzione intrinseca:
+  // %0 = tail call <16 x i32> @llvm.arc.vvci.w.v512()
+
+  llvm::Type *vectorTy =
+      llvm::VectorType::get(llvm::Type::getInt32Ty(ctx), 16, false);
+  llvm::FunctionType *funcTy = llvm::FunctionType::get(vectorTy, {}, false);
+  llvm::FunctionCallee callee =
+      module->getOrInsertFunction("llvm.arc.vvci.w.v512", funcTy);
+  llvm::CallInst *call = builder.CreateCall(callee, {});
+
+  moduleTranslation.mapValue(constantIndex.getRes(), call);
+
+  return success();
+}
+
+LogicalResult convertVecScatter(VecScatterOp &vecScatter,
+                                llvm::IRBuilderBase &builder,
+                                LLVM::ModuleTranslation &moduleTranslation) {
+
+  llvm::Module *module = builder.GetInsertBlock()->getModule();
+  llvm::LLVMContext &ctx = module->getContext();
+
+  // Creiamo una chiamata alla funzione intrinseca:
+  //  -> tail call void @llvm.arc.vscatter.int.v512(
+  //        ptr addrspace(4) %basePtr, <16 x i32> %offsets, <16 x i32> %values)
+
+  llvm::Type *voidTy = llvm::Type::getVoidTy(ctx);
+  llvm::Type *vectorTy =
+      llvm::VectorType::get(llvm::Type::getInt32Ty(ctx), 16, false);
+  llvm::Type *ptrTy = llvm::PointerType::get(ctx, 4);
+  llvm::FunctionType *funcTy =
+      llvm::FunctionType::get(voidTy, {ptrTy, vectorTy, vectorTy}, false);
+  llvm::FunctionCallee callee =
+      module->getOrInsertFunction("llvm.arc.vscatter.int.v512", funcTy);
+
+  llvm::Value *ptr = moduleTranslation.lookupValue(vecScatter.getDest());
+  llvm::Value *offsets = moduleTranslation.lookupValue(vecScatter.getOffsets());
+  llvm::Value *values = moduleTranslation.lookupValue(vecScatter.getValues());
+  if (ptrTy != ptr->getType())
+    return vecScatter.emitError("i puntatori usati dalle ppu op devono avere "
+                                "come attributo addrspace = 4");
+
+  builder.CreateCall(callee, {ptr, offsets, values});
+
+  return success();
+}
 
 class PPUDialectLLVMIRTranslationInterface
     : public LLVMTranslationDialectInterface {
@@ -287,6 +340,17 @@ public:
         .Case<AccToVecOp>([&](AccToVecOp accToVec) {
           return convertAccToVec(accToVec, builder, moduleTranslation);
         })
+        // d
+        .Case<VecConstantIndexOp>([&](VecConstantIndexOp constantIndex) {
+          return convertVecConstantIndex(constantIndex, builder,
+                                         moduleTranslation);
+        })
+        .Case<VecScatterOp>([&](VecScatterOp scatterOp) {
+          return convertVecScatter(scatterOp, builder, moduleTranslation);
+        })
+        // .Case<VecGatherOp>([&](VecGatherOp gatherOp) {
+        //   return convertVecGather(gatherOp, builder, moduleTranslation);
+        // })
         .Default([](Operation *op) {
           return op->emitError(
               "op PPU non supportata nella traduzione LLVM IR");
