@@ -933,6 +933,10 @@ void buildGenericFromNest(PatternRewriter &rewriter,
             yielded = cloned->getResult(0);
         }
 
+        // NB: Se yielded non è stato aggiornato da un'operazione clonata (e.g.
+        // nella trasposta dove yielded è il risultato della affine.load),
+        // usiamo il mapping per prendere direttamente il blockArg.
+        yielded = map.lookupOrDefault(yielded);
         builder.create<linalg::YieldOp>(bodyLoc, yielded);
       });
 
