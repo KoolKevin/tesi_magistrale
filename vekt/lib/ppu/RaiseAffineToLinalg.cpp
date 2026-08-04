@@ -1036,6 +1036,51 @@ struct ConvertGenericToDotp : public OpRewritePattern<mlir::linalg::GenericOp> {
   }
 };
 
+struct ConvertGenericToTranspose
+    : public OpRewritePattern<mlir::linalg::GenericOp> {
+
+  ConvertGenericToTranspose(mlir::MLIRContext *context)
+      : OpRewritePattern<mlir::linalg::GenericOp>(context) {}
+
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(mlir::linalg::GenericOp op,
+                                PatternRewriter &rewriter) const final {
+
+    // due dimensioni parallele e zero di reduction
+    if (op.getNumParallelLoops() != 2 || op.getNumReductionLoops() != 0)
+      return rewriter.notifyMatchFailure(op, "iterator_types non matchano");
+
+    // una trasposta ha queste indexing maps
+    // - <(d0, d1) -> (d0, d1)>
+    // - <(d0, d1) -> (d1, d0)>
+    auto maps = op.getIndexingMapsArray();
+    if (!maps[0].isIdentity() || !maps[1].isPermutation())
+      return rewriter.notifyMatchFailure(op, "indexing map sbagliate");
+
+    // il body deve essere semplicemente una yield del primo block-arg
+    mlir::Block *body = op.getBlock();
+    if (body->getOperations().size() != 1) {
+      return rewriter.notifyMatchFailure(
+          op, "il body deve contenere solo la linalg.yield");
+    }
+    auto yieldOp = mlir::dyn_cast<mlir::linalg::YieldOp>(body->getTerminator());
+    if (!yieldOp || yieldOp.getNumOperands() != 1 ||
+        yieldOp.getOperand(0) != body->getArgument(0)) {
+      return rewriter.notifyMatchFailure(op, "il body non yiels blockArgs[0]");
+    }
+
+    // NB: linalg.transpose è pensata per gestire anche dimensionalità maggiori
+    // di 2 tramite una permutation map. Io gestisco solo matrici e quindi
+    // hard-codo {1, 0}
+    rewriter.replaceOpWithNewOp<linalg::TransposeOp>(
+        op, op.getDpsInputs()[0], op.getDpsInits()[0],
+        rewriter.getDenseI64ArrayAttr({1, 0}));
+
+    return success();
+  }
+};
+
 struct PPUSpecializeLinalgGeneric
     : impl::PPUSpecializeLinalgGenericBase<PPUSpecializeLinalgGeneric> {
   using PPUSpecializeLinalgGenericBase::PPUSpecializeLinalgGenericBase;
@@ -1045,7 +1090,7 @@ struct PPUSpecializeLinalgGeneric
     ModuleOp module = getOperation();
 
     RewritePatternSet patterns(ctx);
-    patterns.add<ConvertGenericToDotp>(ctx);
+    patterns.add<ConvertGenericToDotp, ConvertGenericToTranspose>(ctx);
     walkAndApplyPatterns(module, std::move(patterns));
   }
 };
