@@ -65,3 +65,14 @@ NB: autovettorizzatore vettorizza il loop interno (dotproduct vettorizzata per o
 **NB**: sembra che nella versione vekt-vettorizzata avvenga dello stack spilling che causano un calo di performance. Dovrei esplorare meglio dove (nel loop interno con la mac non c'è) e come mai avviene (mi sembra strano che sia dovuto al numero elevato di parametri dato che la maggior parte non viene usata e quindi non dovrebbe consumare un registro)
 
 **NB**: disabilitare l'unrolling non ha alcun effetto dato che non viene applicato (immagino che sia per la già elevata register pressure)
+
+# Trasposta
+
+**Compilato con -O3**
+
+| Versione            |    Tempo | Speedup |
+|---------------------|---------:|--------:|
+| Sequenziale         |  30.56ms |   1.00× |
+| Vettorizzata a mano |   3.89ms |   7.86× |
+| Autovettorizzata    |  30.57ms |   1.00× |
+| Vekt-vettorizzata   |   3.94ms |   7.75× |

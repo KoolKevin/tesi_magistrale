@@ -99,12 +99,11 @@ void autovectorized_transpose(__vccm int* restrict a,
 }
 
 void vekt_transpose_wrapper(int* a, int* t, int M, int N) {
-    // vekt_matmul(
-    //     M, N, K,
-    //     a, a, 0, M, K, K, 1,
-    //     b, b, 0, K, N, N, 1,
-    //     c, c, 0, M, N, N, 1
-    // );
+    vekt_transpose(
+        M, N, 
+        a, a, 0, M, N, N, 1,
+        t, t, 0, N, M, M, 1
+    );
 
     return;
 }

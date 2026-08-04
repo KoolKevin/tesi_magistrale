@@ -23,13 +23,13 @@ void autovectorized_transpose(__vccm int* restrict a,
                            int M,
                            int N); 
 
-// extern void vekt_matmul(
-//     int M, int N 
-//     int* a_alloc, int* a_align, int a_offset,
-//     int a_size_1, int a_size_2, int a_stride_1, int a_stride_2,
-//     int* t_alloc, int* t_align, int t_offset,
-//     int t_size_1, int t_size_2, int t_stride_1, int t_stride_2,
-//     );
+extern void vekt_transpose(
+    int M, int N, 
+    int* a_alloc, int* a_align, int a_offset,
+    int a_size_1, int a_size_2, int a_stride_1, int a_stride_2,
+    int* t_alloc, int* t_align, int t_offset,
+    int t_size_1, int t_size_2, int t_stride_1, int t_stride_2
+);
 
 void vekt_transpose_wrapper(int* a, int* t, int M, int N);
 

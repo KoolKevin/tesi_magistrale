@@ -8,7 +8,7 @@ OPT = -O3
 AUTOVEC = -fvectorize -fslp-vectorize -ffast-math
 DEBUG_FLAGS = -Rpass=loop-vectorize -Rpass-missed=loop-vectorize -Rpass-analysis=loop-vectorize
 
-SRCS = main.c transpose.c
+SRCS = main.c transpose.c vekt_transpose.ll
 TARGET = a.out
 
 all: build
