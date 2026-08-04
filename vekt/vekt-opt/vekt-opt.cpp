@@ -60,7 +60,7 @@ int main(int argc, char **argv) {
 
         // loweriamo ad llvm
         pm.addPass(
-            mlir::createConvertVectorToLLVMPass()); // non dovrebbe servire
+            mlir::createConvertVectorToLLVMPass()); // serve per broadcast
         pm.addPass(mlir::ppu::createPPULowerToLLVM());
 
         // cleanup finale

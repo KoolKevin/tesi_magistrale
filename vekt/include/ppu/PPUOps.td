@@ -261,11 +261,12 @@ def PPU_VecGatherOp : PPU_Op<"vec_gather", [Pure]> {
     let description = [{
         Per adesso modella ESATTAMENTE questo intrinseco llvm-ir:
 
-        `%13 = call <16 x i32> @llvm.arc.vvld.w.v512(ptr addrspace(4) %12)`
+        %4 = tail call <16 x i32> @llvm.arc.vgather.int.v512(
+            ptr addrspace(4) %basePtr, <16 x i32> %offsets)
         ```
     }];
 
-    let arguments = (ins LLVM_AnyPointer:$src);
+    let arguments = (ins LLVM_AnyPointer:$src, AnyVectorOfAnyRank:$offsets);
     let results = (outs AnyVectorOfAnyRank:$res);
 }
 
