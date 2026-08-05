@@ -6,6 +6,7 @@
 #include "mlir/Dialect/Affine/Analysis/AffineAnalysis.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Affine/IR/AffineValueMap.h"
+#include "mlir/Dialect/Affine/LoopUtils.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
@@ -20,6 +21,7 @@ namespace mlir::ppu {
 #define GEN_PASS_DEF_PPURAISEAFFINETOLINALGGENERIC
 #define GEN_PASS_DEF_PPUNORMALIZEITERARGSREDUCTIONS
 #define GEN_PASS_DEF_PPUSPECIALIZELINALGGENERIC
+#define GEN_PASS_DEF_PPUSPECIALIZEAFFINENESTS
 #include "ppu/PPUPasses.h.inc"
 
 namespace {
@@ -763,7 +765,8 @@ analyzeNest(ArrayRef<affine::AffineForOp> nest) {
         return std::nullopt; // more than one store: not a single generic
       store = st;
     } else if (isa<arith::MulIOp, arith::AddIOp, arith::MulFOp, arith::AddFOp,
-                   arith::SubIOp, arith::SubFOp, arith::SelectOp>(op)) {
+                   arith::SubIOp, arith::SubFOp, arith::CmpIOp,
+                   arith::SelectOp>(op)) {
       // payload arithmetic -- fine. Extend this list as needed; anything
       // with side effects or control flow should NOT be added here.
     } else {
@@ -986,7 +989,7 @@ struct PPURaiseAffineToLinalgGeneric
 };
 
 //===----------------------------------------------------------------------===//
-// PPURaiseAffineToLinalgGeneric
+// PPUSpecializeLinalgGeneric
 //===----------------------------------------------------------------------===//
 
 struct ConvertGenericToDotp : public OpRewritePattern<mlir::linalg::GenericOp> {
@@ -1149,6 +1152,135 @@ struct PPUSpecializeLinalgGeneric
     RewritePatternSet patterns(ctx);
     patterns.add<ConvertGenericToDotp, ConvertGenericToTranspose,
                  ConvertGenericToReduce>(ctx);
+    walkAndApplyPatterns(module, std::move(patterns));
+  }
+};
+
+//===----------------------------------------------------------------------===//
+// PPUSpecializeAffineNests
+//===----------------------------------------------------------------------===//
+
+struct ConvertNestToMaxPool2D
+    : public mlir::OpRewritePattern<mlir::affine::AffineForOp> {
+
+  ConvertNestToMaxPool2D(mlir::MLIRContext *context)
+      : mlir::OpRewritePattern<mlir::affine::AffineForOp>(context) {}
+
+  mlir::LogicalResult
+  matchAndRewrite(mlir::affine::AffineForOp outerLoop,
+                  mlir::PatternRewriter &rewriter) const final {
+
+    // controllo la profondità del nest
+    llvm::SmallVector<mlir::affine::AffineForOp, 4> nestedLoops;
+    mlir::affine::getPerfectlyNestedLoops(nestedLoops, outerLoop);
+    if (nestedLoops.size() != 4)
+      return rewriter.notifyMatchFailure(
+          outerLoop, "maxPool deve avere un loop nest profondo 4");
+
+    mlir::affine::AffineForOp loop0 = nestedLoops[0];
+    mlir::affine::AffineForOp loop1 = nestedLoops[1];
+    mlir::affine::AffineForOp loop2 = nestedLoops[2];
+    mlir::affine::AffineForOp loop3 = nestedLoops[3];
+    mlir::Block *body3 = loop3.getBody();
+
+    // controllo del numero di op (5 op + terminator affine.yield)
+    if (body3->getOperations().size() != 6)
+      return rewriter.notifyMatchFailure(
+          loop3, "Il blocco interno deve contenere esattamente 5 operazioni");
+
+    // controllo la sequenza di operazioni nel body
+    auto it = body3->without_terminator().begin();
+    auto loadAccOp = mlir::dyn_cast<mlir::affine::AffineLoadOp>(&(*it));
+    it++;
+    auto loadSrcOp = mlir::dyn_cast<mlir::affine::AffineLoadOp>(&(*it));
+    it++;
+    auto cmpiOp = mlir::dyn_cast<mlir::arith::CmpIOp>(&(*it));
+    it++;
+    auto selectOp = mlir::dyn_cast<mlir::arith::SelectOp>(&(*it));
+    it++;
+    auto storeOp = mlir::dyn_cast<mlir::affine::AffineStoreOp>(&(*it));
+    it++;
+    if (!loadAccOp || !loadSrcOp || !cmpiOp || !selectOp || !storeOp)
+      return rewriter.notifyMatchFailure(loop3,
+                                         "Sequenza di operazioni non valida");
+
+    // controllo se sto calcolando un massimo
+    // NB: sto controllando un caso molto specifico ovvero: input > acc.
+    // Se il check fosse: acc < input, non matcherei.
+    if (cmpiOp.getPredicate() != mlir::arith::CmpIPredicate::sgt ||
+        cmpiOp.getLhs() != loadSrcOp.getResult() ||
+        cmpiOp.getRhs() != loadAccOp.getResult() ||
+        selectOp.getTrueValue() != loadSrcOp.getResult() ||
+        selectOp.getFalseValue() != loadAccOp.getResult()) {
+      return rewriter.notifyMatchFailure(
+          loop3, "L'IR non corrisponde a una riduzione MaxPool");
+    }
+
+    // controllo i subscript degli accessi
+    mlir::Value iv0 = loop0.getInductionVar();
+    mlir::Value iv1 = loop1.getInductionVar();
+    mlir::Value iv2 = loop2.getInductionVar();
+    mlir::Value iv3 = loop3.getInductionVar();
+    mlir::Value kernelDim = loop3.getUpperBoundOperands().front();
+
+    // loadAcc deve indicizzare con [iv0, iv1] e con identity map
+    auto accOperands = loadAccOp.getMapOperands();
+    if (!loadAccOp.getAffineMap().isIdentity() || accOperands.size() != 2 ||
+        accOperands[0] != iv0 || accOperands[1] != iv1)
+      return rewriter.notifyMatchFailure(
+          loop3, "Indicizzazione dell'accumulatore sbagliata");
+    // la store deve usare esattamente gli stessi operandi/mappa di loadAcc
+    if (storeOp.getAffineMap() != loadAccOp.getAffineMap() ||
+        storeOp.getMapOperands() != accOperands)
+      return rewriter.notifyMatchFailure(
+          loop3, "store non coerente con la load dell'accumulatore");
+
+    // loadSrc deve indicizzare con [iv2 + iv0*W][iv3 + iv1*W]
+    // NB: l'ordine degli operandi della load è esattamente quello scritto sopra
+    ValueRange operands = loadSrcOp.getMapOperands(); // [dims..., symbols...]
+
+    MLIRContext *ctx = loadSrcOp.getContext();
+    AffineExpr d0, d1, d2, d3, s0;
+    bindDims(ctx, d0, d1, d2, d3);
+    bindSymbols(ctx, s0);
+    AffineMap expected =
+        AffineMap::get(4, 1, {d0 + d1 * s0, d2 + d3 * s0}, ctx);
+    if (loadSrcOp.getAffineMap() != expected)
+      return rewriter.notifyMatchFailure(loadSrcOp,
+                                         "shape sbagliata dell'accesso");
+
+    if (operands.size() != 5)
+      return rewriter.notifyMatchFailure(loadSrcOp,
+                                         "expected 4 dimensions and 1 symbol");
+    if (operands[0] != iv2 || operands[1] != iv0 || operands[2] != iv3 ||
+        operands[3] != iv1 || operands[4] != kernelDim)
+      return rewriter.notifyMatchFailure(loadSrcOp,
+                                         "unexpected affine map operands");
+
+    // loop2/loop3 devono condividere lo stesso bound (kernel quadrato)
+    if (loop2.getUpperBoundMap() != loop3.getUpperBoundMap() ||
+        loop2.getUpperBoundOperands() != loop3.getUpperBoundOperands())
+      return rewriter.notifyMatchFailure(loop3, "Kernel non quadrato");
+
+    // ho matchato, genero la mia op
+    rewriter.setInsertionPoint(outerLoop);
+    rewriter.create<ppu::MaxPool2DOp>(outerLoop.getLoc(), loadSrcOp.getMemRef(),
+                                      kernelDim, loadAccOp.getMemRef());
+    rewriter.eraseOp(outerLoop);
+    return mlir::success();
+  }
+};
+
+struct PPUSpecializeAffineNests
+    : impl::PPUSpecializeAffineNestsBase<PPUSpecializeAffineNests> {
+  using PPUSpecializeAffineNestsBase::PPUSpecializeAffineNestsBase;
+
+  void runOnOperation() override {
+    MLIRContext *ctx = &getContext();
+    ModuleOp module = getOperation();
+
+    RewritePatternSet patterns(ctx);
+    patterns.add<ConvertNestToMaxPool2D>(ctx);
     walkAndApplyPatterns(module, std::move(patterns));
   }
 };

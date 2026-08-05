@@ -270,6 +270,22 @@ def PPU_VecGatherOp : PPU_Op<"vec_gather", [Pure]> {
     let results = (outs AnyVectorOfAnyRank:$res);
 }
 
+//===----------------------------------------------------------------------===//
+// LinalgMaxPooling2D
+//===----------------------------------------------------------------------===//
+
+def PPU_MaxPool2DOp : PPU_Op<"max_pool_2d", []> {
+    let summary = "applica max pooling sull'operando `src` con una finestra"
+                  "grande `kernelDim`";
+    let description = [{
+        Uso questa op per comodità mia durante la specializzazione di
+        linalg.generic e durante la vettorizzazione.
+
+        Non implemento alcun lowering verso llvm.
+    }];
+
+    let arguments = (ins AnyMemRef:$src, Index:$kernelDim, AnyMemRef:$dst);
+}
 
 
 #endif // PPU_OPS

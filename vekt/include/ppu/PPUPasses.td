@@ -217,6 +217,23 @@ def PPUSpecializeLinalgGeneric: Pass<"ppu-specialize-linalg-generic", "::mlir::M
   ];
 }
 
+def PPUSpecializeAffineNests: Pass<"ppu-specialize-affine-nests", "::mlir::ModuleOp"> {
+  let summary = "Passo che specializza nest di affine.for ops in una op named"
+                "di alto livello. Gestisce i casi che mi interessano non"
+                "non rappresentabili con linalg";
+
+  let description = [{
+    Casi gestiti in più:
+
+    - ppu.max_pool_2d
+  }];
+
+  let dependentDialects = [
+    "mlir::linalg::LinalgDialect",
+    "mlir::ppu::PPUDialect"
+  ];
+}
+
 def ConvertLinalgToPPUAlgorithm: Pass<"convert-linalg-to-ppu-algorithm", "::mlir::ModuleOp"> {
   let summary = "Effettua il lowering di alcune linalg ops ad algoritmi vettorizzati destinati alla PPU";
   let description = [{
