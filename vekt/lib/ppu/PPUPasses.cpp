@@ -1200,63 +1200,112 @@ struct ConvertLinalgReduce : public OpRewritePattern<mlir::linalg::ReduceOp> {
     if (reductionDim == 0) {
       /***** riduco le colonne *****/
 
+      // main loop vettorizzato (N/numLanes, M)
+      rewriter.create<affine::AffineForOp>(
+          loc, lbN, identityMap, dimRounded, identityMap, numLanes,
+          std::nullopt, [&](OpBuilder &b0, Location l0, Value ivJ, ValueRange) {
+            Value zeroVec = rewriter.create<arith::ConstantOp>(
+                loc, vecTy, rewriter.getZeroAttr(vecTy));
+
+            auto innerLoop = rewriter.create<affine::AffineForOp>(
+                l0, lbM, identityMap, ubM, identityMap, 1, ValueRange{zeroVec},
+                [&](OpBuilder &b1, Location l1, Value ivI, ValueRange acc) {
+                  // vNint_t row_segment = vvld(&input[i*N + j]);
+                  Value rowOffset = b1.create<arith::MulIOp>(l1, ivI, ubN);
+                  Value linearIndex =
+                      b1.create<arith::AddIOp>(l1, rowOffset, ivJ);
+                  Value inPtr =
+                      materializeGEPForAccess(b1, l1, inBase, ppuPtrTy, elemTy,
+                                              ValueRange{linearIndex});
+                  Value rowSegment =
+                      b1.create<ppu::VecLoadOp>(l1, vecTy, inPtr);
+
+                  Value sum = b1.create<ppu::VecAddOp>(l1, acc[0], rowSegment);
+
+                  b1.create<affine::AffineYieldOp>(l1, sum);
+                });
+
+            // vvst(acc, &res[j_vec]);
+            Value outPtr = materializeGEPForAccess(b0, l0, outBase, ppuPtrTy,
+                                                   elemTy, ValueRange{ivJ});
+            b0.create<ppu::VecStoreOp>(l0, innerLoop.getResults()[0], outPtr);
+
+            b0.create<affine::AffineYieldOp>(l0);
+          });
+
+      // remainder loop (N/numLanes:N, M)
+      rewriter.create<affine::AffineForOp>(
+          loc, dimRounded, identityMap, ubN, identityMap, 1, std::nullopt,
+          [&](OpBuilder &b0, Location l0, Value ivJ, ValueRange) {
+            Value zero = b0.create<arith::ConstantOp>(loc, elemTy,
+                                                      b0.getZeroAttr(elemTy));
+            auto innerLoop = rewriter.create<affine::AffineForOp>(
+                l0, lbM, identityMap, ubM, identityMap, 1, ValueRange{zero},
+                [&](OpBuilder &b1, Location l1, Value ivI, ValueRange acc) {
+                  Value inVal = b1.create<affine::AffineLoadOp>(
+                      l1, input, ValueRange{ivI, ivJ});
+                  Value sumVal = b1.create<arith::AddIOp>(l1, acc[0], inVal);
+
+                  b1.create<affine::AffineYieldOp>(l1, sumVal);
+                });
+
+            b0.create<affine::AffineStoreOp>(l0, innerLoop.getResults()[0],
+                                             output, ValueRange{ivJ});
+
+            b0.create<affine::AffineYieldOp>(l0);
+          });
+
     } else {
       /***** riduco le righe *****/
+
+      // main loop vettorizzato (M, N/numLanes)
+      rewriter.create<affine::AffineForOp>(
+          loc, lbM, identityMap, ubM, identityMap, 1, std::nullopt,
+          [&](OpBuilder &b0, Location l0, Value ivI, ValueRange) {
+            Value zeros = rewriter.create<arith::ConstantOp>(
+                loc, vecTy, rewriter.getZeroAttr(vecTy));
+            auto accumulator =
+                rewriter.create<ppu::VecAddInitAccOp>(loc, vecTy, zeros, zeros);
+            auto innerLoop = rewriter.create<affine::AffineForOp>(
+                l0, lbN, identityMap, dimRounded, identityMap, numLanes,
+                ValueRange{accumulator},
+                [&](OpBuilder &b1, Location l1, Value ivJ, ValueRange acc) {
+                  // vNint_t row_segment = vvld(&input[i*N + j]);
+                  Value rowOffset = b1.create<arith::MulIOp>(l1, ivI, ubN);
+                  Value linearIndex =
+                      b1.create<arith::AddIOp>(l1, rowOffset, ivJ);
+                  Value inPtr =
+                      materializeGEPForAccess(b1, l1, inBase, ppuPtrTy, elemTy,
+                                              ValueRange{linearIndex});
+                  Value rowSegment =
+                      b1.create<ppu::VecLoadOp>(l1, vecTy, inPtr);
+
+                  Value sum = b1.create<ppu::VecAddOp>(l1, acc[0], rowSegment);
+
+                  b1.create<affine::AffineYieldOp>(l1, sum);
+                });
+
+            auto reductionOp = rewriter.create<ppu::VecReduceAddOp>(
+                loc, innerLoop.getResults()[0]);
+
+            // remainder loop fuso (M, N/numLanes:N)
+            auto remainderLoop = rewriter.create<affine::AffineForOp>(
+                l0, dimRounded, identityMap, ubN, identityMap, 1,
+                ValueRange{reductionOp},
+                [&](OpBuilder &b1, Location l1, Value ivJ, ValueRange acc) {
+                  Value inVal = b1.create<affine::AffineLoadOp>(
+                      l1, input, ValueRange{ivI, ivJ});
+                  Value sumVal = b1.create<arith::AddIOp>(l1, acc[0], inVal);
+
+                  b1.create<affine::AffineYieldOp>(l1, sumVal);
+                });
+
+            b0.create<affine::AffineStoreOp>(l0, remainderLoop.getResults()[0],
+                                             output, ValueRange{ivI});
+
+            b0.create<affine::AffineYieldOp>(l0);
+          });
     }
-
-    // // main loop vettorizzato (M, N/numLanes)
-    // rewriter.create<affine::AffineForOp>(
-    //     loc, lbM, identityMap, ubM, identityMap, 1, std::nullopt,
-    //     [&](OpBuilder &b0, Location l0, Value ivI, ValueRange) {
-    //       rewriter.create<affine::AffineForOp>(
-    //           l0, lbN, identityMap, dimRounded, identityMap, numLanes,
-    //           std::nullopt,
-    //           [&](OpBuilder &b1, Location l1, Value ivJ, ValueRange) {
-    //             // vNint_t row_segment = vvld(&a[i*N + j]);
-    //             Value rowOffset = b1.create<arith::MulIOp>(l1, ivI, ubN);
-    //             Value linearIndex =
-    //                 b1.create<arith::AddIOp>(l1, rowOffset, ivJ);
-    //             Value inPtr = materializeGEPForAccess(
-    //                 b1, l1, inBase, ppuPtrTy, elemTy,
-    //                 ValueRange{linearIndex});
-    //             Value rowSegment = b1.create<ppu::VecLoadOp>(l1, vecTy,
-    //             inPtr);
-
-    //             // vscatter(row_segment, &t[j*M + i], offsets);
-    //             Value rowOffsetTranspose =
-    //                 b1.create<arith::MulIOp>(l1, ivJ, ubM);
-    //             Value linearIndexTranspose =
-    //                 b1.create<arith::AddIOp>(l1, rowOffsetTranspose, ivI);
-    //             Value outPtr =
-    //                 materializeGEPForAccess(b1, l1, outBase, ppuPtrTy,
-    //                 elemTy,
-    //                                         ValueRange{linearIndexTranspose});
-    //             b1.create<ppu::VecScatterOp>(l1, outPtr, offsetVec,
-    //             rowSegment);
-
-    //             b1.create<affine::AffineYieldOp>(l1);
-    //           });
-
-    //       b0.create<affine::AffineYieldOp>(l0);
-    //     });
-
-    // // remainder loop (M, N/numLanes:N)
-    // rewriter.create<affine::AffineForOp>(
-    //     loc, lbM, identityMap, ubM, identityMap, 1, std::nullopt,
-    //     [&](OpBuilder &b0, Location l0, Value ivI, ValueRange) {
-    //       rewriter.create<affine::AffineForOp>(
-    //           l0, dimRounded, identityMap, ubN, identityMap, 1, std::nullopt,
-    //           [&](OpBuilder &b1, Location l1, Value ivJ, ValueRange) {
-    //             Value inVal = b1.create<affine::AffineLoadOp>(
-    //                 l1, input, ValueRange{ivI, ivJ});
-    //             b1.create<affine::AffineStoreOp>(l1, inVal, output,
-    //                                              ValueRange{ivJ, ivI});
-
-    //             b1.create<affine::AffineYieldOp>(l1);
-    //           });
-
-    //       b0.create<affine::AffineYieldOp>(l0);
-    //     });
 
     rewriter.eraseOp(op);
 
