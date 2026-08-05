@@ -6,7 +6,7 @@ OPT = -O3
 AUTOVEC = -fvectorize -fslp-vectorize -ffast-math
 DEBUG_FLAGS = -Rpass=loop-vectorize -Rpass-missed=loop-vectorize -Rpass-analysis=loop-vectorize
 
-SRCS = main.c mat_reduce_rows.c 
+SRCS = main.c mat_reduce_rows.c vekt_mat_reduce_rows.ll
 TARGET = a.out
 
 all: build

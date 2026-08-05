@@ -119,12 +119,11 @@ void autovectorized_mat_reduce_rows(__vccm int* restrict A,
 }
 
 void vekt_mat_reduce_rows_wrapper(int *A, int *res, int M, int N) {
-    // vekt_mat_reduce_rows(
-    //     M, N, 
-    //     a, a, 0, M, K, K, 1,
-    //     b, b, 0, K, N, N, 1,
-    //     c, c, 0, M, N, N, 1
-    // );
+    vekt_mat_reduce_rows(
+        M, N, 
+        A, A, 0, M, N, N, 1,
+        res, res, 0, M, 1
+    );
 
     return;
 }

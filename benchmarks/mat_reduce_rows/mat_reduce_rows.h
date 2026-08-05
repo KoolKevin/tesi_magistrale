@@ -27,15 +27,13 @@ void autovectorized_mat_reduce_rows(__vccm int* restrict A,
                        int M,
                        int N); 
 
-// extern void vekt_mat_reduce_rows(
-//     int M, int N, int K,
-//     int* a_alloc, int* a_align, int a_offset,
-//     int a_size_1, int a_size_2, int a_stride_1, int a_stride_2,
-//     int* b_alloc, int* b_align, int b_offset,
-//     int b_size_1, int b_size_2, int b_stride_1, int b_stride_2,
-//     int* c_alloc, int* c_align, int c_offset,
-//     int c_size_1, int c_size_2, int c_stride_1, int c_stride_2
-//     );
+extern void vekt_mat_reduce_rows(
+    int M, int N,
+    int* a_alloc, int* a_align, int a_offset,
+    int a_size_1, int a_size_2, int a_stride_1, int a_stride_2,
+    int* res_alloc, int* res_align, int res_offset,
+    int res_size, int res_stride
+    );
 
 void vekt_mat_reduce_rows_wrapper(int *A, int *res, int M, int N);
 
