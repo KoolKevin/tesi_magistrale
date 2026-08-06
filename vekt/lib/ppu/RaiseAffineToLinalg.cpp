@@ -1058,6 +1058,9 @@ struct ConvertGenericToTranspose
     // - <(d0, d1) -> (d0, d1)>
     // - <(d0, d1) -> (d1, d0)>
     auto maps = op.getIndexingMapsArray();
+    if (maps.size() != 2)
+      return rewriter.notifyMatchFailure(
+          op, "gli accessi devono essere esattamente 2");
     if (!maps[0].isIdentity() || !maps[1].isPermutation())
       return rewriter.notifyMatchFailure(op, "indexing map sbagliate");
 
@@ -1094,6 +1097,10 @@ struct ConvertGenericToReduce
 
   LogicalResult matchAndRewrite(mlir::linalg::GenericOp op,
                                 PatternRewriter &rewriter) const final {
+
+    if (op.getNumDpsInputs() != 1)
+      return rewriter.notifyMatchFailure(
+          op, "ci deve essere esattamente un operando da ridurre");
 
     SmallVector<int64_t> reductionDims;
     // recupero il rhs della mappa di input
