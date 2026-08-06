@@ -330,6 +330,32 @@ LogicalResult convertVecGather(VecGatherOp &vecGather,
   return success();
 }
 
+LogicalResult convertVecMax(VecMaxOp &vecMax, llvm::IRBuilderBase &builder,
+                            LLVM::ModuleTranslation &moduleTranslation) {
+
+  llvm::Module *module = builder.GetInsertBlock()->getModule();
+  llvm::LLVMContext &ctx = module->getContext();
+
+  // Creiamo una chiamata alla funzione intrinseca:
+  // %5 = tail call <16 x i32> @llvm.arc.vvcmax.acc.w.v512(
+  //    <16 x i32> %max_acc, <16 x i32> %4)
+
+  llvm::Type *vectorTy =
+      llvm::VectorType::get(llvm::Type::getInt32Ty(ctx), 16, false);
+  llvm::FunctionType *funcTy =
+      llvm::FunctionType::get(vectorTy, {vectorTy, vectorTy}, false);
+  llvm::FunctionCallee callee =
+      module->getOrInsertFunction("llvm.arc.vvcmax.acc.w.v512", funcTy);
+
+  llvm::Value *arg1 = moduleTranslation.lookupValue(vecMax.getArg1());
+  llvm::Value *arg2 = moduleTranslation.lookupValue(vecMax.getArg2());
+  llvm::CallInst *call = builder.CreateCall(callee, {arg1, arg2});
+
+  moduleTranslation.mapValue(vecMax.getRes(), call);
+
+  return success();
+}
+
 class PPUDialectLLVMIRTranslationInterface
     : public LLVMTranslationDialectInterface {
 public:
@@ -381,6 +407,9 @@ public:
         })
         .Case<VecGatherOp>([&](VecGatherOp gatherOp) {
           return convertVecGather(gatherOp, builder, moduleTranslation);
+        })
+        .Case<VecMaxOp>([&](VecMaxOp maxOp) {
+          return convertVecMax(maxOp, builder, moduleTranslation);
         })
         .Default([](Operation *op) {
           return op->emitError(

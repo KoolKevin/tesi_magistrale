@@ -270,6 +270,10 @@ def PPU_VecGatherOp : PPU_Op<"vec_gather", [Pure]> {
     let results = (outs AnyVectorOfAnyRank:$res);
 }
 
+//===----------------------------------------------------------------------===//
+// VecMaxOp
+//===----------------------------------------------------------------------===//
+
 def PPU_VecMaxOp: PPU_Op<"vec_max", [Pure, SameOperandsAndResultType]> {
     let summary = "confronta due registri vettoriali e produce un registro max";
     let description = [{
@@ -287,7 +291,7 @@ def PPU_VecMaxOp: PPU_Op<"vec_max", [Pure, SameOperandsAndResultType]> {
 }
 
 //===----------------------------------------------------------------------===//
-// LinalgMaxPooling2D
+// MaxPool2D
 //===----------------------------------------------------------------------===//
 
 def PPU_MaxPool2DOp : PPU_Op<"max_pool_2d", []> {
