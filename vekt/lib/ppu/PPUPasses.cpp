@@ -1313,6 +1313,214 @@ struct ConvertLinalgReduce : public OpRewritePattern<mlir::linalg::ReduceOp> {
   }
 };
 
+struct ConvertPPUMaxPool2D : public OpRewritePattern<mlir::ppu::MaxPool2DOp> {
+
+  ConvertPPUMaxPool2D(mlir::MLIRContext *context)
+      : OpRewritePattern<mlir::ppu::MaxPool2DOp>(context) {}
+
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(mlir::ppu::MaxPool2DOp op,
+                                PatternRewriter &rewriter) const final {
+
+    MLIRContext *ctx = rewriter.getContext();
+    mlir::Location loc = op.getLoc();
+
+    // operandi
+    Value src = op.getSrc();
+    Value dst = op.getDst();
+    Value kernelDim = op.getKernelDim();
+
+    // recuperiamo i ranges dei loop (start, stop, step)
+    Value c0 = rewriter.create<mlir::arith::ConstantIndexOp>(loc, 0);
+    Value c1 = rewriter.create<mlir::arith::ConstantIndexOp>(loc, 1);
+    Value outRows = rewriter.create<mlir::memref::DimOp>(loc, dst, c0);
+    Value outCols = rewriter.create<mlir::memref::DimOp>(loc, dst, c1);
+
+    // recuperiamo vari tipi e il numero di lane considerando il tipo degli
+    // operandi
+    Type elemTy = mlir::cast<MemRefType>(src.getType()).getElementType();
+    if (!elemTy.isIntOrFloat())
+      return rewriter.notifyMatchFailure(
+          op, "tipo elemento non supportato per vettorizzazione");
+    unsigned bitWidth = elemTy.getIntOrFloatBitWidth();
+    int numLanes = vectorRegisterBits / bitWidth;
+    auto vecTy = mlir::VectorType::get({numLanes}, elemTy);
+    // NB: qua sto hardcodando l'address space della vector memory (4)
+    auto ppuPtrTy = LLVM::LLVMPointerType::get(rewriter.getContext(), 4);
+
+    // dim_rounded = (dim floordiv 16) * 16, espresso come affine.apply
+    AffineExpr s0 = rewriter.getAffineSymbolExpr(0);
+    AffineMap roundingMap =
+        AffineMap::get(0, 1, {s0.floorDiv(numLanes) * numLanes}, ctx);
+    Value dimRounded = rewriter.create<affine::AffineApplyOp>(
+        loc, roundingMap, ValueRange{outCols});
+
+    // estraiamo l'alignedPtr dalle memref degli operandi
+    Value srcBase = materializeAlignedPtr(rewriter, loc, src, ppuPtrTy);
+    Value dstBase = materializeAlignedPtr(rewriter, loc, dst, ppuPtrTy);
+
+    // NB: purtroppo non ho facilmente a disposizione 'cols_in'. Mi tocca
+    // calcolarmelo cols_in = cols_out * W
+    Value inCols = rewriter.create<arith::MulIOp>(loc, outCols, kernelDim);
+
+    // creo gli offsets
+    auto indexVec = rewriter.create<ppu::VecConstantIndexOp>(loc, vecTy);
+    // broadcasto W; aggiungo un cast da index (W) a elemTy per la broadcast op
+    Value kernelDimCasted =
+        rewriter.create<arith::IndexCastOp>(loc, elemTy, kernelDim);
+    Value strideBroadcasted =
+        rewriter.create<vector::BroadcastOp>(loc, vecTy, kernelDimCasted);
+    auto offsetVec =
+        rewriter.create<arith::MulIOp>(loc, indexVec, strideBroadcasted);
+
+    // mappa identità a 1 dimensione: (d0) -> (d0) per gli ub e lb dei loop
+    mlir::AffineMap identityMap = rewriter.getMultiDimIdentityMap(1);
+
+    // main loop vettorizzato (rows_out, cols_out_rounded, K, K)
+
+    // lambda per i due loop più interni (per non arrivare a 10 livelli di
+    // indentazione)
+    auto buildInnerLoops = [&](OpBuilder &b, Location loc, ValueRange outerIvs,
+                               Value accumulator) -> affine::AffineForOp {
+      auto outer = b.create<affine::AffineForOp>(
+          loc, c0, identityMap, kernelDim, identityMap, 1, accumulator,
+          [&](OpBuilder &b0, Location l0, Value w_i, ValueRange acc) {
+            auto inner = rewriter.create<affine::AffineForOp>(
+                l0, c0, identityMap, kernelDim, identityMap, 1, acc[0],
+                [&](OpBuilder &b1, Location l1, Value w_j,
+                    ValueRange innerAcc) {
+                  // vgather(&input[(i*W+w_i)*cols_in + (j_vec*W+w_j)], offsets)
+                  Value baseRow =
+                      b1.create<arith::MulIOp>(l1, outerIvs[0], kernelDim);
+                  Value baseCol =
+                      b1.create<arith::MulIOp>(l1, outerIvs[1], kernelDim);
+                  Value row = b1.create<arith::AddIOp>(l1, baseRow, w_i);
+                  Value col = b1.create<arith::AddIOp>(l1, baseCol, w_j);
+                  Value rowOffset = b1.create<arith::MulIOp>(l1, row, inCols);
+                  Value linearIndex =
+                      b1.create<arith::AddIOp>(l1, rowOffset, col);
+                  Value inPtr =
+                      materializeGEPForAccess(b1, l1, srcBase, ppuPtrTy, elemTy,
+                                              ValueRange{linearIndex});
+                  Value inVec =
+                      b1.create<ppu::VecGatherOp>(l1, vecTy, inPtr, offsetVec);
+
+                  Value max = b1.create<ppu::VecMaxOp>(l1, innerAcc[0], inVec);
+
+                  b1.create<affine::AffineYieldOp>(l1, max);
+                });
+
+            b.create<affine::AffineYieldOp>(l0, inner.getResults()[0]);
+          });
+
+      return outer;
+    };
+
+    rewriter.create<affine::AffineForOp>(
+        loc, c0, identityMap, outRows, identityMap, 1, std::nullopt,
+        [&](OpBuilder &b0, Location l0, Value ivI, ValueRange) {
+          rewriter.create<affine::AffineForOp>(
+              l0, c0, identityMap, dimRounded, identityMap, numLanes,
+              std::nullopt,
+              [&](OpBuilder &b1, Location l1, Value ivJ, ValueRange) {
+                // costruiamo un registro accumulatore inizializzato con quello
+                // che c'è a: out[i*cols_out + j_vec]
+                Value rowOffset = b1.create<arith::MulIOp>(l1, ivI, outCols);
+                Value linearIndex =
+                    b1.create<arith::AddIOp>(l1, rowOffset, ivJ);
+                Value outPtr = materializeGEPForAccess(
+                    b1, l1, dstBase, ppuPtrTy, elemTy, ValueRange{linearIndex});
+                Value outInit = b1.create<ppu::VecLoadOp>(l1, vecTy, outPtr);
+                // inizializziamo l'accumulatore con il vettore di C
+                // sommato ad un vettore di 0
+                Value zeros = rewriter.create<arith::ConstantOp>(
+                    loc, vecTy, rewriter.getZeroAttr(vecTy));
+                Value accumulator = rewriter.create<ppu::VecAddInitAccOp>(
+                    loc, vecTy, outInit, zeros);
+
+                affine::AffineForOp accLoop =
+                    buildInnerLoops(b1, l1, ValueRange{ivI, ivJ}, accumulator);
+
+                // vvst(to_vNint_t(max_acc), &output[i * cols_out + j_vec]);
+                Value acc2vec =
+                    b1.create<ppu::AccToVecOp>(l1, accLoop.getResults()[0]);
+                b1.create<ppu::VecStoreOp>(l1, acc2vec, outPtr);
+
+                b1.create<affine::AffineYieldOp>(l1);
+              });
+
+          b0.create<affine::AffineYieldOp>(l0);
+        });
+
+    auto buildInnerLoopsRemainder =
+        [&](OpBuilder &b, Location loc, ValueRange outerIvs,
+            Value accumulator) -> affine::AffineForOp {
+      auto outer = b.create<affine::AffineForOp>(
+          loc, c0, identityMap, kernelDim, identityMap, 1, accumulator,
+          [&](OpBuilder &b0, Location l0, Value w_i, ValueRange acc) {
+            auto inner = rewriter.create<affine::AffineForOp>(
+                l0, c0, identityMap, kernelDim, identityMap, 1, acc[0],
+                [&](OpBuilder &b1, Location l1, Value w_j,
+                    ValueRange innerAcc) {
+                  // Costruisco una mappa per l'accesso
+                  // - Indice di riga:    d0 * s0 + d2  => (i * W + w_i)
+                  // - Indice di colonna: d1 * s0 + d3  => (j * W + w_j)
+                  SmallVector<AffineExpr, 2> indexExprs = {
+                      rewriter.getAffineDimExpr(0) *
+                              rewriter.getAffineSymbolExpr(0) +
+                          rewriter.getAffineDimExpr(2),
+                      rewriter.getAffineDimExpr(1) *
+                              rewriter.getAffineSymbolExpr(0) +
+                          rewriter.getAffineDimExpr(3)};
+                  auto indexingMap = AffineMap::get(4, 1, indexExprs, ctx);
+                  // creo la load usando la mappa e passo gli operandi
+                  // (attenzione all'ordine)
+                  Value srcVal = b1.create<affine::AffineLoadOp>(
+                      l1, src, indexingMap,
+                      ValueRange{outerIvs[0], outerIvs[1], w_i, w_j,
+                                 kernelDim});
+
+                  Value maxVal =
+                      b1.create<arith::MaxSIOp>(l1, innerAcc[0], srcVal);
+
+                  b1.create<affine::AffineYieldOp>(l1, maxVal);
+                });
+
+            b.create<affine::AffineYieldOp>(l0, inner.getResults()[0]);
+          });
+
+      return outer;
+    };
+
+    rewriter.create<affine::AffineForOp>(
+        loc, c0, identityMap, outRows, identityMap, 1, std::nullopt,
+        [&](OpBuilder &b0, Location l0, Value ivI, ValueRange) {
+          rewriter.create<affine::AffineForOp>(
+              l0, dimRounded, identityMap, outCols, identityMap, 1,
+              std::nullopt,
+              [&](OpBuilder &b1, Location l1, Value ivJ, ValueRange) {
+                Value outInit = b1.create<affine::AffineLoadOp>(
+                    l1, dst, ValueRange{ivI, ivJ});
+
+                affine::AffineForOp accLoop = buildInnerLoopsRemainder(
+                    b1, l1, ValueRange{ivI, ivJ}, outInit);
+
+                b1.create<affine::AffineStoreOp>(l1, accLoop.getResults()[0],
+                                                 dst, ValueRange{ivI, ivJ});
+
+                b1.create<affine::AffineYieldOp>(l1);
+              });
+
+          b0.create<affine::AffineYieldOp>(l0);
+        });
+
+    rewriter.eraseOp(op);
+
+    return success();
+  }
+};
+
 struct ConvertLinalgToPPUAlgorithm
     : impl::ConvertLinalgToPPUAlgorithmBase<ConvertLinalgToPPUAlgorithm> {
   using ConvertLinalgToPPUAlgorithmBase::ConvertLinalgToPPUAlgorithmBase;
@@ -1329,9 +1537,10 @@ struct ConvertLinalgToPPUAlgorithm
     ModuleOp module = getOperation();
 
     RewritePatternSet patterns(ctx);
-    patterns.add<ConvertLinalgAdd, ConvertLinalgDot, ConvertLinalgMatmul,
-                 ConvertLinalgConv1D, ConvertLinalgConv2D,
-                 ConvertLinalgTranspose, ConvertLinalgReduce>(ctx);
+    patterns
+        .add<ConvertLinalgAdd, ConvertLinalgDot, ConvertLinalgMatmul,
+             ConvertLinalgConv1D, ConvertLinalgConv2D, ConvertLinalgTranspose,
+             ConvertLinalgReduce, ConvertPPUMaxPool2D>(ctx);
     // Post-order, forward walk traversal of ops (excluding input `op`).
     walkAndApplyPatterns(module, std::move(patterns));
   }

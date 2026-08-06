@@ -270,6 +270,22 @@ def PPU_VecGatherOp : PPU_Op<"vec_gather", [Pure]> {
     let results = (outs AnyVectorOfAnyRank:$res);
 }
 
+def PPU_VecMaxOp: PPU_Op<"vec_max", [Pure, SameOperandsAndResultType]> {
+    let summary = "confronta due registri vettoriali e produce un registro max";
+    let description = [{
+        Per adesso modella ESATTAMENTE questo intrinseco llvm-ir:
+
+        %5 = tail call <16 x i32> @llvm.arc.vvcmax.acc.w.v512(
+            <16 x i32> %max_acc, <16 x i32> %4)
+    }];
+
+    let arguments = (ins
+        AnyVectorOfAnyRank:$arg1,
+        AnyVectorOfAnyRank:$arg2
+    );
+    let results = (outs AnyVectorOfAnyRank:$res);
+}
+
 //===----------------------------------------------------------------------===//
 // LinalgMaxPooling2D
 //===----------------------------------------------------------------------===//
