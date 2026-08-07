@@ -1366,11 +1366,16 @@ struct ConvertPPUMaxPool2D : public OpRewritePattern<mlir::ppu::MaxPool2DOp> {
 
     // creo gli offsets
     auto indexVec = rewriter.create<ppu::VecConstantIndexOp>(loc, vecTy);
-    // broadcasto W; aggiungo un cast da index (W) a elemTy per la broadcast op
-    Value kernelDimCasted =
-        rewriter.create<arith::IndexCastOp>(loc, elemTy, kernelDim);
+    // broadcasto W*4 (offset in bytes); aggiungo un cast da index (W) a elemTy
+    // per la broadcast op
+    Value elementByteSize =
+        rewriter.create<arith::ConstantIndexOp>(loc, bitWidth / 8);
+    auto stride =
+        rewriter.create<arith::MulIOp>(loc, kernelDim, elementByteSize);
+    Value strideCasted =
+        rewriter.create<arith::IndexCastOp>(loc, elemTy, stride);
     Value strideBroadcasted =
-        rewriter.create<vector::BroadcastOp>(loc, vecTy, kernelDimCasted);
+        rewriter.create<vector::BroadcastOp>(loc, vecTy, strideCasted);
     auto offsetVec =
         rewriter.create<arith::MulIOp>(loc, indexVec, strideBroadcasted);
 
