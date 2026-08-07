@@ -6,7 +6,7 @@ OPT = -O3
 AUTOVEC = -fvectorize -fslp-vectorize -ffast-math
 DEBUG_FLAGS = -Rpass=loop-vectorize -Rpass-missed=loop-vectorize -Rpass-analysis=loop-vectorize
 
-SRCS = main.c max_pooling.c 
+SRCS = main.c max_pooling.c vekt_max_pooling.ll
 TARGET = a.out
 
 all: build

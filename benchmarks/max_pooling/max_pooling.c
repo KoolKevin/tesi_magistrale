@@ -149,12 +149,13 @@ void autovectorized_max_pooling(int rows_out, int cols_out, int rows_in,
 
 void vekt_max_pooling_wrapper(int rows_out, int cols_out, int rows_in,
                               int cols_in, int W, int *output, int *input) {
-  // vekt_conv2d(
-  //     rows_out, cols_out, rows_in, cols_in, W,
-  //     output, output, 0, rows_out, cols_out, cols_out, 1,
-  //     input, input, 0, rows_in, cols_in, cols_in, 1,
-  //     kernel, kernel, 0, W, W, W, 1
-  // );
+  
+  vekt_max_pooling(
+      rows_out, cols_out, rows_in, cols_in, W,
+      output, output, 0, rows_out, cols_out, cols_out, 1,
+      input, input, 0, rows_in, cols_in, cols_in, 1
+  );
 
+  printf("eccomi\n");
   return;
 }
