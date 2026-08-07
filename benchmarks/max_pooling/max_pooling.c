@@ -155,7 +155,4 @@ void vekt_max_pooling_wrapper(int rows_out, int cols_out, int rows_in,
       output, output, 0, rows_out, cols_out, cols_out, 1,
       input, input, 0, rows_in, cols_in, cols_in, 1
   );
-
-  printf("eccomi\n");
-  return;
 }

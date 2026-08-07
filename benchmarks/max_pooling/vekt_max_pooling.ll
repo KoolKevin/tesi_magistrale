@@ -5,6 +5,7 @@ target triple = "arc-pc-unknown-gnu"
 
 declare i32 @printf(ptr, ...)
 @.str_eccomi = private unnamed_addr constant [8 x i8] c"eccomi\0A\00", align 1
+@.str_args = private unnamed_addr constant [162 x i8] c"arg0=%d arg1=%d arg2=%d arg3=%d arg4=%d ptr5=%p ptr6=%p arg7=%d arg8=%d arg9=%d arg10=%d arg11=%d ptr12=%p ptr13=%p arg14=%d arg15=%d arg16=%d arg17=%d arg18=%d\0A\00", align 1
 
 define void @vekt_max_pooling(i32 %0, i32 %1, i32 %2, i32 %3, i32 %4, ptr %5, ptr %6, i32 %7, i32 %8, i32 %9, i32 %10, i32 %11, ptr %12, ptr %13, i32 %14, i32 %15, i32 %16, i32 %17, i32 %18) {
   %20 = ptrtoint ptr %13 to i32
@@ -23,6 +24,14 @@ define void @vekt_max_pooling(i32 %0, i32 %1, i32 %2, i32 %3, i32 %4, ptr %5, pt
   %33 = sub i32 -1, %32
   %34 = select i1 %29, i32 %33, i32 %32
   %35 = mul nsw i32 %34, 16
+  ; debug
+  call void (ptr, ...) @printf(ptr @.str_args,
+    i32 %0,  i32 %1,  i32 %2, i32 %3, i32 %4,
+    ptr %5, ptr %6,
+    i32 %7,  i32 %8,  i32 %9, i32 %10, i32 %11,
+    ptr %12, ptr %13,
+    i32 %14, i32 %15, i32 %16, i32 %17, i32 %18)
+
   br label %36
 
 36:                                               ; preds = %74, %19
@@ -54,7 +63,7 @@ define void @vekt_max_pooling(i32 %0, i32 %1, i32 %2, i32 %3, i32 %4, ptr %5, pt
   %54 = icmp slt i32 %52, %4
   br i1 %54, label %55, label %71
 
-55:                                               ; preds = %51
+55:                                              ; preds = %51
   %56 = add i32 %41, %52
   %57 = mul i32 %56, %24
   br label %58
