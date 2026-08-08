@@ -28,10 +28,10 @@ define void @vekt_vec_sum(ptr %0, ptr %1, i32 %2, i32 %3, i32 %4, ptr %5, ptr %6
   %34 = getelementptr i32, ptr addrspace(4) %18, i32 %31
   %35 = getelementptr i32, ptr addrspace(4) %20, i32 %31
   %36 = getelementptr i32, ptr addrspace(4) %22, i32 %31
-  %37 = call <16 x i32> @llvm.arc.vvld.w.v512(ptr addrspace(4) %34)
-  %38 = call <16 x i32> @llvm.arc.vvld.w.v512(ptr addrspace(4) %35)
-  %39 = call <16 x i32> @llvm.arc.vvadd.w.v512(<16 x i32> %37, <16 x i32> %38)
-  call void @llvm.arc.vvst.w.v512(<16 x i32> %39, ptr addrspace(4) %36)
+  %37 = load <16 x i32>, ptr addrspace(4) %34, align 4
+  %38 = load <16 x i32>, ptr addrspace(4) %35, align 4
+  %39 = add <16 x i32> %37, %38
+  store <16 x i32> %39, ptr addrspace(4) %36, align 4
   %40 = add i32 %31, 16
   br label %30
 
@@ -57,12 +57,6 @@ define void @vekt_vec_sum(ptr %0, ptr %1, i32 %2, i32 %3, i32 %4, ptr %5, ptr %6
 53:                                               ; preds = %42
   ret void
 }
-
-declare <16 x i32> @llvm.arc.vvld.w.v512(ptr addrspace(4))
-
-declare <16 x i32> @llvm.arc.vvadd.w.v512(<16 x i32>, <16 x i32>)
-
-declare void @llvm.arc.vvst.w.v512(<16 x i32>, ptr addrspace(4))
 
 !llvm.module.flags = !{!0}
 
