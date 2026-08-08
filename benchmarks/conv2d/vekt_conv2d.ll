@@ -1,4 +1,4 @@
-; ModuleID = 'vekt_conv2d.licm2.ll'
+; ModuleID = 'LLVMDialectModule'
 source_filename = "LLVMDialectModule"
 target datalayout = "e-m:e-p:32:32-p1:32:32-p3:32:32-p5:32:32-i64:32-f64:32-v64:32-v128:32-a:0:32-v256:32-v512:32-n8:16:32"
 target triple = "arc-pc-unknown-gnu"
@@ -10,160 +10,167 @@ define void @vekt_conv2d(i32 %0, i32 %1, i32 %2, i32 %3, i32 %4, ptr %5, ptr %6,
   %30 = inttoptr i32 %29 to ptr addrspace(4)
   %31 = add i32 %9, %23
   %32 = sub i32 %31, 1
-  %33 = icmp slt i32 %9, 0
-  %34 = sub i32 -1, %9
-  %35 = select i1 %33, i32 %34, i32 %9
-  %36 = sdiv i32 %35, 16
-  %37 = sub i32 -1, %36
-  %38 = select i1 %33, i32 %37, i32 %36
-  %39 = mul nsw i32 %38, 16
-  br label %40
+  br label %33
 
-40:                                               ; preds = %80, %26
-  %41 = phi i32 [ %81, %80 ], [ 0, %26 ]
-  %42 = icmp slt i32 %41, %8
-  br i1 %42, label %43, label %82
+33:                                               ; preds = %82, %26
+  %34 = phi i32 [ %83, %82 ], [ 0, %26 ]
+  %35 = icmp slt i32 %34, %8
+  br i1 %35, label %36, label %84
 
-43:                                               ; preds = %40
-  %44 = mul i32 %41, %9
-  br label %45
+36:                                               ; preds = %33
+  %37 = icmp slt i32 %9, 0
+  %38 = sub i32 -1, %9
+  %39 = select i1 %37, i32 %38, i32 %9
+  %40 = sdiv i32 %39, 16
+  %41 = sub i32 -1, %40
+  %42 = select i1 %37, i32 %41, i32 %40
+  %43 = mul nsw i32 %42, 16
+  br label %44
 
-45:                                               ; preds = %77, %43
-  %46 = phi i32 [ %79, %77 ], [ 0, %43 ]
-  %47 = icmp slt i32 %46, %39
-  br i1 %47, label %48, label %80
+44:                                               ; preds = %79, %36
+  %45 = phi i32 [ %81, %79 ], [ 0, %36 ]
+  %46 = icmp slt i32 %45, %43
+  br i1 %46, label %47, label %82
 
-48:                                               ; preds = %45
-  %49 = add i32 %44, %46
+47:                                               ; preds = %44
+  %48 = mul i32 %34, %9
+  %49 = add i32 %48, %45
   %50 = getelementptr i32, ptr addrspace(4) %30, i32 %49
-  %51 = load <16 x i32>, ptr addrspace(4) %50, align 4
+  %51 = call <16 x i32> @llvm.arc.vvld.w.v512(ptr addrspace(4) %50)
   %52 = call <16 x i32> @llvm.arc.vvcadd.init.acc.w.v512(<16 x i32> %51, <16 x i32> zeroinitializer)
   br label %53
 
-53:                                               ; preds = %75, %48
-  %54 = phi i32 [ %76, %75 ], [ 0, %48 ]
-  %55 = phi <16 x i32> [ %.lcssa2, %75 ], [ %52, %48 ]
+53:                                               ; preds = %77, %47
+  %54 = phi i32 [ %78, %77 ], [ 0, %47 ]
+  %55 = phi <16 x i32> [ %60, %77 ], [ %52, %47 ]
   %56 = icmp slt i32 %54, %22
-  br i1 %56, label %57, label %77
+  br i1 %56, label %57, label %79
 
 57:                                               ; preds = %53
-  %58 = add i32 %41, %54
-  %59 = mul i32 %58, %32
-  %invariant.op = add i32 %46, %59
-  %60 = mul i32 %54, %24
-  br label %61
+  br label %58
 
-61:                                               ; preds = %65, %57
-  %62 = phi i32 [ %74, %65 ], [ 0, %57 ]
-  %63 = phi <16 x i32> [ %73, %65 ], [ %55, %57 ]
-  %64 = icmp slt i32 %62, %23
-  br i1 %64, label %65, label %75
+58:                                               ; preds = %62, %57
+  %59 = phi i32 [ %76, %62 ], [ 0, %57 ]
+  %60 = phi <16 x i32> [ %75, %62 ], [ %55, %57 ]
+  %61 = icmp slt i32 %59, %23
+  br i1 %61, label %62, label %77
 
-65:                                               ; preds = %61
-  %.reass = add i32 %62, %invariant.op
-  %66 = getelementptr i32, ptr addrspace(4) %28, i32 %.reass
-  %67 = load <16 x i32>, ptr addrspace(4) %66, align 4
-  %68 = add i32 %60, %62
-  %69 = getelementptr i32, ptr %20, i32 %68
-  %70 = load i32, ptr %69, align 4
-  %71 = insertelement <16 x i32> undef, i32 %70, i32 0
-  %72 = shufflevector <16 x i32> %71, <16 x i32> undef, <16 x i32> zeroinitializer
-  %73 = call <16 x i32> @llvm.arc.vvcmac.lo.acc.w.v512(<16 x i32> %63, <16 x i32> %67, <16 x i32> %72)
-  %74 = add i32 %62, 1
-  br label %61
+62:                                               ; preds = %58
+  %63 = add i32 %34, %54
+  %64 = add i32 %45, %59
+  %65 = mul i32 %63, %32
+  %66 = add i32 %65, %64
+  %67 = getelementptr i32, ptr addrspace(4) %28, i32 %66
+  %68 = call <16 x i32> @llvm.arc.vvld.w.v512(ptr addrspace(4) %67)
+  %69 = mul i32 %54, %24
+  %70 = add i32 %69, %59
+  %71 = getelementptr i32, ptr %20, i32 %70
+  %72 = load i32, ptr %71, align 4
+  %73 = insertelement <16 x i32> undef, i32 %72, i32 0
+  %74 = shufflevector <16 x i32> %73, <16 x i32> undef, <16 x i32> zeroinitializer
+  %75 = call <16 x i32> @llvm.arc.vvcmac.lo.acc.w.v512(<16 x i32> %60, <16 x i32> %68, <16 x i32> %74)
+  %76 = add i32 %59, 1
+  br label %58
 
-75:                                               ; preds = %61
-  %.lcssa2 = phi <16 x i32> [ %63, %61 ]
-  %76 = add i32 %54, 1
+77:                                               ; preds = %58
+  %78 = add i32 %54, 1
   br label %53
 
-77:                                               ; preds = %53
-  %.lcssa3 = phi <16 x i32> [ %55, %53 ]
-  %78 = call <16 x i32> @llvm.arc.acc.to.vec.w.v512(<16 x i32> %.lcssa3)
-  store <16 x i32> %78, ptr addrspace(4) %50, align 4
-  %79 = add i32 %46, 16
-  br label %45
+79:                                               ; preds = %53
+  %80 = call <16 x i32> @llvm.arc.acc.to.vec.w.v512(<16 x i32> %55)
+  call void @llvm.arc.vvst.w.v512(<16 x i32> %80, ptr addrspace(4) %50)
+  %81 = add i32 %45, 16
+  br label %44
 
-80:                                               ; preds = %45
-  %81 = add i32 %41, 1
-  br label %40
+82:                                               ; preds = %44
+  %83 = add i32 %34, 1
+  br label %33
 
-82:                                               ; preds = %40
-  br label %83
+84:                                               ; preds = %33
+  br label %85
 
-83:                                               ; preds = %120, %82
-  %84 = phi i32 [ %121, %120 ], [ 0, %82 ]
-  %85 = icmp slt i32 %84, %8
-  br i1 %85, label %86, label %122
+85:                                               ; preds = %131, %84
+  %86 = phi i32 [ %132, %131 ], [ 0, %84 ]
+  %87 = icmp slt i32 %86, %8
+  br i1 %87, label %88, label %133
 
-86:                                               ; preds = %83
-  %87 = mul i32 %84, %10
-  br label %88
+88:                                               ; preds = %85
+  %89 = icmp slt i32 %9, 0
+  %90 = sub i32 -1, %9
+  %91 = select i1 %89, i32 %90, i32 %9
+  %92 = sdiv i32 %91, 16
+  %93 = sub i32 -1, %92
+  %94 = select i1 %89, i32 %93, i32 %92
+  %95 = mul nsw i32 %94, 16
+  br label %96
 
-88:                                               ; preds = %118, %86
-  %89 = phi i32 [ %119, %118 ], [ %39, %86 ]
-  %90 = icmp slt i32 %89, %9
-  br i1 %90, label %91, label %120
+96:                                               ; preds = %129, %88
+  %97 = phi i32 [ %130, %129 ], [ %95, %88 ]
+  %98 = icmp slt i32 %97, %9
+  br i1 %98, label %99, label %131
 
-91:                                               ; preds = %88
-  %92 = add i32 %87, %89
-  %93 = getelementptr i32, ptr %6, i32 %92
-  %94 = load i32, ptr %93, align 4
-  br label %95
+99:                                               ; preds = %96
+  %100 = mul i32 %86, %10
+  %101 = add i32 %100, %97
+  %102 = getelementptr i32, ptr %6, i32 %101
+  %103 = load i32, ptr %102, align 4
+  br label %104
 
-95:                                               ; preds = %116, %91
-  %96 = phi i32 [ %117, %116 ], [ 0, %91 ]
-  %97 = phi i32 [ %.lcssa, %116 ], [ %94, %91 ]
-  %98 = icmp slt i32 %96, %22
-  br i1 %98, label %99, label %118
+104:                                              ; preds = %127, %99
+  %105 = phi i32 [ %128, %127 ], [ 0, %99 ]
+  %106 = phi i32 [ %111, %127 ], [ %103, %99 ]
+  %107 = icmp slt i32 %105, %22
+  br i1 %107, label %108, label %129
 
-99:                                               ; preds = %95
-  %100 = add i32 %84, %96
-  %101 = mul i32 %100, %17
-  %invariant.op4 = add i32 %89, %101
-  %102 = mul i32 %96, %24
-  br label %103
+108:                                              ; preds = %104
+  br label %109
 
-103:                                              ; preds = %107, %99
-  %104 = phi i32 [ %115, %107 ], [ 0, %99 ]
-  %105 = phi i32 [ %114, %107 ], [ %97, %99 ]
-  %106 = icmp slt i32 %104, %23
-  br i1 %106, label %107, label %116
+109:                                              ; preds = %113, %108
+  %110 = phi i32 [ %126, %113 ], [ 0, %108 ]
+  %111 = phi i32 [ %125, %113 ], [ %106, %108 ]
+  %112 = icmp slt i32 %110, %23
+  br i1 %112, label %113, label %127
 
-107:                                              ; preds = %103
-  %.reass5 = add i32 %104, %invariant.op4
-  %108 = getelementptr i32, ptr %13, i32 %.reass5
-  %109 = load i32, ptr %108, align 4
-  %110 = add i32 %102, %104
-  %111 = getelementptr i32, ptr %20, i32 %110
-  %112 = load i32, ptr %111, align 4
-  %113 = mul i32 %109, %112
-  %114 = add i32 %105, %113
-  %115 = add i32 %104, 1
-  br label %103
+113:                                              ; preds = %109
+  %114 = add i32 %86, %105
+  %115 = add i32 %97, %110
+  %116 = mul i32 %114, %17
+  %117 = add i32 %116, %115
+  %118 = getelementptr i32, ptr %13, i32 %117
+  %119 = load i32, ptr %118, align 4
+  %120 = mul i32 %105, %24
+  %121 = add i32 %120, %110
+  %122 = getelementptr i32, ptr %20, i32 %121
+  %123 = load i32, ptr %122, align 4
+  %124 = mul i32 %119, %123
+  %125 = add i32 %111, %124
+  %126 = add i32 %110, 1
+  br label %109
 
-116:                                              ; preds = %103
-  %.lcssa = phi i32 [ %105, %103 ]
-  %117 = add i32 %96, 1
-  br label %95
+127:                                              ; preds = %109
+  %128 = add i32 %105, 1
+  br label %104
 
-118:                                              ; preds = %95
-  %.lcssa1 = phi i32 [ %97, %95 ]
-  store i32 %.lcssa1, ptr %93, align 4
-  %119 = add i32 %89, 1
-  br label %88
+129:                                              ; preds = %104
+  store i32 %106, ptr %102, align 4
+  %130 = add i32 %97, 1
+  br label %96
 
-120:                                              ; preds = %88
-  %121 = add i32 %84, 1
-  br label %83
+131:                                              ; preds = %96
+  %132 = add i32 %86, 1
+  br label %85
 
-122:                                              ; preds = %83
+133:                                              ; preds = %85
   ret void
 }
+
+declare <16 x i32> @llvm.arc.vvld.w.v512(ptr addrspace(4))
 
 declare <16 x i32> @llvm.arc.vvcadd.init.acc.w.v512(<16 x i32>, <16 x i32>)
 
 declare <16 x i32> @llvm.arc.acc.to.vec.w.v512(<16 x i32>)
+
+declare void @llvm.arc.vvst.w.v512(<16 x i32>, ptr addrspace(4))
 
 declare <16 x i32> @llvm.arc.vvcmac.lo.acc.w.v512(<16 x i32>, <16 x i32>, <16 x i32>)
 
