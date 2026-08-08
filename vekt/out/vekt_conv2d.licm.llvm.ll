@@ -1,9 +1,8 @@
 ; ModuleID = 'vekt_conv2d.licm2.ll'
 source_filename = "LLVMDialectModule"
 target datalayout = "e-m:e-p:32:32-p1:32:32-p3:32:32-p5:32:32-i64:32-f64:32-v64:32-v128:32-a:0:32-v256:32-v512:32-n8:16:32"
-target triple = "arc-pc-unknown-gnu"
 
-define void @vekt_conv2d(i32 %0, i32 %1, i32 %2, i32 %3, i32 %4, ptr %5, ptr %6, i32 %7, i32 %8, i32 %9, i32 %10, i32 %11, ptr %12, ptr %13, i32 %14, i32 %15, i32 %16, i32 %17, i32 %18, ptr %19, ptr %20, i32 %21, i32 %22, i32 %23, i32 %24, i32 %25) {
+define void @conv2d(i32 %0, i32 %1, i32 %2, i32 %3, i32 %4, ptr %5, ptr %6, i32 %7, i32 %8, i32 %9, i32 %10, i32 %11, ptr %12, ptr %13, i32 %14, i32 %15, i32 %16, i32 %17, i32 %18, ptr %19, ptr %20, i32 %21, i32 %22, i32 %23, i32 %24, i32 %25) {
   %27 = ptrtoint ptr %13 to i32
   %28 = inttoptr i32 %27 to ptr addrspace(4)
   %29 = ptrtoint ptr %6 to i32

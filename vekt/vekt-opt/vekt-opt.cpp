@@ -128,6 +128,7 @@ int main(int argc, char **argv) {
 
         // cleanup finale
         pm.addPass(mlir::createCanonicalizerPass());
+        pm.addPass(mlir::createLoopInvariantCodeMotionPass());
         pm.addPass(mlir::createMem2Reg());
         pm.addPass(mlir::createSCCPPass());
         pm.addPass(mlir::createCSEPass());
