@@ -69,7 +69,9 @@ int main(int argc, char **argv) {
         // Loop optimizations
         pm.addPass(mlir::createConvertLinalgToAffineLoopsPass());
         // pm.addPass(mlir::affine::createLoopFusionPass());
-        pm.addPass(mlir::affine::createLoopUnrollPass(4));
+        // NB: funziona ma il compilatore metaware non applica software
+        // pipelining lo stesso
+        // pm.addPass(mlir::affine::createLoopUnrollPass(4));
         // NB: buggato ma sarebbe comodo
         // pm.addPass(mlir::affine::createAffineScalarReplacementPass());
         pm.addPass(mlir::createLowerAffinePass());
@@ -106,8 +108,9 @@ int main(int argc, char **argv) {
         // Loop optimizations
         pm.addPass(mlir::createConvertLinalgToAffineLoopsPass());
         // pm.addPass(mlir::affine::createLoopFusionPass());
-        pm.addPass(mlir::affine::createLoopUnrollPass(4));
-        // NB: buggato ma sarebbe comodo
+        // NB: funziona ma il compilatore metaware non applica software
+        // pipelining lo stesso
+        // pm.addPass(mlir::affine::createLoopUnrollPass(4));
         // pm.addPass(mlir::affine::createAffineScalarReplacementPass());
         pm.addPass(mlir::createLowerAffinePass());
         // NB: questo lo faccio al livello di scf dato che l'arrotondamento
