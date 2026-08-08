@@ -27,11 +27,64 @@ int main(int argc, char **argv) {
   mlir::registerAllPasses();
   mlir::ppu::registerPasses();
 
-  // TODO: dato che la specializzazione mi richiede un altro tool, devo spezzare
-  // questa pipeline in più pipeline distinte (generalizzazione,
-  // specializzazione (con mlir24), vettorizzazione e lowering)
   mlir::PassPipelineRegistration<>(
-      "vekt16", "naive vectorization", [](mlir::OpPassManager &pm) {
+      "vekt", "naive vectorization", [](mlir::OpPassManager &pm) {
+        pm.addPass(mlir::createCanonicalizerPass());
+
+        pm.addPass(mlir::ppu::createPPUNormalizeIterargsReductions());
+        pm.addPass(mlir::ppu::createPPURaiseAffineToLinalgGeneric());
+        // NB: questo fa schifo e quindi lo devo complementare con il mio passo
+        pm.addPass(mlir::createLinalgSpecializeGenericOpsPass());
+        pm.addPass(mlir::ppu::createPPUSpecializeLinalgGeneric());
+        pm.addPass(mlir::ppu::createPPUSpecializeAffineNests());
+
+        // TODO: evetuali ottimizzazioni al livello di linalg
+        // pm.addPass(mlir::createCanonicalizerPass());
+
+        pm.addPass(mlir::ppu::createConvertLinalgToPPUAlgorithm());
+        // cleanup intermedio importante dato che introduco costanti e
+        // load/store ridondanti sopra
+        pm.addPass(mlir::createCanonicalizerPass());
+      });
+
+  mlir::PassPipelineRegistration<>(
+      "vekt-loop-opt", "naive vectorization", [](mlir::OpPassManager &pm) {
+        pm.addPass(mlir::createCanonicalizerPass());
+
+        pm.addPass(mlir::ppu::createPPUNormalizeIterargsReductions());
+        pm.addPass(mlir::ppu::createPPURaiseAffineToLinalgGeneric());
+        // NB: questo fa schifo e quindi lo devo complementare con il mio passo
+        pm.addPass(mlir::createLinalgSpecializeGenericOpsPass());
+        pm.addPass(mlir::ppu::createPPUSpecializeLinalgGeneric());
+        pm.addPass(mlir::ppu::createPPUSpecializeAffineNests());
+
+        // TODO: evetuali ottimizzazioni al livello di linalg
+        // pm.addPass(mlir::createCanonicalizerPass());
+
+        pm.addPass(mlir::ppu::createConvertLinalgToPPUAlgorithm());
+        // cleanup intermedio importante dato che introduco costanti e
+        // load/store ridondanti sopra
+        pm.addPass(mlir::createCanonicalizerPass());
+
+        // Loop optimizations
+        pm.addPass(mlir::createConvertLinalgToAffineLoopsPass());
+        // pm.addPass(mlir::affine::createLoopFusionPass());
+        pm.addPass(mlir::affine::createLoopUnrollPass(4));
+        // NB: buggato ma sarebbe comodo
+        // pm.addPass(mlir::affine::createAffineScalarReplacementPass());
+        pm.addPass(mlir::createLowerAffinePass());
+        // NB: questo lo faccio al livello di scf dato che l'arrotondamento
+        // dell'upperbound di un loop interno viene espanso a questo livello.
+        // Questo rounding è loop-invariant e quindi può essere hoistato al
+        // difuori del loop nest
+        pm.addPass(mlir::createLoopInvariantCodeMotionPass());
+
+        // puliamo un po' di costanti e sporcizia generate dalle loop-opt
+        pm.addPass(mlir::createCanonicalizerPass());
+      });
+
+  mlir::PassPipelineRegistration<>(
+      "vekt-codegen", "naive vectorization", [](mlir::OpPassManager &pm) {
         pm.addPass(mlir::ppu::createPPUAddDLTIInfo());
         pm.addPass(mlir::createCanonicalizerPass());
 
@@ -53,16 +106,17 @@ int main(int argc, char **argv) {
         // Loop optimizations
         pm.addPass(mlir::createConvertLinalgToAffineLoopsPass());
         // pm.addPass(mlir::affine::createLoopFusionPass());
-        // pm.addPass(mlir::affine::createLoopUnrollPass(4));
+        pm.addPass(mlir::affine::createLoopUnrollPass(4));
         // NB: buggato ma sarebbe comodo
         // pm.addPass(mlir::affine::createAffineScalarReplacementPass());
-
         pm.addPass(mlir::createLowerAffinePass());
         // NB: questo lo faccio al livello di scf dato che l'arrotondamento
         // dell'upperbound di un loop interno viene espanso a questo livello.
         // Questo rounding è loop-invariant e quindi può essere hoistato al di
         // fuori del loop nest
         pm.addPass(mlir::createLoopInvariantCodeMotionPass());
+        // puliamo un po' di costanti e sporcizia generate dalle loop-opt
+        pm.addPass(mlir::createCanonicalizerPass());
 
         // loweriamo ad llvm
         pm.addPass(
