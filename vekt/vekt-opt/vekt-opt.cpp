@@ -52,8 +52,11 @@ int main(int argc, char **argv) {
 
         // Loop optimizations
         pm.addPass(mlir::createConvertLinalgToAffineLoopsPass());
-        // affineLoopFusion
-        // affineUnrolling
+        // pm.addPass(mlir::affine::createLoopFusionPass());
+        // pm.addPass(mlir::affine::createLoopUnrollPass(4));
+        // NB: buggato ma sarebbe comodo
+        // pm.addPass(mlir::affine::createAffineScalarReplacementPass());
+
         pm.addPass(mlir::createLowerAffinePass());
         // NB: questo lo faccio al livello di scf dato che l'arrotondamento
         // dell'upperbound di un loop interno viene espanso a questo livello.

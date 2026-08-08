@@ -23,20 +23,12 @@ LogicalResult convertVecLoad(VecLoadOp &vecLoad, llvm::IRBuilderBase &builder,
   llvm::Module *module = builder.GetInsertBlock()->getModule();
   llvm::LLVMContext &ctx = module->getContext();
 
-  // Creiamo una chiamata alla funzione intrinseca:
-  //  -> %13 = call <16 x i32> @llvm.arc.vvld.w.v512(ptr addrspace(4) %12)
-
   // bello il supporto per scalable vectors (vector<[16]xi32> == 16 x vscale
   // interi con vscale uguale ad una costante hardware (pensa a RVV))
-  llvm::Type *resultTy =
+  llvm::Type *vecTy =
       llvm::VectorType::get(llvm::Type::getInt32Ty(ctx), 16, false);
   llvm::Type *ptrTy = llvm::PointerType::get(ctx, 4);
-  llvm::FunctionType *funcTy =
-      llvm::FunctionType::get(resultTy, {ptrTy}, false);
-  // NB: getOrInsertFunction aggiunge la dichiarazione della funzione nel
-  // modulo se non esiste già
-  llvm::FunctionCallee callee =
-      module->getOrInsertFunction("llvm.arc.vvld.w.v512", funcTy);
+
   // NB: quando arriviamo a tradurre ppu.vec_load, il suo operando %src è già
   // stato tradotto dalla visita di qualche op precedente e il suo
   // llvm::Value* corrispondente è già in mappa pronto ad essere recuperato
@@ -46,9 +38,10 @@ LogicalResult convertVecLoad(VecLoadOp &vecLoad, llvm::IRBuilderBase &builder,
     return vecLoad.emitError("i puntatori usati dalle ppu op devono avere "
                              "come attributo addrspace = 4");
 
-  llvm::CallInst *call = builder.CreateCall(callee, {ptr});
+  llvm::Value *load = builder.CreateLoad(vecTy, ptr);
+
   // aggiungiamo anche il mapping per la chiamata appena creata
-  moduleTranslation.mapValue(vecLoad.getRes(), call);
+  moduleTranslation.mapValue(vecLoad.getRes(), load);
 
   return success();
 }
@@ -60,17 +53,7 @@ LogicalResult convertVecStore(VecStoreOp &vecStore,
   llvm::Module *module = builder.GetInsertBlock()->getModule();
   llvm::LLVMContext &ctx = module->getContext();
 
-  // Creiamo una chiamata alla funzione intrinseca:
-  //  -> call void @llvm.arc.vvst.w.v512(<16 x i32> %23, ptr addrspace(4) %24)
-
-  llvm::Type *voidTy = llvm::Type::getVoidTy(ctx);
-  llvm::Type *vectorTy =
-      llvm::VectorType::get(llvm::Type::getInt32Ty(ctx), 16, false);
   llvm::Type *ptrTy = llvm::PointerType::get(ctx, 4);
-  llvm::FunctionType *funcTy =
-      llvm::FunctionType::get(voidTy, {vectorTy, ptrTy}, false);
-  llvm::FunctionCallee callee =
-      module->getOrInsertFunction("llvm.arc.vvst.w.v512", funcTy);
 
   llvm::Value *vec = moduleTranslation.lookupValue(vecStore.getVecToStore());
   llvm::Value *ptr = moduleTranslation.lookupValue(vecStore.getDest());
@@ -78,7 +61,7 @@ LogicalResult convertVecStore(VecStoreOp &vecStore,
     return vecStore.emitError("i puntatori usati dalle ppu op devono avere "
                               "come attributo addrspace = 4");
 
-  builder.CreateCall(callee, {vec, ptr});
+  builder.CreateStore(vec, ptr);
 
   return success();
 }
@@ -86,24 +69,12 @@ LogicalResult convertVecStore(VecStoreOp &vecStore,
 LogicalResult convertVecAdd(VecAddOp &vecAdd, llvm::IRBuilderBase &builder,
                             LLVM::ModuleTranslation &moduleTranslation) {
 
-  llvm::Module *module = builder.GetInsertBlock()->getModule();
-  llvm::LLVMContext &ctx = module->getContext();
-
-  // Creiamo una chiamata alla funzione intrinseca:
-  // %18 = call <16xi32> @llvm.arc.vvadd.w.v512(<16xi32> %16, <16xi32> %17)
-
-  llvm::Type *vectorTy =
-      llvm::VectorType::get(llvm::Type::getInt32Ty(ctx), 16, false);
-  llvm::FunctionType *funcTy =
-      llvm::FunctionType::get(vectorTy, {vectorTy, vectorTy}, false);
-  llvm::FunctionCallee callee =
-      module->getOrInsertFunction("llvm.arc.vvadd.w.v512", funcTy);
-
   llvm::Value *arg1 = moduleTranslation.lookupValue(vecAdd.getArg1());
   llvm::Value *arg2 = moduleTranslation.lookupValue(vecAdd.getArg2());
-  llvm::CallInst *call = builder.CreateCall(callee, {arg1, arg2});
 
-  moduleTranslation.mapValue(vecAdd.getRes(), call);
+  llvm::Value *add = builder.CreateAdd(arg1, arg2);
+
+  moduleTranslation.mapValue(vecAdd.getRes(), add);
 
   return success();
 }
