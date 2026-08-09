@@ -6,8 +6,8 @@
 
 #include "mat_reduce_rows.h"
 
-#define M 32
-#define N 512
+#define M 8
+#define N 1024
 
 __vccm int a[M * N];
 __vccm int res[M];

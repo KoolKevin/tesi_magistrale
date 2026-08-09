@@ -6,8 +6,8 @@
 
 #include "mat_reduce_cols.h"
 
-#define M 160
-#define N 32
+#define M 1024
+#define N 16
 
 __vccm int a[M * N];
 __vccm int res[N];

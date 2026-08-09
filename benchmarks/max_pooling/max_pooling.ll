@@ -619,123 +619,123 @@ define dso_local void @vectorized_max_pooling(i32 noundef %rows_out, i32 noundef
 entry:
   %div = sdiv i32 %cols_out, 16
   %mul = shl nsw i32 %div, 4
-  %cmp172 = icmp sgt i32 %rows_out, 0
-  br i1 %cmp172, label %for.body.lr.ph, label %for.cond.cleanup45
+  %cmp168 = icmp sgt i32 %rows_out, 0
+  br i1 %cmp168, label %for.body.lr.ph, label %for.cond.cleanup45
 
 for.body.lr.ph:                                   ; preds = %entry
   %0 = tail call <16 x i32> @llvm.arc.vvci.w.v512()
   %splat.splatinsert = insertelement <16 x i32> poison, i32 %W, i64 0
   %splat.splat = shufflevector <16 x i32> %splat.splatinsert, <16 x i32> poison, <16 x i32> zeroinitializer
   %mul1 = mul <16 x i32> %0, %splat.splat
-  %cmp3161 = icmp sgt i32 %cols_out, 15
+  %cmp3157 = icmp sgt i32 %cols_out, 15
   %shl.i = shl <16 x i32> %mul1, <i32 2, i32 2, i32 2, i32 2, i32 2, i32 2, i32 2, i32 2, i32 2, i32 2, i32 2, i32 2, i32 2, i32 2, i32 2, i32 2>
-  br i1 %cmp3161, label %for.body.lr.ph.split.us, label %for.body46.lr.ph
+  br i1 %cmp3157, label %for.body.lr.ph.split.us, label %for.body46.lr.ph
 
 for.body.lr.ph.split.us:                          ; preds = %for.body.lr.ph
-  %cmp10157 = icmp sgt i32 %W, 0
-  br i1 %cmp10157, label %for.body5.lr.ph.split.us.split.us.us.us.us.preheader, label %for.body5.lr.ph.split.us182.preheader
+  %cmp10153 = icmp sgt i32 %W, 0
+  br i1 %cmp10153, label %for.body5.lr.ph.split.us.split.us.us.us.us.preheader, label %for.body5.lr.ph.split.us178.preheader
 
-for.body5.lr.ph.split.us182.preheader:            ; preds = %for.body.lr.ph.split.us
-  br label %for.body5.lr.ph.split.us182
+for.body5.lr.ph.split.us178.preheader:            ; preds = %for.body.lr.ph.split.us
+  br label %for.body5.lr.ph.split.us178
 
 for.body5.lr.ph.split.us.split.us.us.us.us.preheader: ; preds = %for.body.lr.ph.split.us
   br label %for.body5.lr.ph.split.us.split.us.us.us.us
 
 for.cond.cleanup4.us.us.us:                       ; preds = %for.cond.cleanup11.us.us.us.us.us
-  %inc40.us.us.us = add nuw nsw i32 %i.0173.us.us.us, 1
+  %inc40.us.us.us = add nuw nsw i32 %i.0169.us.us.us, 1
   %cmp.us.us.us = icmp slt i32 %inc40.us.us.us, %rows_out
   br i1 %cmp.us.us.us, label %for.body5.lr.ph.split.us.split.us.us.us.us, label %for.cond.cleanup, !llvm.loop !45
 
 for.body5.lr.ph.split.us.split.us.us.us.us:       ; preds = %for.body5.lr.ph.split.us.split.us.us.us.us.preheader, %for.cond.cleanup4.us.us.us
-  %i.0173.us.us.us = phi i32 [ %inc40.us.us.us, %for.cond.cleanup4.us.us.us ], [ 0, %for.body5.lr.ph.split.us.split.us.us.us.us.preheader ]
-  %mul6.us.us.us = mul nsw i32 %i.0173.us.us.us, %cols_out
-  %mul17.us.us.us = mul nsw i32 %i.0173.us.us.us, %W
+  %i.0169.us.us.us = phi i32 [ %inc40.us.us.us, %for.cond.cleanup4.us.us.us ], [ 0, %for.body5.lr.ph.split.us.split.us.us.us.us.preheader ]
+  %mul6.us.us.us = mul nsw i32 %i.0169.us.us.us, %cols_out
+  %mul17.us.us.us = mul nsw i32 %i.0169.us.us.us, %W
   br label %for.body12.lr.ph.split.us.us.us.us.us.us
 
 for.cond.cleanup11.us.us.us.us.us:                ; preds = %for.cond.cleanup15.us.us.us.us.us.us
   %1 = tail call <16 x i32> @llvm.arc.acc.to.vec.w.v512(<16 x i32> %5)
   tail call void @llvm.arc.vvst.w.v512(<16 x i32> %1, ptr addrspace(4) %arrayidx.us.us.us.us.us)
-  %add37.us.us.us.us.us = add nuw nsw i32 %j_vec.0162.us.us.us.us.us, 16
+  %add37.us.us.us.us.us = add nuw nsw i32 %j_vec.0158.us.us.us.us.us, 16
   %cmp3.us.us.us.us.us = icmp slt i32 %add37.us.us.us.us.us, %mul
   br i1 %cmp3.us.us.us.us.us, label %for.body12.lr.ph.split.us.us.us.us.us.us, label %for.cond.cleanup4.us.us.us, !llvm.loop !46
 
 for.body12.lr.ph.split.us.us.us.us.us.us:         ; preds = %for.cond.cleanup11.us.us.us.us.us, %for.body5.lr.ph.split.us.split.us.us.us.us
-  %j_vec.0162.us.us.us.us.us = phi i32 [ 0, %for.body5.lr.ph.split.us.split.us.us.us.us ], [ %add37.us.us.us.us.us, %for.cond.cleanup11.us.us.us.us.us ]
-  %add.us.us.us.us.us = add nsw i32 %j_vec.0162.us.us.us.us.us, %mul6.us.us.us
+  %j_vec.0158.us.us.us.us.us = phi i32 [ 0, %for.body5.lr.ph.split.us.split.us.us.us.us ], [ %add37.us.us.us.us.us, %for.cond.cleanup11.us.us.us.us.us ]
+  %add.us.us.us.us.us = add nsw i32 %j_vec.0158.us.us.us.us.us, %mul6.us.us.us
   %arrayidx.us.us.us.us.us = getelementptr inbounds i32, ptr addrspace(4) %output, i32 %add.us.us.us.us.us
   %2 = tail call <16 x i32> @llvm.arc.vvld.w.v512(ptr addrspace(4) %arrayidx.us.us.us.us.us)
   %3 = tail call <16 x i32> @llvm.arc.vvcadd.init.acc.w.v512(<16 x i32> %2, <16 x i32> zeroinitializer)
-  %mul20.us.us.us.us.us = mul nsw i32 %j_vec.0162.us.us.us.us.us, %W
+  %mul20.us.us.us.us.us = mul nsw i32 %j_vec.0158.us.us.us.us.us, %W
   br label %for.body16.lr.ph.us.us.us.us.us.us
 
 for.cond.cleanup15.us.us.us.us.us.us:             ; preds = %for.body16.us.us.us.us.us.us
-  %inc29.us.us.us.us.us.us = add nuw nsw i32 %w_i.0159.us.us.us.us.us.us, 1
+  %inc29.us.us.us.us.us.us = add nuw nsw i32 %w_i.0155.us.us.us.us.us.us, 1
   %cmp10.us.us.us.us.us.us = icmp slt i32 %inc29.us.us.us.us.us.us, %W
   br i1 %cmp10.us.us.us.us.us.us, label %for.body16.lr.ph.us.us.us.us.us.us, label %for.cond.cleanup11.us.us.us.us.us, !llvm.loop !47
 
 for.body16.us.us.us.us.us.us:                     ; preds = %for.body16.lr.ph.us.us.us.us.us.us, %for.body16.us.us.us.us.us.us
-  %w_j.0156.us.us.us.us.us.us = phi i32 [ 0, %for.body16.lr.ph.us.us.us.us.us.us ], [ %inc.us.us.us.us.us.us, %for.body16.us.us.us.us.us.us ]
-  %max_acc.sroa.0.1155.us.us.us.us.us.us = phi <16 x i32> [ %max_acc.sroa.0.0158.us.us.us.us.us.us, %for.body16.lr.ph.us.us.us.us.us.us ], [ %5, %for.body16.us.us.us.us.us.us ]
-  %add22.us.us.us.us.us.us = add i32 %add21.us.us.us.us.us.us, %w_j.0156.us.us.us.us.us.us
+  %w_j.0152.us.us.us.us.us.us = phi i32 [ 0, %for.body16.lr.ph.us.us.us.us.us.us ], [ %inc.us.us.us.us.us.us, %for.body16.us.us.us.us.us.us ]
+  %max_acc.sroa.0.1151.us.us.us.us.us.us = phi <16 x i32> [ %max_acc.sroa.0.0154.us.us.us.us.us.us, %for.body16.lr.ph.us.us.us.us.us.us ], [ %5, %for.body16.us.us.us.us.us.us ]
+  %add22.us.us.us.us.us.us = add i32 %add21.us.us.us.us.us.us, %w_j.0152.us.us.us.us.us.us
   %arrayidx23.us.us.us.us.us.us = getelementptr inbounds i32, ptr addrspace(4) %input, i32 %add22.us.us.us.us.us.us
   %4 = tail call <16 x i32> @llvm.arc.vgather.int.v512(ptr addrspace(4) %arrayidx23.us.us.us.us.us.us, <16 x i32> %shl.i)
-  %5 = tail call <16 x i32> @llvm.arc.vvcmax.acc.w.v512(<16 x i32> %max_acc.sroa.0.1155.us.us.us.us.us.us, <16 x i32> %4)
-  %inc.us.us.us.us.us.us = add nuw nsw i32 %w_j.0156.us.us.us.us.us.us, 1
+  %5 = tail call <16 x i32> @llvm.arc.vvcmax.acc.w.v512(<16 x i32> %max_acc.sroa.0.1151.us.us.us.us.us.us, <16 x i32> %4)
+  %inc.us.us.us.us.us.us = add nuw nsw i32 %w_j.0152.us.us.us.us.us.us, 1
   %cmp14.us.us.us.us.us.us = icmp slt i32 %inc.us.us.us.us.us.us, %W
   br i1 %cmp14.us.us.us.us.us.us, label %for.body16.us.us.us.us.us.us, label %for.cond.cleanup15.us.us.us.us.us.us, !llvm.loop !48
 
 for.body16.lr.ph.us.us.us.us.us.us:               ; preds = %for.body12.lr.ph.split.us.us.us.us.us.us, %for.cond.cleanup15.us.us.us.us.us.us
-  %w_i.0159.us.us.us.us.us.us = phi i32 [ 0, %for.body12.lr.ph.split.us.us.us.us.us.us ], [ %inc29.us.us.us.us.us.us, %for.cond.cleanup15.us.us.us.us.us.us ]
-  %max_acc.sroa.0.0158.us.us.us.us.us.us = phi <16 x i32> [ %3, %for.body12.lr.ph.split.us.us.us.us.us.us ], [ %5, %for.cond.cleanup15.us.us.us.us.us.us ]
-  %add18.us.us.us.us.us.us = add nsw i32 %w_i.0159.us.us.us.us.us.us, %mul17.us.us.us
+  %w_i.0155.us.us.us.us.us.us = phi i32 [ 0, %for.body12.lr.ph.split.us.us.us.us.us.us ], [ %inc29.us.us.us.us.us.us, %for.cond.cleanup15.us.us.us.us.us.us ]
+  %max_acc.sroa.0.0154.us.us.us.us.us.us = phi <16 x i32> [ %3, %for.body12.lr.ph.split.us.us.us.us.us.us ], [ %5, %for.cond.cleanup15.us.us.us.us.us.us ]
+  %add18.us.us.us.us.us.us = add nsw i32 %w_i.0155.us.us.us.us.us.us, %mul17.us.us.us
   %mul19.us.us.us.us.us.us = mul nsw i32 %add18.us.us.us.us.us.us, %cols_in
   %add21.us.us.us.us.us.us = add i32 %mul19.us.us.us.us.us.us, %mul20.us.us.us.us.us
   br label %for.body16.us.us.us.us.us.us
 
-for.cond.cleanup4.us:                             ; preds = %for.cond.cleanup11.us178
-  %inc40.us = add nuw nsw i32 %i.0173.us, 1
+for.cond.cleanup4.us:                             ; preds = %for.cond.cleanup11.us174
+  %inc40.us = add nuw nsw i32 %i.0169.us, 1
   %cmp.us = icmp slt i32 %inc40.us, %rows_out
-  br i1 %cmp.us, label %for.body5.lr.ph.split.us182, label %for.cond.cleanup, !llvm.loop !45
+  br i1 %cmp.us, label %for.body5.lr.ph.split.us178, label %for.cond.cleanup, !llvm.loop !45
 
-for.cond.cleanup11.us178:                         ; preds = %for.cond.cleanup11.us178, %for.body5.lr.ph.split.us182
-  %j_vec.0162.us175 = phi i32 [ 0, %for.body5.lr.ph.split.us182 ], [ %add37.us179, %for.cond.cleanup11.us178 ]
-  %add.us176 = add nsw i32 %j_vec.0162.us175, %mul6.us
-  %arrayidx.us177 = getelementptr inbounds i32, ptr addrspace(4) %output, i32 %add.us176
-  %6 = tail call <16 x i32> @llvm.arc.vvld.w.v512(ptr addrspace(4) %arrayidx.us177)
+for.cond.cleanup11.us174:                         ; preds = %for.cond.cleanup11.us174, %for.body5.lr.ph.split.us178
+  %j_vec.0158.us171 = phi i32 [ 0, %for.body5.lr.ph.split.us178 ], [ %add37.us175, %for.cond.cleanup11.us174 ]
+  %add.us172 = add nsw i32 %j_vec.0158.us171, %mul6.us
+  %arrayidx.us173 = getelementptr inbounds i32, ptr addrspace(4) %output, i32 %add.us172
+  %6 = tail call <16 x i32> @llvm.arc.vvld.w.v512(ptr addrspace(4) %arrayidx.us173)
   %7 = tail call <16 x i32> @llvm.arc.vvcadd.init.acc.w.v512(<16 x i32> %6, <16 x i32> zeroinitializer)
   %8 = tail call <16 x i32> @llvm.arc.acc.to.vec.w.v512(<16 x i32> %7)
-  tail call void @llvm.arc.vvst.w.v512(<16 x i32> %8, ptr addrspace(4) %arrayidx.us177)
-  %add37.us179 = add nuw nsw i32 %j_vec.0162.us175, 16
-  %cmp3.us180 = icmp slt i32 %add37.us179, %mul
-  br i1 %cmp3.us180, label %for.cond.cleanup11.us178, label %for.cond.cleanup4.us, !llvm.loop !46
+  tail call void @llvm.arc.vvst.w.v512(<16 x i32> %8, ptr addrspace(4) %arrayidx.us173)
+  %add37.us175 = add nuw nsw i32 %j_vec.0158.us171, 16
+  %cmp3.us176 = icmp slt i32 %add37.us175, %mul
+  br i1 %cmp3.us176, label %for.cond.cleanup11.us174, label %for.cond.cleanup4.us, !llvm.loop !46
 
-for.body5.lr.ph.split.us182:                      ; preds = %for.body5.lr.ph.split.us182.preheader, %for.cond.cleanup4.us
-  %i.0173.us = phi i32 [ %inc40.us, %for.cond.cleanup4.us ], [ 0, %for.body5.lr.ph.split.us182.preheader ]
-  %mul6.us = mul nsw i32 %i.0173.us, %cols_out
-  br label %for.cond.cleanup11.us178
+for.body5.lr.ph.split.us178:                      ; preds = %for.body5.lr.ph.split.us178.preheader, %for.cond.cleanup4.us
+  %i.0169.us = phi i32 [ %inc40.us, %for.cond.cleanup4.us ], [ 0, %for.body5.lr.ph.split.us178.preheader ]
+  %mul6.us = mul nsw i32 %i.0169.us, %cols_out
+  br label %for.cond.cleanup11.us174
 
 for.cond.cleanup:                                 ; preds = %for.cond.cleanup4.us, %for.cond.cleanup4.us.us.us
-  %cmp48202 = icmp slt i32 %mul, %cols_out
-  br i1 %cmp48202, label %for.body46.lr.ph.split.us, label %for.cond.cleanup45
+  %cmp48198 = icmp slt i32 %mul, %cols_out
+  br i1 %cmp48198, label %for.body46.lr.ph.split.us, label %for.cond.cleanup45
 
 for.body46.lr.ph:                                 ; preds = %for.body.lr.ph
-  %cmp48202.old = icmp slt i32 %mul, %cols_out
-  br i1 %cmp48202.old, label %for.body46.lr.ph.split.us, label %for.cond.cleanup45
+  %cmp48198.old = icmp slt i32 %mul, %cols_out
+  br i1 %cmp48198.old, label %for.body46.lr.ph.split.us, label %for.cond.cleanup45
 
 for.body46.lr.ph.split.us:                        ; preds = %for.cond.cleanup, %for.body46.lr.ph
-  %cmp58198 = icmp sgt i32 %W, 0
-  br i1 %cmp58198, label %for.body46.lr.ph.split.us.split.us.split.us, label %for.body46.lr.ph.split.us.split
+  %cmp56194 = icmp sgt i32 %W, 0
+  br i1 %cmp56194, label %for.body46.lr.ph.split.us.split.us.split.us, label %for.body46.lr.ph.split.us.split
 
 for.body46.lr.ph.split.us.split.us.split.us:      ; preds = %for.body46.lr.ph.split.us
-  %min.iters.check270 = icmp ult i32 %W, 8
-  %min.iters.check273 = icmp ult i32 %W, 64
-  %n.vec277 = and i32 %W, -64
-  %cmp.n278 = icmp eq i32 %n.vec277, %W
-  %n.vec.remaining295 = and i32 %W, 56
-  %min.epilog.iters.check296 = icmp eq i32 %n.vec.remaining295, 0
-  %n.vec299 = and i32 %W, -8
-  %cmp.n301 = icmp eq i32 %n.vec299, %W
-  br i1 %min.iters.check270, label %for.body50.lr.ph.split.us.split.us.us.us.us.us.preheader, label %for.body50.lr.ph.split.us.split.us.us.us.us.preheader
+  %min.iters.check262 = icmp ult i32 %W, 8
+  %min.iters.check265 = icmp ult i32 %W, 64
+  %n.vec269 = and i32 %W, -64
+  %cmp.n270 = icmp eq i32 %n.vec269, %W
+  %n.vec.remaining287 = and i32 %W, 56
+  %min.epilog.iters.check288 = icmp eq i32 %n.vec.remaining287, 0
+  %n.vec291 = and i32 %W, -8
+  %cmp.n293 = icmp eq i32 %n.vec291, %W
+  br i1 %min.iters.check262, label %for.body50.lr.ph.split.us.split.us.us.us.us.us.preheader, label %for.body50.lr.ph.split.us.split.us.us.us.us.preheader
 
 for.body50.lr.ph.split.us.split.us.us.us.us.preheader: ; preds = %for.body46.lr.ph.split.us.split.us.split.us
   br label %for.body50.lr.ph.split.us.split.us.us.us.us
@@ -744,235 +744,290 @@ for.body50.lr.ph.split.us.split.us.us.us.us.us.preheader: ; preds = %for.body46.
   br label %for.body50.lr.ph.split.us.split.us.us.us.us.us
 
 for.body50.lr.ph.split.us.split.us.us.us.us.us:   ; preds = %for.body50.lr.ph.split.us.split.us.us.us.us.us.preheader, %for.cond.cleanup49.us.us.us.split.us.us
-  %i42.0214.us.us.us.us = phi i32 [ %inc94.us.us.us.us, %for.cond.cleanup49.us.us.us.split.us.us ], [ 0, %for.body50.lr.ph.split.us.split.us.us.us.us.us.preheader ]
-  %mul51.us.us.us.us = mul nsw i32 %i42.0214.us.us.us.us, %W
-  %mul52.us.us.us.us = mul nsw i32 %mul51.us.us.us.us, %cols_in
-  %mul87.us.us.us.us = mul nsw i32 %i42.0214.us.us.us.us, %cols_out
-  br label %for.body60.lr.ph.split.us.us.us.us.us.us.us.us
+  %i42.0210.us.us.us.us = phi i32 [ %inc92.us.us.us.us, %for.cond.cleanup49.us.us.us.split.us.us ], [ 0, %for.body50.lr.ph.split.us.split.us.us.us.us.us.preheader ]
+  %mul51.us.us.us.us = mul nsw i32 %i42.0210.us.us.us.us, %cols_out
+  %mul64.us.us.us.us = mul nsw i32 %i42.0210.us.us.us.us, %W
+  br label %for.body58.lr.ph.split.us.us.us.us.us.us.us.us
 
-for.body60.lr.ph.split.us.us.us.us.us.us.us.us:   ; preds = %for.cond.cleanup59.us.us.us.us.us.split.us.us.us, %for.body50.lr.ph.split.us.split.us.us.us.us.us
-  %j.0203.us.us.us.us.us.us.us = phi i32 [ %mul, %for.body50.lr.ph.split.us.split.us.us.us.us.us ], [ %inc91.us.us.us.us.us.us.us, %for.cond.cleanup59.us.us.us.us.us.split.us.us.us ]
-  %mul53.us.us.us.us.us.us.us = mul nsw i32 %j.0203.us.us.us.us.us.us.us, %W
-  %add54.us.us.us.us.us.us.us = add nsw i32 %mul53.us.us.us.us.us.us.us, %mul52.us.us.us.us
-  %arrayidx55.us.us.us.us.us.us.us = getelementptr inbounds i32, ptr addrspace(4) %input, i32 %add54.us.us.us.us.us.us.us
-  %9 = load i32, ptr addrspace(4) %arrayidx55.us.us.us.us.us.us.us, align 4, !tbaa !3
-  br label %iter.check272.us.us.us
+for.body58.lr.ph.split.us.us.us.us.us.us.us.us:   ; preds = %for.cond.cleanup57.us.us.us.us.us.split.us.us.us, %for.body50.lr.ph.split.us.split.us.us.us.us.us
+  %j.0199.us.us.us.us.us.us.us = phi i32 [ %mul, %for.body50.lr.ph.split.us.split.us.us.us.us.us ], [ %inc89.us.us.us.us.us.us.us, %for.cond.cleanup57.us.us.us.us.us.split.us.us.us ]
+  %add52.us.us.us.us.us.us.us = add nsw i32 %j.0199.us.us.us.us.us.us.us, %mul51.us.us.us.us
+  %arrayidx53.us.us.us.us.us.us.us = getelementptr inbounds i32, ptr addrspace(4) %input, i32 %add52.us.us.us.us.us.us.us
+  %9 = load i32, ptr addrspace(4) %arrayidx53.us.us.us.us.us.us.us, align 4, !tbaa !3
+  %mul67.us.us.us.us.us.us.us = mul nsw i32 %j.0199.us.us.us.us.us.us.us, %W
+  br label %iter.check264.us.us.us
 
-iter.check272.us.us.us:                           ; preds = %for.cond.cleanup64.us.us.us.us.us.us.us.us.us, %for.body60.lr.ph.split.us.us.us.us.us.us.us.us
-  %w_i56.0200.us.us.us.us.us.us.us.us.us = phi i32 [ 0, %for.body60.lr.ph.split.us.us.us.us.us.us.us.us ], [ %inc85.us.us.us.us.us.us.us.us.us, %for.cond.cleanup64.us.us.us.us.us.us.us.us.us ]
-  %max.0199.us.us.us.us.us.us.us.us.us = phi i32 [ %9, %for.body60.lr.ph.split.us.us.us.us.us.us.us.us ], [ %spec.select.us.us.us.us.us.us.us.us.us, %for.cond.cleanup64.us.us.us.us.us.us.us.us.us ]
-  %add67.us.us.us.us.us.us.us.us.us = add nsw i32 %w_i56.0200.us.us.us.us.us.us.us.us.us, %mul51.us.us.us.us
-  %mul68.us.us.us.us.us.us.us.us.us = mul nsw i32 %add67.us.us.us.us.us.us.us.us.us, %cols_in
-  %add70.us.us.us.us.us.us.us.us.us = add i32 %mul68.us.us.us.us.us.us.us.us.us, %mul53.us.us.us.us.us.us.us
-  br label %for.body65.us.us.us.us.us.us.us.us.us
+iter.check264.us.us.us:                           ; preds = %for.cond.cleanup62.us.us.us.us.us.us.us.us.us, %for.body58.lr.ph.split.us.us.us.us.us.us.us.us
+  %w_i54.0196.us.us.us.us.us.us.us.us.us = phi i32 [ 0, %for.body58.lr.ph.split.us.us.us.us.us.us.us.us ], [ %inc83.us.us.us.us.us.us.us.us.us, %for.cond.cleanup62.us.us.us.us.us.us.us.us.us ]
+  %max.0195.us.us.us.us.us.us.us.us.us = phi i32 [ %9, %for.body58.lr.ph.split.us.us.us.us.us.us.us.us ], [ %spec.select.us.us.us.us.us.us.us.us.us, %for.cond.cleanup62.us.us.us.us.us.us.us.us.us ]
+  %add65.us.us.us.us.us.us.us.us.us = add nsw i32 %w_i54.0196.us.us.us.us.us.us.us.us.us, %mul64.us.us.us.us
+  %mul66.us.us.us.us.us.us.us.us.us = mul nsw i32 %add65.us.us.us.us.us.us.us.us.us, %cols_in
+  %add68.us.us.us.us.us.us.us.us.us = add i32 %mul66.us.us.us.us.us.us.us.us.us, %mul67.us.us.us.us.us.us.us
+  br label %for.body63.us.us.us.us.us.us.us.us.us
 
-for.body65.us.us.us.us.us.us.us.us.us:            ; preds = %for.body65.us.us.us.us.us.us.us.us.us, %iter.check272.us.us.us
-  %w_j61.0197.us.us.us.us.us.us.us.us.us = phi i32 [ 0, %iter.check272.us.us.us ], [ %inc82.us.us.us.us.us.us.us.us.us, %for.body65.us.us.us.us.us.us.us.us.us ]
-  %max.1196.us.us.us.us.us.us.us.us.us = phi i32 [ %max.0199.us.us.us.us.us.us.us.us.us, %iter.check272.us.us.us ], [ %spec.select.us.us.us.us.us.us.us.us.us, %for.body65.us.us.us.us.us.us.us.us.us ]
-  %add71.us.us.us.us.us.us.us.us.us = add i32 %add70.us.us.us.us.us.us.us.us.us, %w_j61.0197.us.us.us.us.us.us.us.us.us
-  %arrayidx72.us.us.us.us.us.us.us.us.us = getelementptr inbounds i32, ptr addrspace(4) %input, i32 %add71.us.us.us.us.us.us.us.us.us
-  %10 = load i32, ptr addrspace(4) %arrayidx72.us.us.us.us.us.us.us.us.us, align 4, !tbaa !3
-  %spec.select.us.us.us.us.us.us.us.us.us = tail call i32 @llvm.smax.i32(i32 %10, i32 %max.1196.us.us.us.us.us.us.us.us.us)
-  %inc82.us.us.us.us.us.us.us.us.us = add nuw nsw i32 %w_j61.0197.us.us.us.us.us.us.us.us.us, 1
-  %cmp63.us.us.us.us.us.us.us.us.us = icmp slt i32 %inc82.us.us.us.us.us.us.us.us.us, %W
-  br i1 %cmp63.us.us.us.us.us.us.us.us.us, label %for.body65.us.us.us.us.us.us.us.us.us, label %for.cond.cleanup64.us.us.us.us.us.us.us.us.us, !llvm.loop !49
+for.body63.us.us.us.us.us.us.us.us.us:            ; preds = %for.body63.us.us.us.us.us.us.us.us.us, %iter.check264.us.us.us
+  %w_j59.0193.us.us.us.us.us.us.us.us.us = phi i32 [ 0, %iter.check264.us.us.us ], [ %inc80.us.us.us.us.us.us.us.us.us, %for.body63.us.us.us.us.us.us.us.us.us ]
+  %max.1192.us.us.us.us.us.us.us.us.us = phi i32 [ %max.0195.us.us.us.us.us.us.us.us.us, %iter.check264.us.us.us ], [ %spec.select.us.us.us.us.us.us.us.us.us, %for.body63.us.us.us.us.us.us.us.us.us ]
+  %add69.us.us.us.us.us.us.us.us.us = add i32 %add68.us.us.us.us.us.us.us.us.us, %w_j59.0193.us.us.us.us.us.us.us.us.us
+  %arrayidx70.us.us.us.us.us.us.us.us.us = getelementptr inbounds i32, ptr addrspace(4) %input, i32 %add69.us.us.us.us.us.us.us.us.us
+  %10 = load i32, ptr addrspace(4) %arrayidx70.us.us.us.us.us.us.us.us.us, align 4, !tbaa !3
+  %spec.select.us.us.us.us.us.us.us.us.us = tail call i32 @llvm.smax.i32(i32 %10, i32 %max.1192.us.us.us.us.us.us.us.us.us)
+  %inc80.us.us.us.us.us.us.us.us.us = add nuw nsw i32 %w_j59.0193.us.us.us.us.us.us.us.us.us, 1
+  %cmp61.us.us.us.us.us.us.us.us.us = icmp slt i32 %inc80.us.us.us.us.us.us.us.us.us, %W
+  br i1 %cmp61.us.us.us.us.us.us.us.us.us, label %for.body63.us.us.us.us.us.us.us.us.us, label %for.cond.cleanup62.us.us.us.us.us.us.us.us.us, !llvm.loop !49
 
-for.cond.cleanup64.us.us.us.us.us.us.us.us.us:    ; preds = %for.body65.us.us.us.us.us.us.us.us.us
-  %inc85.us.us.us.us.us.us.us.us.us = add nuw nsw i32 %w_i56.0200.us.us.us.us.us.us.us.us.us, 1
-  %cmp58.us.us.us.us.us.us.us.us.us = icmp slt i32 %inc85.us.us.us.us.us.us.us.us.us, %W
-  br i1 %cmp58.us.us.us.us.us.us.us.us.us, label %iter.check272.us.us.us, label %for.cond.cleanup59.us.us.us.us.us.split.us.us.us, !llvm.loop !50
+for.cond.cleanup62.us.us.us.us.us.us.us.us.us:    ; preds = %for.body63.us.us.us.us.us.us.us.us.us
+  %inc83.us.us.us.us.us.us.us.us.us = add nuw nsw i32 %w_i54.0196.us.us.us.us.us.us.us.us.us, 1
+  %cmp56.us.us.us.us.us.us.us.us.us = icmp slt i32 %inc83.us.us.us.us.us.us.us.us.us, %W
+  br i1 %cmp56.us.us.us.us.us.us.us.us.us, label %iter.check264.us.us.us, label %for.cond.cleanup57.us.us.us.us.us.split.us.us.us, !llvm.loop !50
 
-for.cond.cleanup59.us.us.us.us.us.split.us.us.us: ; preds = %for.cond.cleanup64.us.us.us.us.us.us.us.us.us
-  %add88.us.us.us.us.us.us.us = add nsw i32 %j.0203.us.us.us.us.us.us.us, %mul87.us.us.us.us
-  %arrayidx89.us.us.us.us.us.us.us = getelementptr inbounds i32, ptr addrspace(4) %output, i32 %add88.us.us.us.us.us.us.us
-  store i32 %spec.select.us.us.us.us.us.us.us.us.us, ptr addrspace(4) %arrayidx89.us.us.us.us.us.us.us, align 4, !tbaa !3
-  %inc91.us.us.us.us.us.us.us = add nsw i32 %j.0203.us.us.us.us.us.us.us, 1
-  %cmp48.us.us.us.us.us.us.us = icmp slt i32 %inc91.us.us.us.us.us.us.us, %cols_out
-  br i1 %cmp48.us.us.us.us.us.us.us, label %for.body60.lr.ph.split.us.us.us.us.us.us.us.us, label %for.cond.cleanup49.us.us.us.split.us.us, !llvm.loop !51
+for.cond.cleanup57.us.us.us.us.us.split.us.us.us: ; preds = %for.cond.cleanup62.us.us.us.us.us.us.us.us.us
+  %arrayidx87.us.us.us.us.us.us.us = getelementptr inbounds i32, ptr addrspace(4) %output, i32 %add52.us.us.us.us.us.us.us
+  store i32 %spec.select.us.us.us.us.us.us.us.us.us, ptr addrspace(4) %arrayidx87.us.us.us.us.us.us.us, align 4, !tbaa !3
+  %inc89.us.us.us.us.us.us.us = add nsw i32 %j.0199.us.us.us.us.us.us.us, 1
+  %cmp48.us.us.us.us.us.us.us = icmp slt i32 %inc89.us.us.us.us.us.us.us, %cols_out
+  br i1 %cmp48.us.us.us.us.us.us.us, label %for.body58.lr.ph.split.us.us.us.us.us.us.us.us, label %for.cond.cleanup49.us.us.us.split.us.us, !llvm.loop !51
 
-for.cond.cleanup49.us.us.us.split.us.us:          ; preds = %for.cond.cleanup59.us.us.us.us.us.split.us.us.us
-  %inc94.us.us.us.us = add nuw nsw i32 %i42.0214.us.us.us.us, 1
-  %cmp44.us.us.us.us = icmp slt i32 %inc94.us.us.us.us, %rows_out
+for.cond.cleanup49.us.us.us.split.us.us:          ; preds = %for.cond.cleanup57.us.us.us.us.us.split.us.us.us
+  %inc92.us.us.us.us = add nuw nsw i32 %i42.0210.us.us.us.us, 1
+  %cmp44.us.us.us.us = icmp slt i32 %inc92.us.us.us.us, %rows_out
   br i1 %cmp44.us.us.us.us, label %for.body50.lr.ph.split.us.split.us.us.us.us.us, label %for.cond.cleanup45, !llvm.loop !52
 
-for.cond.cleanup49.us.us.us:                      ; preds = %for.cond.cleanup59.us.us.us.us.us
-  %inc94.us.us.us = add nuw nsw i32 %i42.0214.us.us.us, 1
-  %cmp44.us.us.us = icmp slt i32 %inc94.us.us.us, %rows_out
+for.cond.cleanup49.us.us.us:                      ; preds = %for.cond.cleanup57.us.us.us.us.us
+  %inc92.us.us.us = add nuw nsw i32 %i42.0210.us.us.us, 1
+  %cmp44.us.us.us = icmp slt i32 %inc92.us.us.us, %rows_out
   br i1 %cmp44.us.us.us, label %for.body50.lr.ph.split.us.split.us.us.us.us, label %for.cond.cleanup45, !llvm.loop !52
 
 for.body50.lr.ph.split.us.split.us.us.us.us:      ; preds = %for.body50.lr.ph.split.us.split.us.us.us.us.preheader, %for.cond.cleanup49.us.us.us
-  %i42.0214.us.us.us = phi i32 [ %inc94.us.us.us, %for.cond.cleanup49.us.us.us ], [ 0, %for.body50.lr.ph.split.us.split.us.us.us.us.preheader ]
-  %mul51.us.us.us = mul nsw i32 %i42.0214.us.us.us, %W
-  %mul52.us.us.us = mul nsw i32 %mul51.us.us.us, %cols_in
-  %mul87.us.us.us = mul nsw i32 %i42.0214.us.us.us, %cols_out
-  br label %for.body60.lr.ph.split.us.us.us.us.us.us
+  %i42.0210.us.us.us = phi i32 [ %inc92.us.us.us, %for.cond.cleanup49.us.us.us ], [ 0, %for.body50.lr.ph.split.us.split.us.us.us.us.preheader ]
+  %mul51.us.us.us = mul nsw i32 %i42.0210.us.us.us, %cols_out
+  %mul64.us.us.us = mul nsw i32 %i42.0210.us.us.us, %W
+  br label %for.body58.lr.ph.split.us.us.us.us.us.us
 
-for.cond.cleanup59.us.us.us.us.us:                ; preds = %for.cond.cleanup64.us.us.us.us.us.us
-  %add88.us.us.us.us.us = add nsw i32 %j.0203.us.us.us.us.us, %mul87.us.us.us
-  %arrayidx89.us.us.us.us.us = getelementptr inbounds i32, ptr addrspace(4) %output, i32 %add88.us.us.us.us.us
-  store i32 %spec.select.us.us.us.us.us.us.lcssa, ptr addrspace(4) %arrayidx89.us.us.us.us.us, align 4, !tbaa !3
-  %inc91.us.us.us.us.us = add nsw i32 %j.0203.us.us.us.us.us, 1
-  %cmp48.us.us.us.us.us = icmp slt i32 %inc91.us.us.us.us.us, %cols_out
-  br i1 %cmp48.us.us.us.us.us, label %for.body60.lr.ph.split.us.us.us.us.us.us, label %for.cond.cleanup49.us.us.us, !llvm.loop !51
+for.cond.cleanup57.us.us.us.us.us:                ; preds = %for.cond.cleanup62.us.us.us.us.us.us
+  %arrayidx87.us.us.us.us.us = getelementptr inbounds i32, ptr addrspace(4) %output, i32 %add52.us.us.us.us.us
+  store i32 %spec.select.us.us.us.us.us.us.lcssa, ptr addrspace(4) %arrayidx87.us.us.us.us.us, align 4, !tbaa !3
+  %inc89.us.us.us.us.us = add nsw i32 %j.0199.us.us.us.us.us, 1
+  %cmp48.us.us.us.us.us = icmp slt i32 %inc89.us.us.us.us.us, %cols_out
+  br i1 %cmp48.us.us.us.us.us, label %for.body58.lr.ph.split.us.us.us.us.us.us, label %for.cond.cleanup49.us.us.us, !llvm.loop !51
 
-for.body60.lr.ph.split.us.us.us.us.us.us:         ; preds = %for.cond.cleanup59.us.us.us.us.us, %for.body50.lr.ph.split.us.split.us.us.us.us
-  %j.0203.us.us.us.us.us = phi i32 [ %mul, %for.body50.lr.ph.split.us.split.us.us.us.us ], [ %inc91.us.us.us.us.us, %for.cond.cleanup59.us.us.us.us.us ]
-  %mul53.us.us.us.us.us = mul nsw i32 %j.0203.us.us.us.us.us, %W
-  %add54.us.us.us.us.us = add nsw i32 %mul53.us.us.us.us.us, %mul52.us.us.us
-  %arrayidx55.us.us.us.us.us = getelementptr inbounds i32, ptr addrspace(4) %input, i32 %add54.us.us.us.us.us
-  %11 = load i32, ptr addrspace(4) %arrayidx55.us.us.us.us.us, align 4, !tbaa !3
-  br label %iter.check272
+for.body58.lr.ph.split.us.us.us.us.us.us:         ; preds = %for.cond.cleanup57.us.us.us.us.us, %for.body50.lr.ph.split.us.split.us.us.us.us
+  %j.0199.us.us.us.us.us = phi i32 [ %mul, %for.body50.lr.ph.split.us.split.us.us.us.us ], [ %inc89.us.us.us.us.us, %for.cond.cleanup57.us.us.us.us.us ]
+  %add52.us.us.us.us.us = add nsw i32 %j.0199.us.us.us.us.us, %mul51.us.us.us
+  %arrayidx53.us.us.us.us.us = getelementptr inbounds i32, ptr addrspace(4) %input, i32 %add52.us.us.us.us.us
+  %11 = load i32, ptr addrspace(4) %arrayidx53.us.us.us.us.us, align 4, !tbaa !3
+  %mul67.us.us.us.us.us = mul nsw i32 %j.0199.us.us.us.us.us, %W
+  br label %iter.check264
 
-for.cond.cleanup64.us.us.us.us.us.us:             ; preds = %for.body65.us.us.us.us.us.us, %vec.epilog.middle.block291, %middle.block269
-  %spec.select.us.us.us.us.us.us.lcssa = phi i32 [ %23, %middle.block269 ], [ %28, %vec.epilog.middle.block291 ], [ %spec.select.us.us.us.us.us.us, %for.body65.us.us.us.us.us.us ]
-  %inc85.us.us.us.us.us.us = add nuw nsw i32 %w_i56.0200.us.us.us.us.us.us, 1
-  %cmp58.us.us.us.us.us.us = icmp slt i32 %inc85.us.us.us.us.us.us, %W
-  br i1 %cmp58.us.us.us.us.us.us, label %iter.check272, label %for.cond.cleanup59.us.us.us.us.us, !llvm.loop !50
+for.cond.cleanup62.us.us.us.us.us.us:             ; preds = %for.body63.us.us.us.us.us.us, %vec.epilog.middle.block283, %middle.block261
+  %spec.select.us.us.us.us.us.us.lcssa = phi i32 [ %23, %middle.block261 ], [ %28, %vec.epilog.middle.block283 ], [ %spec.select.us.us.us.us.us.us, %for.body63.us.us.us.us.us.us ]
+  %inc83.us.us.us.us.us.us = add nuw nsw i32 %w_i54.0196.us.us.us.us.us.us, 1
+  %cmp56.us.us.us.us.us.us = icmp slt i32 %inc83.us.us.us.us.us.us, %W
+  br i1 %cmp56.us.us.us.us.us.us, label %iter.check264, label %for.cond.cleanup57.us.us.us.us.us, !llvm.loop !50
 
-for.body65.us.us.us.us.us.us:                     ; preds = %for.body65.us.us.us.us.us.us.preheader, %for.body65.us.us.us.us.us.us
-  %w_j61.0197.us.us.us.us.us.us = phi i32 [ %inc82.us.us.us.us.us.us, %for.body65.us.us.us.us.us.us ], [ %w_j61.0197.us.us.us.us.us.us.ph, %for.body65.us.us.us.us.us.us.preheader ]
-  %max.1196.us.us.us.us.us.us = phi i32 [ %spec.select.us.us.us.us.us.us, %for.body65.us.us.us.us.us.us ], [ %max.1196.us.us.us.us.us.us.ph, %for.body65.us.us.us.us.us.us.preheader ]
-  %add71.us.us.us.us.us.us = add i32 %add70.us.us.us.us.us.us, %w_j61.0197.us.us.us.us.us.us
-  %arrayidx72.us.us.us.us.us.us = getelementptr inbounds i32, ptr addrspace(4) %input, i32 %add71.us.us.us.us.us.us
-  %12 = load i32, ptr addrspace(4) %arrayidx72.us.us.us.us.us.us, align 4, !tbaa !3
-  %spec.select.us.us.us.us.us.us = tail call i32 @llvm.smax.i32(i32 %12, i32 %max.1196.us.us.us.us.us.us)
-  %inc82.us.us.us.us.us.us = add nuw nsw i32 %w_j61.0197.us.us.us.us.us.us, 1
-  %cmp63.us.us.us.us.us.us = icmp slt i32 %inc82.us.us.us.us.us.us, %W
-  br i1 %cmp63.us.us.us.us.us.us, label %for.body65.us.us.us.us.us.us, label %for.cond.cleanup64.us.us.us.us.us.us, !llvm.loop !49
+for.body63.us.us.us.us.us.us:                     ; preds = %for.body63.us.us.us.us.us.us.preheader, %for.body63.us.us.us.us.us.us
+  %w_j59.0193.us.us.us.us.us.us = phi i32 [ %inc80.us.us.us.us.us.us, %for.body63.us.us.us.us.us.us ], [ %w_j59.0193.us.us.us.us.us.us.ph, %for.body63.us.us.us.us.us.us.preheader ]
+  %max.1192.us.us.us.us.us.us = phi i32 [ %spec.select.us.us.us.us.us.us, %for.body63.us.us.us.us.us.us ], [ %max.1192.us.us.us.us.us.us.ph, %for.body63.us.us.us.us.us.us.preheader ]
+  %add69.us.us.us.us.us.us = add i32 %add68.us.us.us.us.us.us, %w_j59.0193.us.us.us.us.us.us
+  %arrayidx70.us.us.us.us.us.us = getelementptr inbounds i32, ptr addrspace(4) %input, i32 %add69.us.us.us.us.us.us
+  %12 = load i32, ptr addrspace(4) %arrayidx70.us.us.us.us.us.us, align 4, !tbaa !3
+  %spec.select.us.us.us.us.us.us = tail call i32 @llvm.smax.i32(i32 %12, i32 %max.1192.us.us.us.us.us.us)
+  %inc80.us.us.us.us.us.us = add nuw nsw i32 %w_j59.0193.us.us.us.us.us.us, 1
+  %cmp61.us.us.us.us.us.us = icmp slt i32 %inc80.us.us.us.us.us.us, %W
+  br i1 %cmp61.us.us.us.us.us.us, label %for.body63.us.us.us.us.us.us, label %for.cond.cleanup62.us.us.us.us.us.us, !llvm.loop !49
 
-iter.check272:                                    ; preds = %for.body60.lr.ph.split.us.us.us.us.us.us, %for.cond.cleanup64.us.us.us.us.us.us
-  %w_i56.0200.us.us.us.us.us.us = phi i32 [ 0, %for.body60.lr.ph.split.us.us.us.us.us.us ], [ %inc85.us.us.us.us.us.us, %for.cond.cleanup64.us.us.us.us.us.us ]
-  %max.0199.us.us.us.us.us.us = phi i32 [ %11, %for.body60.lr.ph.split.us.us.us.us.us.us ], [ %spec.select.us.us.us.us.us.us.lcssa, %for.cond.cleanup64.us.us.us.us.us.us ]
-  %add67.us.us.us.us.us.us = add nsw i32 %w_i56.0200.us.us.us.us.us.us, %mul51.us.us.us
-  %mul68.us.us.us.us.us.us = mul nsw i32 %add67.us.us.us.us.us.us, %cols_in
-  %add70.us.us.us.us.us.us = add i32 %mul68.us.us.us.us.us.us, %mul53.us.us.us.us.us
-  br i1 %min.iters.check273, label %vec.epilog.ph294, label %vector.ph275
+iter.check264:                                    ; preds = %for.body58.lr.ph.split.us.us.us.us.us.us, %for.cond.cleanup62.us.us.us.us.us.us
+  %w_i54.0196.us.us.us.us.us.us = phi i32 [ 0, %for.body58.lr.ph.split.us.us.us.us.us.us ], [ %inc83.us.us.us.us.us.us, %for.cond.cleanup62.us.us.us.us.us.us ]
+  %max.0195.us.us.us.us.us.us = phi i32 [ %11, %for.body58.lr.ph.split.us.us.us.us.us.us ], [ %spec.select.us.us.us.us.us.us.lcssa, %for.cond.cleanup62.us.us.us.us.us.us ]
+  %add65.us.us.us.us.us.us = add nsw i32 %w_i54.0196.us.us.us.us.us.us, %mul64.us.us.us
+  %mul66.us.us.us.us.us.us = mul nsw i32 %add65.us.us.us.us.us.us, %cols_in
+  %add68.us.us.us.us.us.us = add i32 %mul66.us.us.us.us.us.us, %mul67.us.us.us.us.us
+  br i1 %min.iters.check265, label %vec.epilog.ph286, label %vector.ph267
 
-vector.ph275:                                     ; preds = %iter.check272
-  %minmax.ident.splatinsert = insertelement <16 x i32> poison, i32 %max.0199.us.us.us.us.us.us, i64 0
+vector.ph267:                                     ; preds = %iter.check264
+  %minmax.ident.splatinsert = insertelement <16 x i32> poison, i32 %max.0195.us.us.us.us.us.us, i64 0
   %minmax.ident.splat = shufflevector <16 x i32> %minmax.ident.splatinsert, <16 x i32> poison, <16 x i32> zeroinitializer
-  br label %vector.body279
+  br label %vector.body271
 
-vector.body279:                                   ; preds = %vector.body279, %vector.ph275
-  %index280 = phi i32 [ 0, %vector.ph275 ], [ %index.next288, %vector.body279 ]
-  %vec.phi = phi <16 x i32> [ %minmax.ident.splat, %vector.ph275 ], [ %18, %vector.body279 ]
-  %vec.phi281 = phi <16 x i32> [ %minmax.ident.splat, %vector.ph275 ], [ %19, %vector.body279 ]
-  %vec.phi282 = phi <16 x i32> [ %minmax.ident.splat, %vector.ph275 ], [ %20, %vector.body279 ]
-  %vec.phi283 = phi <16 x i32> [ %minmax.ident.splat, %vector.ph275 ], [ %21, %vector.body279 ]
-  %13 = add i32 %add70.us.us.us.us.us.us, %index280
+vector.body271:                                   ; preds = %vector.body271, %vector.ph267
+  %index272 = phi i32 [ 0, %vector.ph267 ], [ %index.next280, %vector.body271 ]
+  %vec.phi = phi <16 x i32> [ %minmax.ident.splat, %vector.ph267 ], [ %18, %vector.body271 ]
+  %vec.phi273 = phi <16 x i32> [ %minmax.ident.splat, %vector.ph267 ], [ %19, %vector.body271 ]
+  %vec.phi274 = phi <16 x i32> [ %minmax.ident.splat, %vector.ph267 ], [ %20, %vector.body271 ]
+  %vec.phi275 = phi <16 x i32> [ %minmax.ident.splat, %vector.ph267 ], [ %21, %vector.body271 ]
+  %13 = add i32 %add68.us.us.us.us.us.us, %index272
   %14 = getelementptr inbounds i32, ptr addrspace(4) %input, i32 %13
-  %wide.load284 = load <16 x i32>, ptr addrspace(4) %14, align 4, !tbaa !3
+  %wide.load276 = load <16 x i32>, ptr addrspace(4) %14, align 4, !tbaa !3
   %15 = getelementptr inbounds i32, ptr addrspace(4) %14, i32 16
-  %wide.load285 = load <16 x i32>, ptr addrspace(4) %15, align 4, !tbaa !3
+  %wide.load277 = load <16 x i32>, ptr addrspace(4) %15, align 4, !tbaa !3
   %16 = getelementptr inbounds i32, ptr addrspace(4) %14, i32 32
-  %wide.load286 = load <16 x i32>, ptr addrspace(4) %16, align 4, !tbaa !3
+  %wide.load278 = load <16 x i32>, ptr addrspace(4) %16, align 4, !tbaa !3
   %17 = getelementptr inbounds i32, ptr addrspace(4) %14, i32 48
-  %wide.load287 = load <16 x i32>, ptr addrspace(4) %17, align 4, !tbaa !3
-  %18 = tail call <16 x i32> @llvm.smax.v16i32(<16 x i32> %wide.load284, <16 x i32> %vec.phi)
-  %19 = tail call <16 x i32> @llvm.smax.v16i32(<16 x i32> %wide.load285, <16 x i32> %vec.phi281)
-  %20 = tail call <16 x i32> @llvm.smax.v16i32(<16 x i32> %wide.load286, <16 x i32> %vec.phi282)
-  %21 = tail call <16 x i32> @llvm.smax.v16i32(<16 x i32> %wide.load287, <16 x i32> %vec.phi283)
-  %index.next288 = add nuw i32 %index280, 64
-  %22 = icmp eq i32 %index.next288, %n.vec277
-  br i1 %22, label %middle.block269, label %vector.body279, !llvm.loop !53
+  %wide.load279 = load <16 x i32>, ptr addrspace(4) %17, align 4, !tbaa !3
+  %18 = tail call <16 x i32> @llvm.smax.v16i32(<16 x i32> %wide.load276, <16 x i32> %vec.phi)
+  %19 = tail call <16 x i32> @llvm.smax.v16i32(<16 x i32> %wide.load277, <16 x i32> %vec.phi273)
+  %20 = tail call <16 x i32> @llvm.smax.v16i32(<16 x i32> %wide.load278, <16 x i32> %vec.phi274)
+  %21 = tail call <16 x i32> @llvm.smax.v16i32(<16 x i32> %wide.load279, <16 x i32> %vec.phi275)
+  %index.next280 = add nuw i32 %index272, 64
+  %22 = icmp eq i32 %index.next280, %n.vec269
+  br i1 %22, label %middle.block261, label %vector.body271, !llvm.loop !53
 
-middle.block269:                                  ; preds = %vector.body279
+middle.block261:                                  ; preds = %vector.body271
   %rdx.minmax = tail call <16 x i32> @llvm.smax.v16i32(<16 x i32> %18, <16 x i32> %19)
-  %rdx.minmax289 = tail call <16 x i32> @llvm.smax.v16i32(<16 x i32> %rdx.minmax, <16 x i32> %20)
-  %rdx.minmax290 = tail call <16 x i32> @llvm.smax.v16i32(<16 x i32> %rdx.minmax289, <16 x i32> %21)
-  %23 = tail call i32 @llvm.vector.reduce.smax.v16i32(<16 x i32> %rdx.minmax290)
-  br i1 %cmp.n278, label %for.cond.cleanup64.us.us.us.us.us.us, label %vec.epilog.iter.check293
+  %rdx.minmax281 = tail call <16 x i32> @llvm.smax.v16i32(<16 x i32> %rdx.minmax, <16 x i32> %20)
+  %rdx.minmax282 = tail call <16 x i32> @llvm.smax.v16i32(<16 x i32> %rdx.minmax281, <16 x i32> %21)
+  %23 = tail call i32 @llvm.vector.reduce.smax.v16i32(<16 x i32> %rdx.minmax282)
+  br i1 %cmp.n270, label %for.cond.cleanup62.us.us.us.us.us.us, label %vec.epilog.iter.check285
 
-vec.epilog.iter.check293:                         ; preds = %middle.block269
-  br i1 %min.epilog.iters.check296, label %for.body65.us.us.us.us.us.us.preheader, label %vec.epilog.ph294
+vec.epilog.iter.check285:                         ; preds = %middle.block261
+  br i1 %min.epilog.iters.check288, label %for.body63.us.us.us.us.us.us.preheader, label %vec.epilog.ph286
 
-vec.epilog.ph294:                                 ; preds = %iter.check272, %vec.epilog.iter.check293
-  %bc.merge.rdx = phi i32 [ %max.0199.us.us.us.us.us.us, %iter.check272 ], [ %23, %vec.epilog.iter.check293 ]
-  %vec.epilog.resume.val297 = phi i32 [ 0, %iter.check272 ], [ %n.vec277, %vec.epilog.iter.check293 ]
-  %minmax.ident.splatinsert305 = insertelement <8 x i32> poison, i32 %bc.merge.rdx, i64 0
-  %minmax.ident.splat306 = shufflevector <8 x i32> %minmax.ident.splatinsert305, <8 x i32> poison, <8 x i32> zeroinitializer
-  br label %vec.epilog.vector.body302
+vec.epilog.ph286:                                 ; preds = %iter.check264, %vec.epilog.iter.check285
+  %bc.merge.rdx = phi i32 [ %max.0195.us.us.us.us.us.us, %iter.check264 ], [ %23, %vec.epilog.iter.check285 ]
+  %vec.epilog.resume.val289 = phi i32 [ 0, %iter.check264 ], [ %n.vec269, %vec.epilog.iter.check285 ]
+  %minmax.ident.splatinsert297 = insertelement <8 x i32> poison, i32 %bc.merge.rdx, i64 0
+  %minmax.ident.splat298 = shufflevector <8 x i32> %minmax.ident.splatinsert297, <8 x i32> poison, <8 x i32> zeroinitializer
+  br label %vec.epilog.vector.body294
 
-vec.epilog.vector.body302:                        ; preds = %vec.epilog.vector.body302, %vec.epilog.ph294
-  %index303 = phi i32 [ %vec.epilog.resume.val297, %vec.epilog.ph294 ], [ %index.next308, %vec.epilog.vector.body302 ]
-  %vec.phi304 = phi <8 x i32> [ %minmax.ident.splat306, %vec.epilog.ph294 ], [ %26, %vec.epilog.vector.body302 ]
-  %24 = add i32 %add70.us.us.us.us.us.us, %index303
+vec.epilog.vector.body294:                        ; preds = %vec.epilog.vector.body294, %vec.epilog.ph286
+  %index295 = phi i32 [ %vec.epilog.resume.val289, %vec.epilog.ph286 ], [ %index.next300, %vec.epilog.vector.body294 ]
+  %vec.phi296 = phi <8 x i32> [ %minmax.ident.splat298, %vec.epilog.ph286 ], [ %26, %vec.epilog.vector.body294 ]
+  %24 = add i32 %add68.us.us.us.us.us.us, %index295
   %25 = getelementptr inbounds i32, ptr addrspace(4) %input, i32 %24
-  %wide.load307 = load <8 x i32>, ptr addrspace(4) %25, align 4, !tbaa !3
-  %26 = tail call <8 x i32> @llvm.smax.v8i32(<8 x i32> %wide.load307, <8 x i32> %vec.phi304)
-  %index.next308 = add nuw i32 %index303, 8
-  %27 = icmp eq i32 %index.next308, %n.vec299
-  br i1 %27, label %vec.epilog.middle.block291, label %vec.epilog.vector.body302, !llvm.loop !54
+  %wide.load299 = load <8 x i32>, ptr addrspace(4) %25, align 4, !tbaa !3
+  %26 = tail call <8 x i32> @llvm.smax.v8i32(<8 x i32> %wide.load299, <8 x i32> %vec.phi296)
+  %index.next300 = add nuw i32 %index295, 8
+  %27 = icmp eq i32 %index.next300, %n.vec291
+  br i1 %27, label %vec.epilog.middle.block283, label %vec.epilog.vector.body294, !llvm.loop !54
 
-vec.epilog.middle.block291:                       ; preds = %vec.epilog.vector.body302
+vec.epilog.middle.block283:                       ; preds = %vec.epilog.vector.body294
   %28 = tail call i32 @llvm.vector.reduce.smax.v8i32(<8 x i32> %26)
-  br i1 %cmp.n301, label %for.cond.cleanup64.us.us.us.us.us.us, label %for.body65.us.us.us.us.us.us.preheader
+  br i1 %cmp.n293, label %for.cond.cleanup62.us.us.us.us.us.us, label %for.body63.us.us.us.us.us.us.preheader
 
-for.body65.us.us.us.us.us.us.preheader:           ; preds = %vec.epilog.iter.check293, %vec.epilog.middle.block291
-  %w_j61.0197.us.us.us.us.us.us.ph = phi i32 [ %n.vec277, %vec.epilog.iter.check293 ], [ %n.vec299, %vec.epilog.middle.block291 ]
-  %max.1196.us.us.us.us.us.us.ph = phi i32 [ %23, %vec.epilog.iter.check293 ], [ %28, %vec.epilog.middle.block291 ]
-  br label %for.body65.us.us.us.us.us.us
+for.body63.us.us.us.us.us.us.preheader:           ; preds = %vec.epilog.iter.check285, %vec.epilog.middle.block283
+  %w_j59.0193.us.us.us.us.us.us.ph = phi i32 [ %n.vec269, %vec.epilog.iter.check285 ], [ %n.vec291, %vec.epilog.middle.block283 ]
+  %max.1192.us.us.us.us.us.us.ph = phi i32 [ %23, %vec.epilog.iter.check285 ], [ %28, %vec.epilog.middle.block283 ]
+  br label %for.body63.us.us.us.us.us.us
 
 for.body46.lr.ph.split.us.split:                  ; preds = %for.body46.lr.ph.split.us
   %29 = add nuw nsw i32 %mul, 1
   %smax = tail call i32 @llvm.smax.i32(i32 %cols_out, i32 %29)
   %30 = sub i32 %smax, %mul
   %min.iters.check = icmp ult i32 %30, 8
-  br i1 %min.iters.check, label %iter.check.us.preheader, label %for.body46.lr.ph.split.us.split.split
+  %min.iters.check249 = icmp ult i32 %30, 64
+  %n.vec = and i32 %30, -64
+  %cmp.n = icmp eq i32 %30, %n.vec
+  %n.vec.remaining = and i32 %30, 56
+  %min.epilog.iters.check = icmp eq i32 %n.vec.remaining, 0
+  %n.mod.vf253 = and i32 %smax, 7
+  %n.vec254 = sub nuw i32 %30, %n.mod.vf253
+  %cmp.n256 = icmp eq i32 %n.mod.vf253, 0
+  br i1 %min.iters.check, label %iter.check.us.preheader, label %iter.check.preheader
+
+iter.check.preheader:                             ; preds = %for.body46.lr.ph.split.us.split
+  br label %iter.check
 
 iter.check.us.preheader:                          ; preds = %for.body46.lr.ph.split.us.split
   br label %iter.check.us
 
 iter.check.us:                                    ; preds = %iter.check.us.preheader, %for.cond.cleanup49.us.us
-  %i42.0214.us.us = phi i32 [ %inc94.us.us, %for.cond.cleanup49.us.us ], [ 0, %iter.check.us.preheader ]
-  %mul52.us.us = mul i32 %i42.0214.us.us, %cols_in
-  %mul87.us.us = mul nsw i32 %i42.0214.us.us, %cols_out
-  br label %for.cond.cleanup59.us220.us
+  %i42.0210.us.us = phi i32 [ %inc92.us.us, %for.cond.cleanup49.us.us ], [ 0, %iter.check.us.preheader ]
+  %mul51.us.us = mul nsw i32 %i42.0210.us.us, %cols_out
+  br label %for.cond.cleanup57.us215.us
 
-for.cond.cleanup59.us220.us:                      ; preds = %for.cond.cleanup59.us220.us, %iter.check.us
-  %j.0203.us216.us = phi i32 [ %mul, %iter.check.us ], [ %inc91.us223.us, %for.cond.cleanup59.us220.us ]
-  %reass.add.us = add i32 %j.0203.us216.us, %mul52.us.us
-  %reass.mul.us = mul i32 %reass.add.us, %W
-  %arrayidx55.us219.us = getelementptr inbounds i32, ptr addrspace(4) %input, i32 %reass.mul.us
-  %31 = load i32, ptr addrspace(4) %arrayidx55.us219.us, align 4, !tbaa !3
-  %add88.us221.us = add nsw i32 %j.0203.us216.us, %mul87.us.us
-  %arrayidx89.us222.us = getelementptr inbounds i32, ptr addrspace(4) %output, i32 %add88.us221.us
-  store i32 %31, ptr addrspace(4) %arrayidx89.us222.us, align 4, !tbaa !3
-  %inc91.us223.us = add nsw i32 %j.0203.us216.us, 1
-  %cmp48.us224.us = icmp slt i32 %inc91.us223.us, %cols_out
-  br i1 %cmp48.us224.us, label %for.cond.cleanup59.us220.us, label %for.cond.cleanup49.us.us, !llvm.loop !55
+for.cond.cleanup57.us215.us:                      ; preds = %for.cond.cleanup57.us215.us, %iter.check.us
+  %j.0199.us212.us = phi i32 [ %mul, %iter.check.us ], [ %inc89.us217.us, %for.cond.cleanup57.us215.us ]
+  %add52.us213.us = add nsw i32 %j.0199.us212.us, %mul51.us.us
+  %arrayidx53.us214.us = getelementptr inbounds i32, ptr addrspace(4) %input, i32 %add52.us213.us
+  %31 = load i32, ptr addrspace(4) %arrayidx53.us214.us, align 4, !tbaa !3
+  %arrayidx87.us216.us = getelementptr inbounds i32, ptr addrspace(4) %output, i32 %add52.us213.us
+  store i32 %31, ptr addrspace(4) %arrayidx87.us216.us, align 4, !tbaa !3
+  %inc89.us217.us = add nsw i32 %j.0199.us212.us, 1
+  %cmp48.us218.us = icmp slt i32 %inc89.us217.us, %cols_out
+  br i1 %cmp48.us218.us, label %for.cond.cleanup57.us215.us, label %for.cond.cleanup49.us.us, !llvm.loop !55
 
-for.cond.cleanup49.us.us:                         ; preds = %for.cond.cleanup59.us220.us
-  %inc94.us.us = add nuw nsw i32 %i42.0214.us.us, 1
-  %cmp44.us.us = icmp slt i32 %inc94.us.us, %rows_out
+for.cond.cleanup49.us.us:                         ; preds = %for.cond.cleanup57.us215.us
+  %inc92.us.us = add nuw nsw i32 %i42.0210.us.us, 1
+  %cmp44.us.us = icmp slt i32 %inc92.us.us, %rows_out
   br i1 %cmp44.us.us, label %iter.check.us, label %for.cond.cleanup45, !llvm.loop !52
 
-for.body46.lr.ph.split.us.split.split:            ; preds = %for.body46.lr.ph.split.us.split
-  br label %iter.check
-
-for.cond.cleanup49.us:                            ; preds = %for.cond.cleanup59.us220
-  %inc94.us = add nuw nsw i32 %i42.0214.us, 1
-  %cmp44.us = icmp slt i32 %inc94.us, %rows_out
+for.cond.cleanup49.us:                            ; preds = %for.cond.cleanup57.us215, %vec.epilog.middle.block, %middle.block
+  %inc92.us = add nuw nsw i32 %i42.0210.us, 1
+  %cmp44.us = icmp slt i32 %inc92.us, %rows_out
   br i1 %cmp44.us, label %iter.check, label %for.cond.cleanup45, !llvm.loop !52
 
-for.cond.cleanup59.us220:                         ; preds = %for.cond.cleanup59.us220, %iter.check
-  %j.0203.us216 = phi i32 [ %mul, %iter.check ], [ %inc91.us223, %for.cond.cleanup59.us220 ]
-  %reass.add = add i32 %j.0203.us216, %mul52.us
-  %reass.mul = mul i32 %reass.add, %W
-  %arrayidx55.us219 = getelementptr inbounds i32, ptr addrspace(4) %input, i32 %reass.mul
-  %32 = load i32, ptr addrspace(4) %arrayidx55.us219, align 4, !tbaa !3
-  %add88.us221 = add nsw i32 %j.0203.us216, %mul87.us
-  %arrayidx89.us222 = getelementptr inbounds i32, ptr addrspace(4) %output, i32 %add88.us221
-  store i32 %32, ptr addrspace(4) %arrayidx89.us222, align 4, !tbaa !3
-  %inc91.us223 = add nsw i32 %j.0203.us216, 1
-  %cmp48.us224 = icmp slt i32 %inc91.us223, %cols_out
-  br i1 %cmp48.us224, label %for.cond.cleanup59.us220, label %for.cond.cleanup49.us, !llvm.loop !55
+for.cond.cleanup57.us215:                         ; preds = %for.cond.cleanup57.us215, %vec.epilog.scalar.ph
+  %j.0199.us212 = phi i32 [ %bc.resume.val, %vec.epilog.scalar.ph ], [ %inc89.us217, %for.cond.cleanup57.us215 ]
+  %add52.us213 = add nsw i32 %j.0199.us212, %mul51.us
+  %arrayidx53.us214 = getelementptr inbounds i32, ptr addrspace(4) %input, i32 %add52.us213
+  %32 = load i32, ptr addrspace(4) %arrayidx53.us214, align 4, !tbaa !3
+  %arrayidx87.us216 = getelementptr inbounds i32, ptr addrspace(4) %output, i32 %add52.us213
+  store i32 %32, ptr addrspace(4) %arrayidx87.us216, align 4, !tbaa !3
+  %inc89.us217 = add nsw i32 %j.0199.us212, 1
+  %cmp48.us218 = icmp slt i32 %inc89.us217, %cols_out
+  br i1 %cmp48.us218, label %for.cond.cleanup57.us215, label %for.cond.cleanup49.us, !llvm.loop !55
 
-iter.check:                                       ; preds = %for.body46.lr.ph.split.us.split.split, %for.cond.cleanup49.us
-  %i42.0214.us = phi i32 [ %inc94.us, %for.cond.cleanup49.us ], [ 0, %for.body46.lr.ph.split.us.split.split ]
-  %mul52.us = mul i32 %i42.0214.us, %cols_in
-  %mul87.us = mul nsw i32 %i42.0214.us, %cols_out
-  br label %for.cond.cleanup59.us220
+iter.check:                                       ; preds = %iter.check.preheader, %for.cond.cleanup49.us
+  %i42.0210.us = phi i32 [ %inc92.us, %for.cond.cleanup49.us ], [ 0, %iter.check.preheader ]
+  %mul51.us = mul nsw i32 %i42.0210.us, %cols_out
+  br i1 %min.iters.check249, label %vec.epilog.vector.body.preheader, label %vector.body.preheader
+
+vector.body.preheader:                            ; preds = %iter.check
+  br label %vector.body
+
+vector.body:                                      ; preds = %vector.body.preheader, %vector.body
+  %index = phi i32 [ %index.next, %vector.body ], [ 0, %vector.body.preheader ]
+  %offset.idx = add i32 %mul, %index
+  %33 = add nsw i32 %offset.idx, %mul51.us
+  %34 = getelementptr inbounds i32, ptr addrspace(4) %input, i32 %33
+  %wide.load = load <16 x i32>, ptr addrspace(4) %34, align 4, !tbaa !3
+  %35 = getelementptr inbounds i32, ptr addrspace(4) %34, i32 16
+  %wide.load250 = load <16 x i32>, ptr addrspace(4) %35, align 4, !tbaa !3
+  %36 = getelementptr inbounds i32, ptr addrspace(4) %34, i32 32
+  %wide.load251 = load <16 x i32>, ptr addrspace(4) %36, align 4, !tbaa !3
+  %37 = getelementptr inbounds i32, ptr addrspace(4) %34, i32 48
+  %wide.load252 = load <16 x i32>, ptr addrspace(4) %37, align 4, !tbaa !3
+  %38 = getelementptr inbounds i32, ptr addrspace(4) %output, i32 %33
+  store <16 x i32> %wide.load, ptr addrspace(4) %38, align 4, !tbaa !3
+  %39 = getelementptr inbounds i32, ptr addrspace(4) %38, i32 16
+  store <16 x i32> %wide.load250, ptr addrspace(4) %39, align 4, !tbaa !3
+  %40 = getelementptr inbounds i32, ptr addrspace(4) %38, i32 32
+  store <16 x i32> %wide.load251, ptr addrspace(4) %40, align 4, !tbaa !3
+  %41 = getelementptr inbounds i32, ptr addrspace(4) %38, i32 48
+  store <16 x i32> %wide.load252, ptr addrspace(4) %41, align 4, !tbaa !3
+  %index.next = add nuw i32 %index, 64
+  %42 = icmp eq i32 %index.next, %n.vec
+  br i1 %42, label %middle.block, label %vector.body, !llvm.loop !56
+
+middle.block:                                     ; preds = %vector.body
+  br i1 %cmp.n, label %for.cond.cleanup49.us, label %vec.epilog.iter.check
+
+vec.epilog.iter.check:                            ; preds = %middle.block
+  br i1 %min.epilog.iters.check, label %vec.epilog.scalar.ph, label %vec.epilog.vector.body.preheader
+
+vec.epilog.vector.body.preheader:                 ; preds = %iter.check, %vec.epilog.iter.check
+  %index257.ph = phi i32 [ 0, %iter.check ], [ %n.vec, %vec.epilog.iter.check ]
+  br label %vec.epilog.vector.body
+
+vec.epilog.vector.body:                           ; preds = %vec.epilog.vector.body.preheader, %vec.epilog.vector.body
+  %index257 = phi i32 [ %index.next260, %vec.epilog.vector.body ], [ %index257.ph, %vec.epilog.vector.body.preheader ]
+  %offset.idx258 = add i32 %mul, %index257
+  %43 = add nsw i32 %offset.idx258, %mul51.us
+  %44 = getelementptr inbounds i32, ptr addrspace(4) %input, i32 %43
+  %wide.load259 = load <8 x i32>, ptr addrspace(4) %44, align 4, !tbaa !3
+  %45 = getelementptr inbounds i32, ptr addrspace(4) %output, i32 %43
+  store <8 x i32> %wide.load259, ptr addrspace(4) %45, align 4, !tbaa !3
+  %index.next260 = add nuw i32 %index257, 8
+  %46 = icmp eq i32 %index.next260, %n.vec254
+  br i1 %46, label %vec.epilog.middle.block, label %vec.epilog.vector.body, !llvm.loop !57
+
+vec.epilog.middle.block:                          ; preds = %vec.epilog.vector.body
+  br i1 %cmp.n256, label %for.cond.cleanup49.us, label %vec.epilog.scalar.ph
+
+vec.epilog.scalar.ph:                             ; preds = %vec.epilog.iter.check, %vec.epilog.middle.block
+  %n.vec254.pn = phi i32 [ %n.vec254, %vec.epilog.middle.block ], [ %n.vec, %vec.epilog.iter.check ]
+  %bc.resume.val = add i32 %mul, %n.vec254.pn
+  br label %for.cond.cleanup57.us215
 
 for.cond.cleanup45:                               ; preds = %for.cond.cleanup49.us, %for.cond.cleanup49.us.us, %for.cond.cleanup49.us.us.us, %for.cond.cleanup49.us.us.us.split.us.us, %entry, %for.body46.lr.ph, %for.cond.cleanup
   ret void
@@ -1039,12 +1094,12 @@ for.body14.us.us.us.us.us.us.us.us.us:            ; preds = %iter.check137.us.us
   %spec.select.us.us.us.us.us.us.us.us.us = tail call i32 @llvm.smax.i32(i32 %1, i32 %max.172.us.us.us.us.us.us.us.us.us)
   %inc.us.us.us.us.us.us.us.us.us = add nuw nsw i32 %w_j.073.us.us.us.us.us.us.us.us.us, 1
   %cmp12.us.us.us.us.us.us.us.us.us = icmp slt i32 %inc.us.us.us.us.us.us.us.us.us, %W
-  br i1 %cmp12.us.us.us.us.us.us.us.us.us, label %for.body14.us.us.us.us.us.us.us.us.us, label %for.cond.cleanup13.us.us.us.us.us.us.loopexit.us.us.us, !llvm.loop !56
+  br i1 %cmp12.us.us.us.us.us.us.us.us.us, label %for.body14.us.us.us.us.us.us.us.us.us, label %for.cond.cleanup13.us.us.us.us.us.us.loopexit.us.us.us, !llvm.loop !58
 
 for.cond.cleanup13.us.us.us.us.us.us.loopexit.us.us.us: ; preds = %for.body14.us.us.us.us.us.us.us.us.us
   %inc31.us.us.us.us.us.us.us.us.us = add nuw nsw i32 %w_i.076.us.us.us.us.us.us.us.us.us, 1
   %cmp8.us.us.us.us.us.us.us.us.us = icmp slt i32 %inc31.us.us.us.us.us.us.us.us.us, %W
-  br i1 %cmp8.us.us.us.us.us.us.us.us.us, label %iter.check137.us.us.us, label %for.cond.cleanup9.us.us.us.us.us.split.us.us.us, !llvm.loop !57
+  br i1 %cmp8.us.us.us.us.us.us.us.us.us, label %iter.check137.us.us.us, label %for.cond.cleanup9.us.us.us.us.us.split.us.us.us, !llvm.loop !59
 
 for.cond.cleanup9.us.us.us.us.us.split.us.us.us:  ; preds = %for.cond.cleanup13.us.us.us.us.us.us.loopexit.us.us.us
   %add34.us.us.us.us.us.us.us = add nsw i32 %j.079.us.us.us.us.us.us.us, %mul33.us.us.us.us
@@ -1052,17 +1107,17 @@ for.cond.cleanup9.us.us.us.us.us.split.us.us.us:  ; preds = %for.cond.cleanup13.
   store i32 %spec.select.us.us.us.us.us.us.us.us.us, ptr addrspace(4) %arrayidx35.us.us.us.us.us.us.us, align 4, !tbaa !3
   %inc37.us.us.us.us.us.us.us = add nuw nsw i32 %j.079.us.us.us.us.us.us.us, 1
   %cmp2.us.us.us.us.us.us.us = icmp slt i32 %inc37.us.us.us.us.us.us.us, %cols_out
-  br i1 %cmp2.us.us.us.us.us.us.us, label %for.body10.lr.ph.split.us.us.us.us.us.us.us.us, label %for.cond.cleanup3.us.us.us.split.us.us, !llvm.loop !58
+  br i1 %cmp2.us.us.us.us.us.us.us, label %for.body10.lr.ph.split.us.us.us.us.us.us.us.us, label %for.cond.cleanup3.us.us.us.split.us.us, !llvm.loop !60
 
 for.cond.cleanup3.us.us.us.split.us.us:           ; preds = %for.cond.cleanup9.us.us.us.us.us.split.us.us.us
   %inc40.us.us.us.us = add nuw nsw i32 %i.090.us.us.us.us, 1
   %cmp.us.us.us.us = icmp slt i32 %inc40.us.us.us.us, %rows_out
-  br i1 %cmp.us.us.us.us, label %for.body4.lr.ph.split.us.split.us.us.us.us.us, label %for.cond.cleanup, !llvm.loop !59
+  br i1 %cmp.us.us.us.us, label %for.body4.lr.ph.split.us.split.us.us.us.us.us, label %for.cond.cleanup, !llvm.loop !61
 
 for.cond.cleanup3.us.us.us:                       ; preds = %for.cond.cleanup9.us.us.us.us.us
   %inc40.us.us.us = add nuw nsw i32 %i.090.us.us.us, 1
   %cmp.us.us.us = icmp slt i32 %inc40.us.us.us, %rows_out
-  br i1 %cmp.us.us.us, label %for.body4.lr.ph.split.us.split.us.us.us.us, label %for.cond.cleanup, !llvm.loop !59
+  br i1 %cmp.us.us.us, label %for.body4.lr.ph.split.us.split.us.us.us.us, label %for.cond.cleanup, !llvm.loop !61
 
 for.body4.lr.ph.split.us.split.us.us.us.us:       ; preds = %for.body4.lr.ph.split.us.split.us.us.us.us.preheader, %for.cond.cleanup3.us.us.us
   %i.090.us.us.us = phi i32 [ %inc40.us.us.us, %for.cond.cleanup3.us.us.us ], [ 0, %for.body4.lr.ph.split.us.split.us.us.us.us.preheader ]
@@ -1077,7 +1132,7 @@ for.cond.cleanup9.us.us.us.us.us:                 ; preds = %for.cond.cleanup13.
   store i32 %spec.select.us.us.us.us.us.us.lcssa, ptr addrspace(4) %arrayidx35.us.us.us.us.us, align 4, !tbaa !3
   %inc37.us.us.us.us.us = add nuw nsw i32 %j.079.us.us.us.us.us, 1
   %cmp2.us.us.us.us.us = icmp slt i32 %inc37.us.us.us.us.us, %cols_out
-  br i1 %cmp2.us.us.us.us.us, label %for.body10.lr.ph.split.us.us.us.us.us.us, label %for.cond.cleanup3.us.us.us, !llvm.loop !58
+  br i1 %cmp2.us.us.us.us.us, label %for.body10.lr.ph.split.us.us.us.us.us.us, label %for.cond.cleanup3.us.us.us, !llvm.loop !60
 
 for.body10.lr.ph.split.us.us.us.us.us.us:         ; preds = %for.cond.cleanup9.us.us.us.us.us, %for.body4.lr.ph.split.us.split.us.us.us.us
   %j.079.us.us.us.us.us = phi i32 [ 0, %for.body4.lr.ph.split.us.split.us.us.us.us ], [ %inc37.us.us.us.us.us, %for.cond.cleanup9.us.us.us.us.us ]
@@ -1091,7 +1146,7 @@ for.cond.cleanup13.us.us.us.us.us.us:             ; preds = %for.body14.us.us.us
   %spec.select.us.us.us.us.us.us.lcssa = phi i32 [ %14, %middle.block134 ], [ %19, %vec.epilog.middle.block156 ], [ %spec.select.us.us.us.us.us.us, %for.body14.us.us.us.us.us.us ]
   %inc31.us.us.us.us.us.us = add nuw nsw i32 %w_i.076.us.us.us.us.us.us, 1
   %cmp8.us.us.us.us.us.us = icmp slt i32 %inc31.us.us.us.us.us.us, %W
-  br i1 %cmp8.us.us.us.us.us.us, label %iter.check137, label %for.cond.cleanup9.us.us.us.us.us, !llvm.loop !57
+  br i1 %cmp8.us.us.us.us.us.us, label %iter.check137, label %for.cond.cleanup9.us.us.us.us.us, !llvm.loop !59
 
 for.body14.us.us.us.us.us.us:                     ; preds = %for.body14.us.us.us.us.us.us.preheader, %for.body14.us.us.us.us.us.us
   %w_j.073.us.us.us.us.us.us = phi i32 [ %inc.us.us.us.us.us.us, %for.body14.us.us.us.us.us.us ], [ %w_j.073.us.us.us.us.us.us.ph, %for.body14.us.us.us.us.us.us.preheader ]
@@ -1102,7 +1157,7 @@ for.body14.us.us.us.us.us.us:                     ; preds = %for.body14.us.us.us
   %spec.select.us.us.us.us.us.us = tail call i32 @llvm.smax.i32(i32 %3, i32 %max.172.us.us.us.us.us.us)
   %inc.us.us.us.us.us.us = add nuw nsw i32 %w_j.073.us.us.us.us.us.us, 1
   %cmp12.us.us.us.us.us.us = icmp slt i32 %inc.us.us.us.us.us.us, %W
-  br i1 %cmp12.us.us.us.us.us.us, label %for.body14.us.us.us.us.us.us, label %for.cond.cleanup13.us.us.us.us.us.us, !llvm.loop !56
+  br i1 %cmp12.us.us.us.us.us.us, label %for.body14.us.us.us.us.us.us, label %for.cond.cleanup13.us.us.us.us.us.us, !llvm.loop !58
 
 iter.check137:                                    ; preds = %for.body10.lr.ph.split.us.us.us.us.us.us, %for.cond.cleanup13.us.us.us.us.us.us
   %w_i.076.us.us.us.us.us.us = phi i32 [ 0, %for.body10.lr.ph.split.us.us.us.us.us.us ], [ %inc31.us.us.us.us.us.us, %for.cond.cleanup13.us.us.us.us.us.us ]
@@ -1138,7 +1193,7 @@ vector.body144:                                   ; preds = %vector.body144, %ve
   %12 = tail call <16 x i32> @llvm.smax.v16i32(<16 x i32> %wide.load152, <16 x i32> %vec.phi148)
   %index.next153 = add nuw i32 %index145, 64
   %13 = icmp eq i32 %index.next153, %n.vec142
-  br i1 %13, label %middle.block134, label %vector.body144, !llvm.loop !60
+  br i1 %13, label %middle.block134, label %vector.body144, !llvm.loop !62
 
 middle.block134:                                  ; preds = %vector.body144
   %rdx.minmax = tail call <16 x i32> @llvm.smax.v16i32(<16 x i32> %9, <16 x i32> %10)
@@ -1166,7 +1221,7 @@ vec.epilog.vector.body167:                        ; preds = %vec.epilog.vector.b
   %17 = tail call <8 x i32> @llvm.smax.v8i32(<8 x i32> %wide.load172, <8 x i32> %vec.phi169)
   %index.next173 = add nuw i32 %index168, 8
   %18 = icmp eq i32 %index.next173, %n.vec164
-  br i1 %18, label %vec.epilog.middle.block156, label %vec.epilog.vector.body167, !llvm.loop !61
+  br i1 %18, label %vec.epilog.middle.block156, label %vec.epilog.vector.body167, !llvm.loop !63
 
 vec.epilog.middle.block156:                       ; preds = %vec.epilog.vector.body167
   %19 = tail call i32 @llvm.vector.reduce.smax.v8i32(<8 x i32> %17)
@@ -1201,12 +1256,12 @@ for.cond.cleanup9.us96.us:                        ; preds = %iter.check.us, %for
   store i32 %20, ptr addrspace(4) %arrayidx35.us98.us, align 4, !tbaa !3
   %inc37.us99.us = add nuw nsw i32 %j.079.us92.us, 1
   %cmp2.us100.us = icmp slt i32 %inc37.us99.us, %cols_out
-  br i1 %cmp2.us100.us, label %for.cond.cleanup9.us96.us, label %for.cond.cleanup3.us.loopexit.us, !llvm.loop !62
+  br i1 %cmp2.us100.us, label %for.cond.cleanup9.us96.us, label %for.cond.cleanup3.us.loopexit.us, !llvm.loop !64
 
 for.cond.cleanup3.us.loopexit.us:                 ; preds = %for.cond.cleanup9.us96.us
   %inc40.us.us = add nuw nsw i32 %i.090.us.us, 1
   %cmp.us.us = icmp slt i32 %inc40.us.us, %rows_out
-  br i1 %cmp.us.us, label %iter.check.us, label %for.cond.cleanup, !llvm.loop !59
+  br i1 %cmp.us.us, label %iter.check.us, label %for.cond.cleanup, !llvm.loop !61
 
 for.body.lr.ph.split.us.split.split:              ; preds = %for.body.lr.ph.split.us.split
   br label %iter.check
@@ -1214,7 +1269,7 @@ for.body.lr.ph.split.us.split.split:              ; preds = %for.body.lr.ph.spli
 for.cond.cleanup3.us:                             ; preds = %for.cond.cleanup9.us96
   %inc40.us = add nuw nsw i32 %i.090.us, 1
   %cmp.us = icmp slt i32 %inc40.us, %rows_out
-  br i1 %cmp.us, label %iter.check, label %for.cond.cleanup, !llvm.loop !59
+  br i1 %cmp.us, label %iter.check, label %for.cond.cleanup, !llvm.loop !61
 
 for.cond.cleanup9.us96:                           ; preds = %for.cond.cleanup9.us96, %iter.check
   %j.079.us92 = phi i32 [ 0, %iter.check ], [ %inc37.us99, %for.cond.cleanup9.us96 ]
@@ -1227,7 +1282,7 @@ for.cond.cleanup9.us96:                           ; preds = %for.cond.cleanup9.u
   store i32 %21, ptr addrspace(4) %arrayidx35.us98, align 4, !tbaa !3
   %inc37.us99 = add nuw nsw i32 %j.079.us92, 1
   %cmp2.us100 = icmp slt i32 %inc37.us99, %cols_out
-  br i1 %cmp2.us100, label %for.cond.cleanup9.us96, label %for.cond.cleanup3.us, !llvm.loop !62
+  br i1 %cmp2.us100, label %for.cond.cleanup9.us96, label %for.cond.cleanup3.us, !llvm.loop !64
 
 iter.check:                                       ; preds = %for.body.lr.ph.split.us.split.split, %for.cond.cleanup3.us
   %i.090.us = phi i32 [ %inc40.us, %for.cond.cleanup3.us ], [ 0, %for.body.lr.ph.split.us.split.split ]
@@ -1239,68 +1294,73 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup3.u
   ret void
 }
 
-; Function Attrs: mustprogress nofree norecurse nosync nounwind willreturn memory(none)
-define dso_local void @vekt_max_pooling_wrapper(i32 noundef %rows_out, i32 noundef %cols_out, i32 noundef %rows_in, i32 noundef %cols_in, i32 noundef %W, ptr nocapture noundef %output, ptr nocapture noundef %input) local_unnamed_addr #5 {
+; Function Attrs: nounwind
+define dso_local void @vekt_max_pooling_wrapper(i32 noundef %rows_out, i32 noundef %cols_out, i32 noundef %rows_in, i32 noundef %cols_in, i32 noundef %W, ptr noundef %output, ptr noundef %input) local_unnamed_addr #5 {
 entry:
+  tail call void @vekt_max_pooling(i32 noundef %rows_out, i32 noundef %cols_out, i32 noundef %rows_in, i32 noundef %cols_in, i32 noundef %W, ptr noundef %output, ptr noundef %output, i32 noundef 0, i32 noundef %rows_out, i32 noundef %cols_out, i32 noundef %cols_out, i32 noundef 1, ptr noundef %input, ptr noundef %input, i32 noundef 0, i32 noundef %rows_in, i32 noundef %cols_in, i32 noundef %cols_in, i32 noundef 1) #12
   ret void
 }
 
-; Function Attrs: mustprogress nocallback nofree nosync nounwind willreturn memory(none)
-declare <16 x i32> @llvm.arc.vvci.w.v512() #6
+declare void @vekt_max_pooling(i32 noundef, i32 noundef, i32 noundef, i32 noundef, i32 noundef, ptr noundef, ptr noundef, i32 noundef, i32 noundef, i32 noundef, i32 noundef, i32 noundef, ptr noundef, ptr noundef, i32 noundef, i32 noundef, i32 noundef, i32 noundef, i32 noundef) local_unnamed_addr #6
 
 ; Function Attrs: mustprogress nocallback nofree nosync nounwind willreturn memory(none)
-declare <16 x i32> @llvm.arc.vvcadd.init.acc.w.v512(<16 x i32>, <16 x i32>) #6
+declare <16 x i32> @llvm.arc.vvci.w.v512() #7
+
+; Function Attrs: mustprogress nocallback nofree nosync nounwind willreturn memory(none)
+declare <16 x i32> @llvm.arc.vvcadd.init.acc.w.v512(<16 x i32>, <16 x i32>) #7
 
 ; Function Attrs: mustprogress nocallback nofree nosync nounwind willreturn memory(read)
-declare <16 x i32> @llvm.arc.vvld.w.v512(ptr addrspace(4)) #7
+declare <16 x i32> @llvm.arc.vvld.w.v512(ptr addrspace(4)) #8
 
 ; Function Attrs: mustprogress nocallback nofree nosync nounwind willreturn memory(read)
-declare <16 x i32> @llvm.arc.vgather.int.v512(ptr addrspace(4), <16 x i32>) #7
+declare <16 x i32> @llvm.arc.vgather.int.v512(ptr addrspace(4), <16 x i32>) #8
 
 ; Function Attrs: mustprogress nocallback nofree nosync nounwind willreturn memory(none)
-declare <16 x i32> @llvm.arc.vvcmax.acc.w.v512(<16 x i32>, <16 x i32>) #6
+declare <16 x i32> @llvm.arc.vvcmax.acc.w.v512(<16 x i32>, <16 x i32>) #7
 
 ; Function Attrs: mustprogress nocallback nofree nosync nounwind willreturn memory(write)
-declare void @llvm.arc.vvst.w.v512(<16 x i32>, ptr addrspace(4)) #8
+declare void @llvm.arc.vvst.w.v512(<16 x i32>, ptr addrspace(4)) #9
 
 ; Function Attrs: mustprogress nocallback nofree nosync nounwind willreturn memory(none)
-declare <16 x i32> @llvm.arc.acc.to.vec.w.v512(<16 x i32>) #6
+declare <16 x i32> @llvm.arc.acc.to.vec.w.v512(<16 x i32>) #7
 
 ; Function Attrs: nofree nounwind
-declare noundef i32 @puts(ptr nocapture noundef readonly) local_unnamed_addr #9
+declare noundef i32 @puts(ptr nocapture noundef readonly) local_unnamed_addr #10
 
 ; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
-declare i32 @llvm.smax.i32(i32, i32) #10
+declare i32 @llvm.smax.i32(i32, i32) #11
 
 ; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
-declare <2 x i32> @llvm.smax.v2i32(<2 x i32>, <2 x i32>) #10
+declare <2 x i32> @llvm.smax.v2i32(<2 x i32>, <2 x i32>) #11
 
 ; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
-declare i32 @llvm.vector.reduce.smax.v2i32(<2 x i32>) #10
+declare i32 @llvm.vector.reduce.smax.v2i32(<2 x i32>) #11
 
 ; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
-declare <16 x i32> @llvm.smax.v16i32(<16 x i32>, <16 x i32>) #10
+declare <16 x i32> @llvm.smax.v16i32(<16 x i32>, <16 x i32>) #11
 
 ; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
-declare i32 @llvm.vector.reduce.smax.v16i32(<16 x i32>) #10
+declare i32 @llvm.vector.reduce.smax.v16i32(<16 x i32>) #11
 
 ; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
-declare <8 x i32> @llvm.smax.v8i32(<8 x i32>, <8 x i32>) #10
+declare <8 x i32> @llvm.smax.v8i32(<8 x i32>, <8 x i32>) #11
 
 ; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
-declare i32 @llvm.vector.reduce.smax.v8i32(<8 x i32>) #10
+declare i32 @llvm.vector.reduce.smax.v8i32(<8 x i32>) #11
 
 attributes #0 = { mustprogress nofree norecurse nosync nounwind willreturn memory(argmem: write) "approx-func-fp-math"="true" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="av2hs" "target-features"="+av2hs,+bs,+cd,+divrem,+fpu-mac,+fpud,+fpud-div,+fpus-div,+ll64,+mpy,+mpy16,+norm,+sa,+swap,+vdsp,+vdsp512gb0,+vdsp_vector_c,+vfpu2" "unsafe-fp-math"="true" }
 attributes #1 = { nofree nounwind "approx-func-fp-math"="true" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="av2hs" "target-features"="+av2hs,+bs,+cd,+divrem,+fpu-mac,+fpud,+fpud-div,+fpus-div,+ll64,+mpy,+mpy16,+norm,+sa,+swap,+vdsp,+vdsp512gb0,+vdsp_vector_c,+vfpu2" "unsafe-fp-math"="true" }
 attributes #2 = { mustprogress nofree norecurse nosync nounwind willreturn memory(argmem: readwrite) "approx-func-fp-math"="true" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="av2hs" "target-features"="+av2hs,+bs,+cd,+divrem,+fpu-mac,+fpud,+fpud-div,+fpus-div,+ll64,+mpy,+mpy16,+norm,+sa,+swap,+vdsp,+vdsp512gb0,+vdsp_vector_c,+vfpu2" "unsafe-fp-math"="true" }
 attributes #3 = { mustprogress nofree nosync nounwind willreturn memory(argmem: readwrite) "approx-func-fp-math"="true" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="av2hs" "target-features"="+av2hs,+bs,+cd,+divrem,+fpu-mac,+fpud,+fpud-div,+fpus-div,+ll64,+mpy,+mpy16,+norm,+sa,+swap,+vdsp,+vdsp512gb0,+vdsp_vector_c,+vfpu2" "unsafe-fp-math"="true" }
 attributes #4 = { mustprogress nofree nosync nounwind willreturn "approx-func-fp-math"="true" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="av2hs" "target-features"="+av2hs,+bs,+cd,+divrem,+fpu-mac,+fpud,+fpud-div,+fpus-div,+ll64,+mpy,+mpy16,+norm,+sa,+swap,+vdsp,+vdsp512gb0,+vdsp_vector_c,+vfpu2" "unsafe-fp-math"="true" }
-attributes #5 = { mustprogress nofree norecurse nosync nounwind willreturn memory(none) "approx-func-fp-math"="true" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="av2hs" "target-features"="+av2hs,+bs,+cd,+divrem,+fpu-mac,+fpud,+fpud-div,+fpus-div,+ll64,+mpy,+mpy16,+norm,+sa,+swap,+vdsp,+vdsp512gb0,+vdsp_vector_c,+vfpu2" "unsafe-fp-math"="true" }
-attributes #6 = { mustprogress nocallback nofree nosync nounwind willreturn memory(none) }
-attributes #7 = { mustprogress nocallback nofree nosync nounwind willreturn memory(read) }
-attributes #8 = { mustprogress nocallback nofree nosync nounwind willreturn memory(write) }
-attributes #9 = { nofree nounwind }
-attributes #10 = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
+attributes #5 = { nounwind "approx-func-fp-math"="true" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="av2hs" "target-features"="+av2hs,+bs,+cd,+divrem,+fpu-mac,+fpud,+fpud-div,+fpus-div,+ll64,+mpy,+mpy16,+norm,+sa,+swap,+vdsp,+vdsp512gb0,+vdsp_vector_c,+vfpu2" "unsafe-fp-math"="true" }
+attributes #6 = { "approx-func-fp-math"="true" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="av2hs" "target-features"="+av2hs,+bs,+cd,+divrem,+fpu-mac,+fpud,+fpud-div,+fpus-div,+ll64,+mpy,+mpy16,+norm,+sa,+swap,+vdsp,+vdsp512gb0,+vdsp_vector_c,+vfpu2" "unsafe-fp-math"="true" }
+attributes #7 = { mustprogress nocallback nofree nosync nounwind willreturn memory(none) }
+attributes #8 = { mustprogress nocallback nofree nosync nounwind willreturn memory(read) }
+attributes #9 = { mustprogress nocallback nofree nosync nounwind willreturn memory(write) }
+attributes #10 = { nofree nounwind }
+attributes #11 = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
+attributes #12 = { nounwind }
 
 !llvm.module.flags = !{!0, !1}
 !llvm.ident = !{!2}
@@ -1360,11 +1420,13 @@ attributes #10 = { nocallback nofree nosync nounwind speculatable willreturn mem
 !52 = distinct !{!52, !8}
 !53 = distinct !{!53, !8, !9, !10}
 !54 = distinct !{!54, !8, !9, !10}
-!55 = distinct !{!55, !8, !9}
-!56 = distinct !{!56, !8, !10, !9}
-!57 = distinct !{!57, !8}
-!58 = distinct !{!58, !8}
+!55 = distinct !{!55, !8, !10, !9}
+!56 = distinct !{!56, !8, !9, !10}
+!57 = distinct !{!57, !8, !9, !10}
+!58 = distinct !{!58, !8, !10, !9}
 !59 = distinct !{!59, !8}
-!60 = distinct !{!60, !8, !9, !10}
-!61 = distinct !{!61, !8, !9, !10}
-!62 = distinct !{!62, !8, !9}
+!60 = distinct !{!60, !8}
+!61 = distinct !{!61, !8}
+!62 = distinct !{!62, !8, !9, !10}
+!63 = distinct !{!63, !8, !9, !10}
+!64 = distinct !{!64, !8, !9}

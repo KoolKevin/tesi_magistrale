@@ -23,6 +23,32 @@
 | Autovettorizzata    |  1.24 ms |  19.93× |              1.62 ms |                 15.23× |
 | Vekt-vettorizzata   |  1.66 ms |  14.87× |              1.66 ms |                 14.86× |
 
+-> **NB: loop unrolling permette di fare software pipelining**
+
+# Mat reduce rows 
+
+**Compilato con -O3; M = 8, N = 1024**
+
+| Versione            |    Tempo | Speedup | Tempo (no unrolling) | Speedup (no unrolling) |
+|---------------------|---------:|--------:|---------------------:|-----------------------:|
+| Sequenziale         | 12.45 ms |   1.00× |             16.50 ms |                  1.00× |
+| Vettorizzata a mano |  1.21 ms |  10.32× |              1.21 ms |                 13.68× |
+| Autovettorizzata    |  0.92 ms |  13.59× |              1.27 ms |                 13.01× |
+| Vekt-vettorizzata   |  1.27 ms |   9.80× |              1.27 ms |                 12.99× |
+
+-> **NB: loop unrolling permette di fare software pipelining**
+
+# Mat reduce cols
+
+**Compilato con -O3; M = 1024, N = 16** 
+
+| Versione            |    Tempo | Speedup |
+|---------------------|---------:|--------:|
+| Sequenziale         |  33.01ms |   1.00× |
+| Vettorizzata a mano |   2.13ms |  15.48× |
+| Autovettorizzata    |  32.98ms |   1.00× |
+| Vekt-vettorizzata   |   2.18ms |  15.14× |
+
 # Matmul
 
 **Compilato con -O3; matrici 48x48**
@@ -79,11 +105,22 @@
 | Autovettorizzata    |  38.98ms |   1.10× |             38.98 ms |                  1.10× |
 | Vekt-vettorizzata   |   1.93ms |  22.34× |              1.93 ms |                 22.34× |
 
-NB: autovettorizzatore vettorizza il loop interno (dotproduct vettorizzata per ogni elemento di output). Scalare se il kernel è piccolo (< 8) 
-
 NB: anche qui la versione autovectorized è leggermente più veloce a causa dello spostamento della store di output abilitata da restrict
 
 Unrolling qua ha un effetto minimo, immagino che ci fosse già abbastanza ILP
+
+NB: autovettorizzatore vettorizza il loop interno (dotproduct vettorizzata per ogni elemento di output). Scalare se il kernel è piccolo (< 8) 
+
+- guarda righe 635 e 645 in conv1d.ll
+
+**Compilato con -O3; K = 16; N_in = 2064**
+
+| Versione            |    Tempo | Speedup | Tempo (no unrolling) | Speedup (no unrolling) |
+|---------------------|---------:|--------:|---------------------:|-----------------------:|
+| Sequenziale         | 149.57ms |   1.00× |            149.57 ms |                  1.00× |
+| Vettorizzata a mano |   5.20ms |  28.75× |              5.20 ms |                 28.75× |
+| Autovettorizzata    |  55.38ms |   2.70× |             41.04 ms |                  3.64× |
+| Vekt-vettorizzata   |   5.26ms |  28.46× |              5.26 ms |                 28.46× |
 
 # Conv2d
 
@@ -110,3 +147,14 @@ Unrolling qua ha un effetto minimo, immagino che ci fosse già abbastanza ILP
 | Vettorizzata a mano |   2.43ms |  15.77× |
 | Autovettorizzata    |  38.26ms |   1.00× |
 | Vekt-vettorizzata   |   2.48ms |  15.40× |
+
+# Max-pooling 2d 
+
+**Compilato con -O3; M = 128, N = 128, finestra = 2x2**
+
+| Versione            |    Tempo | Speedup | Tempo (no unrolling) | Speedup (no unrolling) |
+|---------------------|---------:|--------:|---------------------:|-----------------------:|
+| Sequenziale         | 168.67ms |   1.00× |            119.37 ms |                  1.00× |
+| Vettorizzata a mano |   8.16ms |  20.68× |              8.16 ms |                 14.63× |
+| Autovettorizzata    | 119.49ms |   1.41× |            119.38 ms |                  1.00× |
+| Vekt-vettorizzata   |   8.20ms |  20.57× |              8.20 ms |                 14.56× |

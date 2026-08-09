@@ -7,8 +7,8 @@
 #include "max_pooling.h"
 
 #define W 2
-#define ROWS_IN 64
-#define COLS_IN 64
+#define ROWS_IN 128
+#define COLS_IN 128
 #define ROWS_OUT (ROWS_IN / W)
 #define COLS_OUT (COLS_IN / W)
 
@@ -27,7 +27,7 @@ int main() {
 
 
     printf("Input\n");
-    print_matrix(in, ROWS_IN, COLS_IN);
+    // print_matrix(in, ROWS_IN, COLS_IN);
     printf("\n");
 
     clock_t start = clock();
@@ -35,7 +35,7 @@ int main() {
     clock_t end = clock();   
     double time_scalar = ((double)(end-start) / CLOCKS_PER_SEC)*1000; // in ms
     printf("Tempo di esecuzione: %.2fms\n", time_scalar);
-    print_matrix(out, ROWS_OUT, COLS_OUT);
+    // print_matrix(out, ROWS_OUT, COLS_OUT);
 
     // copio il risultato scalare per confrontarlo con i 
     // risultati delle altre versioni
@@ -55,7 +55,7 @@ int main() {
     printf("Tempo di esecuzione di vectorized_max_pooling: %.2fms\n", time_vectorized);
     printf("Speedup: %.2f\n", time_scalar/time_vectorized);
 
-    print_matrix(out, ROWS_OUT, COLS_OUT);
+    // print_matrix(out, ROWS_OUT, COLS_OUT);
     check_result((int*)groundtruth, out, ROWS_OUT, COLS_OUT);
 
     printf("\n");
@@ -71,7 +71,7 @@ int main() {
     printf("Tempo di esecuzione di autovectorized_max_pooling: %.2fms\n", time_autovectorized);
     printf("Speedup: %.2f\n", time_scalar/time_autovectorized);
 
-    print_matrix(out, ROWS_OUT, COLS_OUT);
+    // print_matrix(out, ROWS_OUT, COLS_OUT);
     printf("\n");
 
 	/******** versione vekt-vettorizzata ********/
@@ -85,7 +85,7 @@ int main() {
     printf("Tempo di esecuzione di vekt_max_pooling: %.2fms\n", time_vekt);
     printf("Speedup: %.2f\n", time_scalar/time_vekt);
 
-    print_matrix(out, ROWS_OUT, COLS_OUT);
+    // print_matrix(out, ROWS_OUT, COLS_OUT);
     check_result((int*)groundtruth, out, ROWS_OUT, COLS_OUT);
 
     printf("\n");
