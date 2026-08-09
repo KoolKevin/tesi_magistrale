@@ -1,6 +1,6 @@
 # Vector sum
 
-**Compilato con -O3**
+**Compilato con -O3; N = 8192**
 
 | Versione            |    Tempo | Speedup | Tempo (no unrolling) | Speedup (no unrolling) |
 |---------------------|---------:|--------:|---------------------:|-----------------------:|
@@ -14,7 +14,7 @@
 
 # Dotp
 
-**Compilato con -O3**
+**Compilato con -O3; N = 8192**
 
 | Versione            |    Tempo | Speedup | Tempo (no unrolling) | Speedup (no unrolling) |
 |---------------------|---------:|--------:|---------------------:|-----------------------:|
@@ -25,22 +25,52 @@
 
 # Matmul
 
-**Compilato con -O3**
+**Compilato con -O3; matrici 48x48**
 
-| Versione            |    Tempo | Speedup | Tempo (no unrolling) | Speedup (no unrolling) |
-|---------------------|---------:|--------:|---------------------:|-----------------------:|
-| Sequenziale         | 154.91ms |   1.00× |            154.91 ms |                  1.00× |
-| Vettorizzata a mano |  11.32ms |  13.69× |             11.29 ms |                 13.72× |
-| Autovettorizzata    | 120.07ms |   1.29× |            120.08 ms |                  1.29× |
-| Vekt-vettorizzata   |  11.36ms |  13.63× |             11.43 ms |                 13.55× |
+| Versione            |    Tempo | Speedup |
+|---------------------|---------:|--------:|
+| Sequenziale         | 465.77ms |   1.00× |
+| Vettorizzata a mano |  22.41ms |  20.78× |
+| Autovettorizzata    | 357.49ms |   1.30× |
+| Vekt-vettorizzata   |  22.48ms |  20.72× |
 
-NB: questi risultati sono stati ottenuti con matrici quadrate 33x33. Con dimensioni multiple di VL, ottengo speedup di circa 20 per le versioni "vettorizzata a mano" e "vekt-vettorizata", con e senza unrolling (non c'è più un remainder loop sequenziale)
+**NB**: autovettorizzatore vettorizza solo se N==1, altrimenti esegue in maniera scalare
 
-NB: autovettorizzatore vettorizza solo se N==1, altrimenti esegue in maniera scalare
+**NB**: la versione autovettorizzata è leggermente più veloce rispetto alla versione sequenziale a causa del qualificatore restrict
+    - in particolare grazie a quel restrict riesce a spostare la store di C dentro al loop K fuori da quest'ultimo
+    - senza restrict la versione autovettorizzata ha uno speedup di 0.96x
+    - più lenta dato che deve fare i runtime check che governano i percorsi vettorizzati
+- con -O1 la store non viene spostata e la versione autovettorizzata ha uno speedup di 0.99
+- se aggiungo restrict alla versione sequenziale, le performance paradossalmente peggiorano. Viene applicato dell'unrolling che complica l'ir e conseguenze varie ...
+- di conseguenza lascio la versione sequenziale senza restrict
+
+**Versione con poco lavoro parallelo (M, N, K) = (1, 1, 16)**
+
+| Versione            |    Tempo | Speedup |
+|---------------------|---------:|--------:|
+| Sequenziale         |   0.30ms |   1.00× |
+| Vettorizzata a mano |   0.11ms |   2.82× |
+| Autovettorizzata    |   0.31ms |   0.98× |
+| Vekt-vettorizzata   |   0.18ms |   1.73× |
+
+**Versione con molte remainder iterations (M, N, K) = (40, 40, 40)**
+
+- 40^3 = 64k MAC da fare
+- 40*32*40 = 51200 sono vettorizzate -> 3200 MAC
+- 40*8*40 = 12800 rimangono sequenziali
+- tot = 12800 + 3200 = 16k MAC -> **speedup max vettorizzazione = 4x**
+
+| Versione            |    Tempo | Speedup |
+|---------------------|---------:|--------:|
+| Sequenziale         | 272.31ms |   1.00× |
+| Vettorizzata a mano |  52.90ms |   5.15× |
+| Autovettorizzata    | 209.31ms |   1.30× |
+| Vekt-vettorizzata   |  52.93ms |   5.14× |
+
 
 # Conv1d
 
-**Compilato con -O3**
+**Compilato con -O3; K = 3; N_in = 2050**
 
 | Versione            |    Tempo | Speedup | Tempo (no unrolling) | Speedup (no unrolling) |
 |---------------------|---------:|--------:|---------------------:|-----------------------:|
@@ -51,9 +81,13 @@ NB: autovettorizzatore vettorizza solo se N==1, altrimenti esegue in maniera sca
 
 NB: autovettorizzatore vettorizza il loop interno (dotproduct vettorizzata per ogni elemento di output). Scalare se il kernel è piccolo (< 8) 
 
+NB: anche qui la versione autovectorized è leggermente più veloce a causa dello spostamento della store di output abilitata da restrict
+
+Unrolling qua ha un effetto minimo, immagino che ci fosse già abbastanza ILP
+
 # Conv2d
 
-**Compilato con -O3**
+**Compilato con -O3; K=3x3, In = 50x50**
 
 | Versione            |    Tempo | Speedup |
 |---------------------|---------:|--------:|
@@ -62,17 +96,17 @@ NB: autovettorizzatore vettorizza il loop interno (dotproduct vettorizzata per o
 | Autovettorizzata    | 120.19ms |   1.15× |
 | Vekt-vettorizzata   |   7.21ms |  19.22× |
 
-**NB**: sembra che nella versione vekt-vettorizzata avvenga dello stack spilling che causano un calo di performance. Dovrei esplorare meglio dove (nel loop interno con la mac non c'è) e come mai avviene (mi sembra strano che sia dovuto al numero elevato di parametri dato che la maggior parte non viene usata e quindi non dovrebbe consumare un registro)
+**NB**: la versione vekt è leggermente più lenta a causa dei memref espansi
 
 **NB**: disabilitare l'unrolling non ha alcun effetto dato che non viene applicato (immagino che sia per la già elevata register pressure)
 
 # Trasposta
 
-**Compilato con -O3**
+**Compilato con -O3; matrici 112x112**
 
 | Versione            |    Tempo | Speedup |
 |---------------------|---------:|--------:|
-| Sequenziale         |  30.56ms |   1.00× |
-| Vettorizzata a mano |   3.89ms |   7.86× |
-| Autovettorizzata    |  30.57ms |   1.00× |
-| Vekt-vettorizzata   |   3.94ms |   7.75× |
+| Sequenziale         |  38.26ms |   1.00× |
+| Vettorizzata a mano |   2.43ms |  15.77× |
+| Autovettorizzata    |  38.26ms |   1.00× |
+| Vekt-vettorizzata   |   2.48ms |  15.40× |

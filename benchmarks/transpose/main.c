@@ -8,8 +8,8 @@
 
 
 
-#define M 100
-#define N 100
+#define M 112
+#define N 112
 
 __vccm int a[M * N];
 __vccm int t[N * M];

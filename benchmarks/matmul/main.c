@@ -12,9 +12,9 @@
 // - C -> MxN
 // 
 // K è la dimensione comune
-#define M 33
-#define K 33
-#define N 33
+#define M 48
+#define K 48
+#define N 48
 
 __vccm int a[M * K];
 __vccm int b[K * N];
@@ -33,7 +33,7 @@ int main() {
     clock_t end = clock();   
     double time_scalar = ((double)(end-start) / CLOCKS_PER_SEC)*1000; // in ms
     printf("Tempo di esecuzione: %.2fms\n", time_scalar);
-    print_matrix(c, M, N);
+    // print_matrix(c, M, N);
 
     // copio il risultato scalare per confrontarlo con i 
     // risultati delle altre versioni
@@ -53,7 +53,7 @@ int main() {
     printf("Tempo di esecuzione di vectorized_vec_sum: %.2fms\n", time_vectorized);
     printf("Speedup: %.2f\n", time_scalar/time_vectorized);
 
-    print_matrix(c, M, N);
+    // print_matrix(c, M, N);
     check_result((int*)groundtruth, c, M, N);
 
     printf("\n");
@@ -69,7 +69,7 @@ int main() {
     printf("Tempo di esecuzione di autovectorized_vec_sum: %.2fms\n", time_autovectorized);
     printf("Speedup: %.2f\n", time_scalar/time_autovectorized);
 
-    print_matrix(c, M, N);
+    // print_matrix(c, M, N);
     printf("\n");
 
 	/******** versione vekt-vettorizzata ********/
@@ -83,7 +83,7 @@ int main() {
     printf("Tempo di esecuzione di vekt_matmul: %.2fms\n", time_vekt);
     printf("Speedup: %.2f\n", time_scalar/time_vekt);
 
-    print_matrix(c, M, N);
+    // print_matrix(c, M, N);
     check_result((int*)groundtruth, c, M, N);
 
     printf("\n");
