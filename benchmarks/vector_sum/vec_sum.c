@@ -24,6 +24,8 @@ void vectorized_vec_sum(__vccm int* restrict a,
     int lanes = _VDSP_NUM_32BIT_LANES;
     int n_rounded = (n/lanes) * lanes;
 
+    // #pragma unroll 4 così ottengo un po' di speedup 
+    // ma non proprio tutto
     for (int i = 0; i < n_rounded; i += lanes) {
         va = vvld(&a[i]);
         vb = vvld(&b[i]);
