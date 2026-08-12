@@ -85,7 +85,13 @@ int vectorized_sad2d(int rows, int cols, __vccm int* restrict input1, __vccm int
   acc = vvc4pack(acc);
   int res = (to_vNint_t(acc))[0];
 
-  // TODO: aggiungi remainder loop
+  // remainder loop
+  for (int i = 0; i < rows; i++) {
+    for (int j = cols_rounded; j < cols; j++) {
+        int t1 = input1[i*cols + j] - input2[i*cols + j];
+        res += abs(t1);
+    }
+  }
 
   return res;
 }
