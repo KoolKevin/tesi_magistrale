@@ -79,27 +79,57 @@ void vectorized_mat_reduce_cols(__vccm int* restrict A,
                        int M,
                        int N) {
 
+    // int lanes = _VDSP_NUM_32BIT_LANES;
+    // int N_rounded = (N/lanes) * lanes;
+
+    // for (int j_vec = 0; j_vec < N_rounded; j_vec += lanes) {
+    //     vNint_t acc = (vNint_t)0;
+    //     for (int i = 0; i < M; i++) {
+    //         vNint_t vec_row = vvld(&A[i*N + j_vec]);
+    //         acc = vvadd(acc, vec_row);
+    //     }
+    //     vvst(acc, &res[j_vec]);
+    // }
+
+    // for (int j = N_rounded; j < N; j++) {
+    //     int acc = 0;
+    //     for (int i = 0; i < M; i++) {
+    //         acc += A[i*N + j];
+    //     }
+    //     res[j] = acc;
+    // }
+
+    // innerloop vectorization con gather
     int lanes = _VDSP_NUM_32BIT_LANES;
-    int N_rounded = (N/lanes) * lanes;
+    int M_rounded = (M/lanes) * lanes;
 
+    vNint_t idx = vvci_w();
+    vNint_t offsets = idx * (vNint_t)N;
 
-    for (int j_vec = 0; j_vec < N_rounded; j_vec += lanes) {
-        vNint_t acc = (vNint_t)0;
-        for (int i = 0; i < M; i++) {
-            vNint_t vec_row = vvld(&A[i*N + j_vec]);
-            acc = vvadd(acc, vec_row);
+    for (int j = 0; j < N; j++) {
+        vNaccint_t acc = vvcadd_init((vNint_t)0, 0);
+        for (int i = 0; i < M_rounded; i += lanes) {
+            vNint_t col_segment = vgather(&A[i*N + j], offsets);
+            acc = vvcadd(acc, col_segment, 0);
         }
-        vvst(acc, &res[j_vec]);
+
+        acc = vvc4add(acc);
+        acc = vvc4pack(acc);
+        acc = vvc4add(acc);
+        acc = vvc4pack(acc);
+
+        res[j] = (to_vNint_t(acc))[0];
     }
 
     // remainder loop scalare
-    for (int j = N_rounded; j < N; j++) {
-        int acc = 0;
-        for (int i = 0; i < M; i++) {
-            acc += A[i*N + j];
+    if (M_rounded < M)
+        for (int j = 0; j < N; j++) {
+            int acc = res[j];
+            for (int i = M_rounded; i < M; i++) {
+                acc += A[i*N + j];
+            }
+            res[j] = acc;
         }
-        res[j] = acc;
-    }
 }
 
 void autovectorized_mat_reduce_cols(__vccm int* restrict A,
