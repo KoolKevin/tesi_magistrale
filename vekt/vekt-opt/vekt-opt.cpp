@@ -107,10 +107,13 @@ int main(int argc, char **argv) {
 
         // Loop optimizations
         pm.addPass(mlir::createConvertLinalgToAffineLoopsPass());
-        // pm.addPass(mlir::affine::createLoopFusionPass());
         // NB: funziona ma il compilatore metaware non applica software
         // pipelining lo stesso
         // pm.addPass(mlir::affine::createLoopUnrollPass(4));
+        // NB: non funziona con ub dinamici
+        // pm.addPass(mlir::affine::createLoopFusionPass());
+        // NB: sarebbe utile per pulire le coppie store/load in eccesso dopo
+        // fusion ma è buggato (TODO: linka la issue github)
         // pm.addPass(mlir::affine::createAffineScalarReplacementPass());
         pm.addPass(mlir::createLowerAffinePass());
         // NB: questo lo faccio al livello di scf dato che l'arrotondamento
