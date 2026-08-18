@@ -368,7 +368,6 @@ public:
         .Case<AccToVecOp>([&](AccToVecOp accToVec) {
           return convertAccToVec(accToVec, builder, moduleTranslation);
         })
-        // d
         .Case<VecConstantIndexOp>([&](VecConstantIndexOp constantIndex) {
           return convertVecConstantIndex(constantIndex, builder,
                                          moduleTranslation);
@@ -396,10 +395,38 @@ public:
 
 // Questo metodo registra una callback che viene eseguita dall'oggetto
 // 'TranslateFromMLIRRegistration' in vekt-translate.cpp. La callback aggiunge
-// a runtime l'interfaccia che specifica come tradurre il dialetto in llvm-ir.
+// a l'interfaccia che specifica come tradurre il dialetto in llvm-ir quando
+// quest'ultimo viene caricato nel contesto(/registry?).
 //
 // "This interface is what 'translateModuleToLLVMIR' queries when it walks the
 // (ppu) ops and needs to know how to convert them to LLVM IR".
+//
+// NB: nel toy tutorial ho visto che le interfacce si aggiungono così ai
+// dialetti:
+//
+// void ToyDialect::initialize() {
+//   addInterfaces<ToyInlinerInterface>();
+// }
+//
+// Qua però è stato utilizzato il meccanismo delle dialectExtension: "quando il
+// dialetto passato come argomento viene caricato nel contesto, esegui questa
+// lambda"
+//
+// La differenza è marginale ma interessante; con il meccanismo delle estensioni
+// la registrazione dell'interfaccia è esterna alla definizione del dialetto.
+//
+// This is useful when:
+// - you don't own the dialect / you don't want or can't modify the dialect's
+// source;
+// - the interface belongs to an optional integration (come la traduzione ad
+// llvm-ir);
+// - you want to keep a dependency out of the core dialect.
+//
+// For example, LLVM-IR translation is a very natural use case. Non è detto che
+// chi utilizza un dialetto voglia necessariamente tradurre verso LLVM-IR,
+// magari gli interessa solo SPIR-V. In questo caso aggiungerebbe solamente
+// l'estensione per SPIR-V eliminando la dipendenza dall'interfaccia per la
+// traduzione verso LLVM-IR
 void mlir::registerPPUDialectTranslation(DialectRegistry &registry) {
   registry.addExtension(+[](MLIRContext *ctx, PPUDialect *dialect) {
     dialect->addInterfaces<PPUDialectLLVMIRTranslationInterface>();

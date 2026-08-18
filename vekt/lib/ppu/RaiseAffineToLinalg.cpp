@@ -30,8 +30,9 @@ namespace {
 // sotto!
 //
 // Nota che:
-// - i bounds e lo step sono attributi
-//   - i bound sono affine_maps dato che devono essere funzioni affini delle iv
+// - i bound statici e lo step sono attributi
+//   - abbiamo delle affine_maps per i bound dato che devono essere funzioni
+//   affini delle iv
 // - la induction variable e gli iter_args sono block_arguments
 // - abbiamo come argomento dell'op i bound dinamici e il valore iniziale degli
 // iter_args

@@ -23,7 +23,8 @@
 #include "ppu/PPUPasses.h"
 
 int main(int argc, char **argv) {
-  // Registra i passi in maniera tale da renderli disponibili al tool
+  // Registra i passi nel pass-registry globale in maniera tale da renderli
+  // disponibili al tool
   mlir::registerAllPasses();
   mlir::ppu::registerPasses();
 
@@ -138,6 +139,87 @@ int main(int argc, char **argv) {
         pm.addPass(mlir::createSymbolDCEPass());
       });
 
+  // NB: Qua sotto aggiungiamo dei dialetti ad un DialectRegistry in maniera
+  // tale da renderli noti ad un MLIRContext. MLIRContext è l'oggetto che
+  // contiene lo stato runtime di una specifica istanza di MLIR.
+  //
+  // Dentro un context vivono, tra le altre cose:
+  //
+  // - uniqued types
+  // - uniqued attributes
+  // - MLIR operations
+  // - loaded dialects
+  // - registry associato al context
+  //
+  // Il punto importante è: UN DIALECT REGISTRATO NON È NECESSARIAMENTE UN
+  // DIALECT CARICATO NEL CONTESTO
+  //
+  // Il DialectRegistry è un catalogo di dialect disponibili (e di estensioni
+  // associate). Quando fai:
+  //
+  // mlir::DialectRegistry registry;
+  // registerAllDialects(registry);
+  // registry.insert<mlir::ppu::PPUDialect>();
+  //
+  // non stai ancora creando un PPUDialect. Stai dicendo: "Se qualcuno vuole
+  // usare PPUDialect, questa è la classe che sa come crearlo."
+  //
+  // PERCHÉ BISOGNA REGISTRARE I DIALECT?
+  //
+  // Immagina che il file input contenga:
+  //
+  // module {
+  //   %0 = arith.constant 42 : i32
+  // }
+  //
+  // Il parser vede: arith.constant, e deve sapere che cos'è arith. Il registry
+  // gli permette di trovare la classe che definisce il dialetto e caricarla nel
+  // contesto in maniera tale da conoscere:
+  //
+  // - quali operations esistono;
+  // - quali attributes esistono;
+  // - quali types esistono;
+  // - quali interfaces sono associate;
+  // ecc.
+  //
+  // Similmente, anche i passi devono essere registrati in un registro
+  // (PassRegistry), altrimenti il tool non è in grado di sapere qual'è la
+  // classe che implementa il passo associato al nome fornito da CLI. Stavolta
+  // però, non c'è un contesto a differenza dei dialetti (non c'è stato da
+  // mantenere in memoria)
+  //
+  //                        APPLICATION
+  //                           |
+  //           +---------------+---------------+
+  //           |                               |
+  //           v                               v
+  //    GLOBAL PASS REGISTRY             DialectRegistry
+  //           |                               |
+  //    registerAllPasses()             insert<PPU>()
+  //    ppu::registerPasses()           registerAllDialects()
+  //           |                         addExtension(...)
+  //           |                               |
+  //           v                               v
+  //      "which passes?"                "which dialects and extensions
+  //                                       are available?"
+  //           |                               |
+  //           +---------------+---------------+
+  //                           |
+  //                           v
+  //                      MLIRContext
+  //                           |
+  //                 +---------+---------+
+  //                 |                   |
+  //                 v                   v
+  //           loaded dialects      pass execution
+  //                 |
+  //                 +-- PPU
+  //                 |    |
+  //                 |    +-- interfaces
+  //                 |
+  //                 +-- arith
+  //                 +-- func
+  //                 +-- ...
   mlir::DialectRegistry registry;
   //   registry.insert<mlir::standalone::StandaloneDialect,
   //                   mlir::arith::ArithDialect, mlir::func::FuncDialect>();
@@ -147,12 +229,13 @@ int main(int argc, char **argv) {
   registerAllDialects(registry);
   registry.insert<mlir::ppu::PPUDialect>();
 
-  //   // TODO: capisci a cosa serve e a cosa serve questo e tutte le
-  //   registrazioni
-  //   // sopra Load our Dialect in this MLIR Context.
-  //   mlir::MLIRContext context(registry);
-  //   context.getOrLoadDialect<mlir::ppu::PPUDialect>();
+  // Per caricare esplicitamente in un contesto un dialetto registrato puoi
+  // fare come sotto (preso da toy tutorial):
+  // mlir::MLIRContext context(registry);
+  // context.getOrLoadDialect<mlir::ppu::PPUDialect>();
 
+  // MlirOptMain() si occupa di creare/configurare il context necessario dato un
+  // DialectRegistry.
   return mlir::asMainReturnCode(
       mlir::MlirOptMain(argc, argv, "Standalone optimizer driver\n", registry));
 }

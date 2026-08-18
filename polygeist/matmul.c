@@ -15,10 +15,23 @@
 // }
 
 // nota che mi compare l'attributo iter_args se uso un accumulatore
+void matmul(int *A, int *B, int *C, int M, int N, int K) {
+  for (int i = 0; i < M; i++) {
+    for (int j = 0; j < N; j++) {
+      int acc = 0;
+      for (int k = 0; k < K; k++) {
+        acc += A[i * K + k] * B[k * N + j];
+      }
+      C[i * N + j] = acc;
+    }
+  }
+}
+
+// // versione senza inizializzazione a zero
 // void matmul(int *A, int *B, int *C, int M, int N, int K) {
 //   for (int i = 0; i < M; i++) {
 //     for (int j = 0; j < N; j++) {
-//       int acc = 0;
+//       int acc = C[i * N + j];
 //       for (int k = 0; k < K; k++) {
 //         acc += A[i * K + k] * B[k * N + j];
 //       }
@@ -40,17 +53,17 @@
 // }
 
 // version con accumulatore
-void matmul(int M, int N, int K, int A[M][K], int B[K][N], int C[M][N]) {
-  for (int i = 0; i < M; i++) {
-    for (int j = 0; j < N; j++) {
-      int acc = 0;
-      for (int k = 0; k < K; k++) {
-        acc += A[i][k] * B[k][j];
-      }
-      C[i][j] = acc;
-    }
-  }
-}
+// void matmul(int M, int N, int K, int A[M][K], int B[K][N], int C[M][N]) {
+//   for (int i = 0; i < M; i++) {
+//     for (int j = 0; j < N; j++) {
+//       int acc = 0;
+//       for (int k = 0; k < K; k++) {
+//         acc += A[i][k] * B[k][j];
+//       }
+//       C[i][j] = acc;
+//     }
+//   }
+// }
 
 // anche questo sarebbe da normalizzare
 // void matmul(int **A, int **B, int **C, int M, int N, int K) {
