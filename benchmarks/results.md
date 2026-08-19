@@ -25,7 +25,7 @@
 
 -> **NB: loop unrolling permette di fare software pipelining**
 
-# Mat reduce rows 
+# Mat reduce rows
 
 **Compilato con -O3; M = 8, N = 1024**
 
@@ -40,14 +40,14 @@
 
 # Mat reduce cols
 
-**Compilato con -O3; M = 1024, N = 16** 
+**Compilato con -O3; M = 1024, N = 16**
 
-| Versione            |    Tempo | Speedup |
-|---------------------|---------:|--------:|
-| Sequenziale         |  33.01ms |   1.00× |
-| Vettorizzata a mano |   2.13ms |  15.48× |
-| Autovettorizzata    |  32.98ms |   1.00× |
-| Vekt-vettorizzata   |   2.18ms |  15.14× |
+| Versione            |   Tempo | Speedup |
+|---------------------|--------:|--------:|
+| Sequenziale         | 33.01ms |   1.00× |
+| Vettorizzata a mano |  2.13ms |  15.48× |
+| Autovettorizzata    | 32.98ms |   1.00× |
+| Vekt-vettorizzata   |  2.18ms |  15.14× |
 
 # Matmul
 
@@ -72,12 +72,12 @@
 
 **Versione con poco lavoro parallelo (M, N, K) = (1, 1, 16)**
 
-| Versione            |    Tempo | Speedup |
-|---------------------|---------:|--------:|
-| Sequenziale         |   0.30ms |   1.00× |
-| Vettorizzata a mano |   0.11ms |   2.82× |
-| Autovettorizzata    |   0.31ms |   0.98× |
-| Vekt-vettorizzata   |   0.18ms |   1.73× |
+| Versione            |  Tempo | Speedup |
+|---------------------|-------:|--------:|
+| Sequenziale         | 0.30ms |   1.00× |
+| Vettorizzata a mano | 0.11ms |   2.82× |
+| Autovettorizzata    | 0.31ms |   0.98× |
+| Vekt-vettorizzata   | 0.18ms |   1.73× |
 
 **Versione con molte remainder iterations (M, N, K) = (40, 40, 40)**
 
@@ -98,18 +98,18 @@
 
 **Compilato con -O3; K = 3; N_in = 2050**
 
-| Versione            |    Tempo | Speedup | Tempo (no unrolling) | Speedup (no unrolling) |
-|---------------------|---------:|--------:|---------------------:|-----------------------:|
-| Sequenziale         |  43.07ms |   1.00× |             43.07 ms |                  1.00× |
-| Vettorizzata a mano |   1.88ms |  22.97× |              2.00 ms |                 21.53× |
-| Autovettorizzata    |  38.98ms |   1.10× |             38.98 ms |                  1.10× |
-| Vekt-vettorizzata   |   1.93ms |  22.34× |              1.93 ms |                 22.34× |
+| Versione            |   Tempo | Speedup | Tempo (no unrolling) | Speedup (no unrolling) |
+|---------------------|--------:|--------:|---------------------:|-----------------------:|
+| Sequenziale         | 43.07ms |   1.00× |             43.07 ms |                  1.00× |
+| Vettorizzata a mano |  1.88ms |  22.97× |              2.00 ms |                 21.53× |
+| Autovettorizzata    | 38.98ms |   1.10× |             38.98 ms |                  1.10× |
+| Vekt-vettorizzata   |  1.93ms |  22.34× |              1.93 ms |                 22.34× |
 
 NB: anche qui la versione autovectorized è leggermente più veloce a causa dello spostamento della store di output abilitata da restrict
 
 Unrolling qua ha un effetto minimo, immagino che ci fosse già abbastanza ILP
 
-NB: autovettorizzatore vettorizza il loop interno (dotproduct vettorizzata per ogni elemento di output). Scalare se il kernel è piccolo (< 8) 
+NB: autovettorizzatore vettorizza il loop interno (dotproduct vettorizzata per ogni elemento di output). Scalare se il kernel è piccolo (< 8)
 
 - guarda righe 635 e 645 in conv1d.ll
 
@@ -141,14 +141,14 @@ NB: autovettorizzatore vettorizza il loop interno (dotproduct vettorizzata per o
 
 **Compilato con -O3; matrici 112x112**
 
-| Versione            |    Tempo | Speedup |
-|---------------------|---------:|--------:|
-| Sequenziale         |  38.26ms |   1.00× |
-| Vettorizzata a mano |   2.43ms |  15.77× |
-| Autovettorizzata    |  38.26ms |   1.00× |
-| Vekt-vettorizzata   |   2.48ms |  15.40× |
+| Versione            |   Tempo | Speedup |
+|---------------------|--------:|--------:|
+| Sequenziale         | 38.26ms |   1.00× |
+| Vettorizzata a mano |  2.43ms |  15.77× |
+| Autovettorizzata    | 38.26ms |   1.00× |
+| Vekt-vettorizzata   |  2.48ms |  15.40× |
 
-# Max-pooling 2d 
+# Max-pooling 2d
 
 **Compilato con -O3; M = 128, N = 128, finestra = 2x2**
 
@@ -173,9 +173,15 @@ res: 12544
 
 **NB**: l'autovettorizzatore in questo caso è stupido è inserisce una riduzione orizzontale dopo ogni riga (subito dopo il loop interno come epilogo). In questo modo fa tante riduzioni invece di una sola
 
-**NB**: non ho tempo di fare anche un esempio di SAD tra finestre di un'immagine più grande (motion estimation, disparità, ...). 
+**NB**: non ho tempo di fare anche un esempio di SAD tra finestre di un'immagine più grande (motion estimation, disparità, ...).
 
 - caso interessante dato che non matcho siccome il pattern si trova all'interno di un loop
+- posso fare tipo:
+    - mostro nn-inference e sad
+    - mostro ir con linalg named ops equivalenti e le performance migliorate
+    - dico che ho mentito e che non riesco a matchare dato che le op sono fuse
+    - introduco la loop distribution come sviluppo futuro
+    - mostro esempio sad dentro a un altro loop (stereo matching) come altro sviluppo futuro
 
 # nn-inference
 
