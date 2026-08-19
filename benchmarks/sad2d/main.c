@@ -6,8 +6,8 @@
 
 #include "sad2d.h"
 
-#define ROWS 64
-#define COLS 64
+#define ROWS 112
+#define COLS 112
 
 __vccm int input1[ROWS * COLS];
 __vccm int input2[ROWS * COLS];

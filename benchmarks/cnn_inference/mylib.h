@@ -3,6 +3,8 @@
 
 #include <arc_vector.h>
 
+#define max(a, b) (((a) > (b)) ? (a) : (b))
+
 void init_matrix(int *a, int M, int N, int value);
 
 void check_result(int* A, int* B, int M, int N);
@@ -11,8 +13,16 @@ int* copy_matrix(int* dst, int* src, int M, int N);
 
 void print_matrix(int* A, int M, int N); 
 
+void elementwise_sum(int M, int N, __vccm int* restrict A, __vccm int* restrict B);
+
+void elementwise_sum_scalar(int M, int N, __vccm int* restrict A, int B);
+
+int reduce_vector_max(int N, __vccm int* restrict A);
+
+void elementwise_max_scalar(int M, int N, __vccm int* restrict A, int B);
+
 void conv2d(int rows_out, int cols_out, int rows_in, int cols_in, int K,
-           int* output, int* input, int* kernel); 
+           __vccm int* restrict output, __vccm int* restrict input, __vccm int* restrict kernel); 
 
 extern void vekt_conv2d(
     int rows_out, int cols_out, int rows_in, int cols_in, int K,
@@ -27,7 +37,7 @@ extern void vekt_conv2d(
 void vekt_conv2d_wrapper(int rows_out, int cols_out, int rows_in, int cols_in, int K,
            int* output, int* input, int* kernel);
 
-void matmul(int M, int N, int K, int *A, int *B, int *C); 
+void matmul(int M, int N, int K, __vccm int* restrictA, __vccm int* restrictB, __vccm int* restrictC); 
 
 extern void vekt_matmul(
     int M, int N, int K,
@@ -42,7 +52,7 @@ extern void vekt_matmul(
 void vekt_matmul_wrapper(int M, int N, int K, int* a, int* b, int* c);
 
 void max_pooling(int rows_out, int cols_out, int rows_in, int cols_in, int W,
-           int* output, int* input); 
+           __vccm int* restrict output, __vccm int* restrict input); 
 
 extern void vekt_max_pooling(
     int rows_out, int cols_out, int rows_in, int cols_in, int W,

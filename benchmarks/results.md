@@ -158,3 +158,29 @@ NB: autovettorizzatore vettorizza il loop interno (dotproduct vettorizzata per o
 | Vettorizzata a mano |   8.16ms |  20.68× |              8.16 ms |                 14.63× |
 | Autovettorizzata    | 119.49ms |   1.41× |            119.38 ms |                  1.00× |
 | Vekt-vettorizzata   |   8.20ms |  20.57× |              8.20 ms |                 14.56× |
+
+# sad2d
+
+Vettorizzo su 16 lane
+Tempo di esecuzione di vectorized_sad2d: 4.80ms
+Speedup: 10.69
+res: 12544
+
+Versione autovettorizzata
+Tempo di esecuzione di autovectorized_sad2d: 8.72ms
+Speedup: 5.88
+res: 12544
+
+**NB**: l'autovettorizzatore in questo caso è stupido è inserisce una riduzione orizzontale dopo ogni riga (subito dopo il loop interno come epilogo). In questo modo fa tante riduzioni invece di una sola
+
+**NB**: non ho tempo di fare anche un esempio di SAD tra finestre di un'immagine più grande (motion estimation, disparità, ...). 
+
+- caso interessante dato che non matcho siccome il pattern si trova all'interno di un loop
+
+# nn-inference
+
+Versione sequenziale
+Tempo di esecuzione di vekt: 74.89ms
+Versione vekt-vettorizzata
+Tempo di esecuzione di vekt: 6.17ms
+Speedup: 12.14

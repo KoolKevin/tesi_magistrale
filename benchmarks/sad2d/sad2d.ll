@@ -612,10 +612,294 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup3.u
   ret i32 %res.0.lcssa
 }
 
-; Function Attrs: mustprogress nofree norecurse nosync nounwind willreturn memory(none)
-define dso_local i32 @vectorized_sad2d(i32 noundef %rows, i32 noundef %cols, ptr addrspace(4) noalias nocapture noundef readnone %input1, ptr addrspace(4) noalias nocapture noundef readnone %input2) local_unnamed_addr #4 {
+; Function Attrs: mustprogress nofree nosync nounwind willreturn memory(read)
+define dso_local i32 @vectorized_sad2d(i32 noundef %rows, i32 noundef %cols, ptr addrspace(4) noalias noundef %input1, ptr addrspace(4) noalias noundef %input2) local_unnamed_addr #4 {
 entry:
-  ret i32 -1
+  %div = sdiv i32 %cols, 16
+  %mul = shl nsw i32 %div, 4
+  %0 = tail call <16 x i32> @llvm.arc.vvcadd.init.acc.w.v512(<16 x i32> zeroinitializer, <16 x i32> zeroinitializer)
+  %cmp96 = icmp sgt i32 %rows, 0
+  br i1 %cmp96, label %for.body.lr.ph, label %for.cond.cleanup.thread116
+
+for.cond.cleanup.thread116:                       ; preds = %entry
+  %1 = tail call <16 x i32> @llvm.arc.vvc4add.acc.w.v512(<16 x i32> %0)
+  %2 = tail call <16 x i32> @llvm.arc.vvc4pack.acc.w.v512(<16 x i32> %1)
+  %3 = tail call <16 x i32> @llvm.arc.vvc4add.acc.w.v512(<16 x i32> %2)
+  %4 = tail call <16 x i32> @llvm.arc.vvc4pack.acc.w.v512(<16 x i32> %3)
+  %5 = tail call <16 x i32> @llvm.arc.acc.to.vec.w.v512(<16 x i32> %4)
+  %vecext118 = extractelement <16 x i32> %5, i64 0
+  br label %for.cond.cleanup41
+
+for.body.lr.ph:                                   ; preds = %entry
+  %cmp293 = icmp sgt i32 %cols, 15
+  br i1 %cmp293, label %for.body4.lr.ph.us.preheader, label %for.cond.cleanup.thread
+
+for.body4.lr.ph.us.preheader:                     ; preds = %for.body.lr.ph
+  br label %for.body4.lr.ph.us
+
+for.cond.cleanup.thread:                          ; preds = %for.body.lr.ph
+  %6 = tail call <16 x i32> @llvm.arc.vvc4add.acc.w.v512(<16 x i32> %0)
+  %7 = tail call <16 x i32> @llvm.arc.vvc4pack.acc.w.v512(<16 x i32> %6)
+  %8 = tail call <16 x i32> @llvm.arc.vvc4add.acc.w.v512(<16 x i32> %7)
+  %9 = tail call <16 x i32> @llvm.arc.vvc4pack.acc.w.v512(<16 x i32> %8)
+  %10 = tail call <16 x i32> @llvm.arc.acc.to.vec.w.v512(<16 x i32> %9)
+  %vecext114 = extractelement <16 x i32> %10, i64 0
+  br label %for.body42.lr.ph
+
+for.cond.cleanup3.us:                             ; preds = %for.body4.us
+  %inc.us = add nuw nsw i32 %i.097.us, 1
+  %cmp.us = icmp slt i32 %inc.us, %rows
+  br i1 %cmp.us, label %for.body4.lr.ph.us, label %for.cond.cleanup, !llvm.loop !39
+
+for.body4.us:                                     ; preds = %for.body4.lr.ph.us, %for.body4.us
+  %acc.sroa.0.195.us = phi <16 x i32> [ %acc.sroa.0.098.us, %for.body4.lr.ph.us ], [ %14, %for.body4.us ]
+  %j_vec.094.us = phi i32 [ 0, %for.body4.lr.ph.us ], [ %add17.us, %for.body4.us ]
+  %add.us = add nsw i32 %j_vec.094.us, %mul5.us
+  %arrayidx.us = getelementptr inbounds i32, ptr addrspace(4) %input1, i32 %add.us
+  %11 = tail call <16 x i32> @llvm.arc.vvld.w.v512(ptr addrspace(4) %arrayidx.us)
+  %arrayidx9.us = getelementptr inbounds i32, ptr addrspace(4) %input2, i32 %add.us
+  %12 = tail call <16 x i32> @llvm.arc.vvld.w.v512(ptr addrspace(4) %arrayidx9.us)
+  %sub.i.us = sub <16 x i32> %11, %12
+  %13 = tail call <16 x i32> @llvm.arc.vvabs.w.v512(<16 x i32> %sub.i.us)
+  %14 = tail call <16 x i32> @llvm.arc.vvcadd.acc.w.v512(<16 x i32> %acc.sroa.0.195.us, <16 x i32> %13, <16 x i32> zeroinitializer)
+  %add17.us = add nuw nsw i32 %j_vec.094.us, 16
+  %cmp2.us = icmp slt i32 %add17.us, %mul
+  br i1 %cmp2.us, label %for.body4.us, label %for.cond.cleanup3.us, !llvm.loop !40
+
+for.body4.lr.ph.us:                               ; preds = %for.body4.lr.ph.us.preheader, %for.cond.cleanup3.us
+  %acc.sroa.0.098.us = phi <16 x i32> [ %14, %for.cond.cleanup3.us ], [ %0, %for.body4.lr.ph.us.preheader ]
+  %i.097.us = phi i32 [ %inc.us, %for.cond.cleanup3.us ], [ 0, %for.body4.lr.ph.us.preheader ]
+  %mul5.us = mul nsw i32 %i.097.us, %cols
+  br label %for.body4.us
+
+for.cond.cleanup:                                 ; preds = %for.cond.cleanup3.us
+  %15 = tail call <16 x i32> @llvm.arc.vvc4add.acc.w.v512(<16 x i32> %14)
+  %16 = tail call <16 x i32> @llvm.arc.vvc4pack.acc.w.v512(<16 x i32> %15)
+  %17 = tail call <16 x i32> @llvm.arc.vvc4add.acc.w.v512(<16 x i32> %16)
+  %18 = tail call <16 x i32> @llvm.arc.vvc4pack.acc.w.v512(<16 x i32> %17)
+  %19 = tail call <16 x i32> @llvm.arc.acc.to.vec.w.v512(<16 x i32> %18)
+  %vecext = extractelement <16 x i32> %19, i64 0
+  br label %for.body42.lr.ph
+
+for.body42.lr.ph:                                 ; preds = %for.cond.cleanup, %for.cond.cleanup.thread
+  %vecext115 = phi i32 [ %vecext114, %for.cond.cleanup.thread ], [ %vecext, %for.cond.cleanup ]
+  %cmp44100 = icmp slt i32 %mul, %cols
+  br i1 %cmp44100, label %for.body42.lr.ph.split.us, label %for.cond.cleanup41
+
+for.body42.lr.ph.split.us:                        ; preds = %for.body42.lr.ph
+  %20 = sub i32 %cols, %mul
+  %min.iters.check = icmp ult i32 %20, 8
+  %n.vec = and i32 %20, -64
+  %cmp.n = icmp eq i32 %20, %n.vec
+  %ind.end134 = add i32 %mul, %n.vec
+  %n.vec.remaining = and i32 %20, 56
+  %min.epilog.iters.check = icmp eq i32 %n.vec.remaining, 0
+  %n.mod.vf132 = and i32 %cols, 7
+  %n.vec133 = sub nuw i32 %20, %n.mod.vf132
+  %ind.end = add i32 %mul, %n.vec133
+  %cmp.n135 = icmp eq i32 %n.mod.vf132, 0
+  br i1 %min.iters.check, label %iter.check.us.preheader, label %for.body42.lr.ph.split.us.split
+
+iter.check.us.preheader:                          ; preds = %for.body42.lr.ph.split.us
+  br label %iter.check.us
+
+iter.check.us:                                    ; preds = %iter.check.us.preheader, %for.cond.cleanup45.us.us
+  %i38.0105.us.us = phi i32 [ %inc60.us.us, %for.cond.cleanup45.us.us ], [ 0, %iter.check.us.preheader ]
+  %res.0104.us.us = phi i32 [ %add55.us.us, %for.cond.cleanup45.us.us ], [ %vecext115, %iter.check.us.preheader ]
+  %mul47.us.us = mul nsw i32 %i38.0105.us.us, %cols
+  br label %for.body46.us.us
+
+for.body46.us.us:                                 ; preds = %for.body46.us.us, %iter.check.us
+  %j.0102.us.us = phi i32 [ %mul, %iter.check.us ], [ %inc57.us.us, %for.body46.us.us ]
+  %res.1101.us.us = phi i32 [ %res.0104.us.us, %iter.check.us ], [ %add55.us.us, %for.body46.us.us ]
+  %add48.us.us = add nsw i32 %j.0102.us.us, %mul47.us.us
+  %arrayidx49.us.us = getelementptr inbounds i32, ptr addrspace(4) %input1, i32 %add48.us.us
+  %21 = load i32, ptr addrspace(4) %arrayidx49.us.us, align 4, !tbaa !3
+  %arrayidx52.us.us = getelementptr inbounds i32, ptr addrspace(4) %input2, i32 %add48.us.us
+  %22 = load i32, ptr addrspace(4) %arrayidx52.us.us, align 4, !tbaa !3
+  %sub.us.us = sub nsw i32 %21, %22
+  %cond.us.us = tail call i32 @llvm.abs.i32(i32 %sub.us.us, i1 true)
+  %add55.us.us = add nsw i32 %cond.us.us, %res.1101.us.us
+  %inc57.us.us = add nsw i32 %j.0102.us.us, 1
+  %cmp44.us.us = icmp slt i32 %inc57.us.us, %cols
+  br i1 %cmp44.us.us, label %for.body46.us.us, label %for.cond.cleanup45.us.us, !llvm.loop !41
+
+for.cond.cleanup45.us.us:                         ; preds = %for.body46.us.us
+  %inc60.us.us = add nuw nsw i32 %i38.0105.us.us, 1
+  %cmp40.us.us = icmp slt i32 %inc60.us.us, %rows
+  br i1 %cmp40.us.us, label %iter.check.us, label %for.cond.cleanup41, !llvm.loop !42
+
+for.body42.lr.ph.split.us.split:                  ; preds = %for.body42.lr.ph.split.us
+  %min.iters.check119 = icmp ult i32 %20, 64
+  br i1 %min.iters.check119, label %iter.check.us149.preheader, label %iter.check.preheader
+
+iter.check.preheader:                             ; preds = %for.body42.lr.ph.split.us.split
+  br label %iter.check
+
+iter.check.us149.preheader:                       ; preds = %for.body42.lr.ph.split.us.split
+  br label %iter.check.us149
+
+iter.check.us149:                                 ; preds = %iter.check.us149.preheader, %for.cond.cleanup45.us.us169
+  %i38.0105.us.us150 = phi i32 [ %inc60.us.us171, %for.cond.cleanup45.us.us169 ], [ 0, %iter.check.us149.preheader ]
+  %res.0104.us.us151 = phi i32 [ %add55.us.lcssa.us170, %for.cond.cleanup45.us.us169 ], [ %vecext115, %iter.check.us149.preheader ]
+  %mul47.us.us152 = mul nsw i32 %i38.0105.us.us150, %cols
+  %23 = insertelement <8 x i32> <i32 poison, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0>, i32 %res.0104.us.us151, i64 0
+  br label %vec.epilog.vector.body.us
+
+vec.epilog.vector.body.us:                        ; preds = %vec.epilog.vector.body.us, %iter.check.us149
+  %index136.us = phi i32 [ 0, %iter.check.us149 ], [ %index.next141.us, %vec.epilog.vector.body.us ]
+  %vec.phi137.us = phi <8 x i32> [ %23, %iter.check.us149 ], [ %29, %vec.epilog.vector.body.us ]
+  %offset.idx138.us = add i32 %mul, %index136.us
+  %24 = add nsw i32 %offset.idx138.us, %mul47.us.us152
+  %25 = getelementptr inbounds i32, ptr addrspace(4) %input1, i32 %24
+  %wide.load139.us = load <8 x i32>, ptr addrspace(4) %25, align 4, !tbaa !3
+  %26 = getelementptr inbounds i32, ptr addrspace(4) %input2, i32 %24
+  %wide.load140.us = load <8 x i32>, ptr addrspace(4) %26, align 4, !tbaa !3
+  %27 = sub nsw <8 x i32> %wide.load139.us, %wide.load140.us
+  %28 = tail call <8 x i32> @llvm.abs.v8i32(<8 x i32> %27, i1 true)
+  %29 = add <8 x i32> %28, %vec.phi137.us
+  %index.next141.us = add nuw i32 %index136.us, 8
+  %30 = icmp eq i32 %index.next141.us, %n.vec133
+  br i1 %30, label %vec.epilog.middle.block.us, label %vec.epilog.vector.body.us, !llvm.loop !43
+
+vec.epilog.middle.block.us:                       ; preds = %vec.epilog.vector.body.us
+  %31 = tail call i32 @llvm.vector.reduce.add.v8i32(<8 x i32> %29)
+  br i1 %cmp.n135, label %for.cond.cleanup45.us.us169, label %for.body46.us.us156.preheader
+
+for.body46.us.us156.preheader:                    ; preds = %vec.epilog.middle.block.us
+  br label %for.body46.us.us156
+
+for.body46.us.us156:                              ; preds = %for.body46.us.us156.preheader, %for.body46.us.us156
+  %j.0102.us.us157 = phi i32 [ %inc57.us.us165, %for.body46.us.us156 ], [ %ind.end, %for.body46.us.us156.preheader ]
+  %res.1101.us.us158 = phi i32 [ %add55.us.us164, %for.body46.us.us156 ], [ %31, %for.body46.us.us156.preheader ]
+  %add48.us.us159 = add nsw i32 %j.0102.us.us157, %mul47.us.us152
+  %arrayidx49.us.us160 = getelementptr inbounds i32, ptr addrspace(4) %input1, i32 %add48.us.us159
+  %32 = load i32, ptr addrspace(4) %arrayidx49.us.us160, align 4, !tbaa !3
+  %arrayidx52.us.us161 = getelementptr inbounds i32, ptr addrspace(4) %input2, i32 %add48.us.us159
+  %33 = load i32, ptr addrspace(4) %arrayidx52.us.us161, align 4, !tbaa !3
+  %sub.us.us162 = sub nsw i32 %32, %33
+  %cond.us.us163 = tail call i32 @llvm.abs.i32(i32 %sub.us.us162, i1 true)
+  %add55.us.us164 = add nsw i32 %cond.us.us163, %res.1101.us.us158
+  %inc57.us.us165 = add nsw i32 %j.0102.us.us157, 1
+  %cmp44.us.us166 = icmp slt i32 %inc57.us.us165, %cols
+  br i1 %cmp44.us.us166, label %for.body46.us.us156, label %for.cond.cleanup45.us.us169, !llvm.loop !41
+
+for.cond.cleanup45.us.us169:                      ; preds = %for.body46.us.us156, %vec.epilog.middle.block.us
+  %add55.us.lcssa.us170 = phi i32 [ %31, %vec.epilog.middle.block.us ], [ %add55.us.us164, %for.body46.us.us156 ]
+  %inc60.us.us171 = add nuw nsw i32 %i38.0105.us.us150, 1
+  %cmp40.us.us172 = icmp slt i32 %inc60.us.us171, %rows
+  br i1 %cmp40.us.us172, label %iter.check.us149, label %for.cond.cleanup41, !llvm.loop !42
+
+for.cond.cleanup45.us:                            ; preds = %for.body46.us, %vec.epilog.middle.block, %middle.block
+  %add55.us.lcssa = phi i32 [ %59, %middle.block ], [ %68, %vec.epilog.middle.block ], [ %add55.us, %for.body46.us ]
+  %inc60.us = add nuw nsw i32 %i38.0105.us, 1
+  %cmp40.us = icmp slt i32 %inc60.us, %rows
+  br i1 %cmp40.us, label %iter.check, label %for.cond.cleanup41, !llvm.loop !42
+
+for.body46.us:                                    ; preds = %for.body46.us.preheader, %for.body46.us
+  %j.0102.us = phi i32 [ %inc57.us, %for.body46.us ], [ %j.0102.us.ph, %for.body46.us.preheader ]
+  %res.1101.us = phi i32 [ %add55.us, %for.body46.us ], [ %res.1101.us.ph, %for.body46.us.preheader ]
+  %add48.us = add nsw i32 %j.0102.us, %mul47.us
+  %arrayidx49.us = getelementptr inbounds i32, ptr addrspace(4) %input1, i32 %add48.us
+  %34 = load i32, ptr addrspace(4) %arrayidx49.us, align 4, !tbaa !3
+  %arrayidx52.us = getelementptr inbounds i32, ptr addrspace(4) %input2, i32 %add48.us
+  %35 = load i32, ptr addrspace(4) %arrayidx52.us, align 4, !tbaa !3
+  %sub.us = sub nsw i32 %34, %35
+  %cond.us = tail call i32 @llvm.abs.i32(i32 %sub.us, i1 true)
+  %add55.us = add nsw i32 %cond.us, %res.1101.us
+  %inc57.us = add nsw i32 %j.0102.us, 1
+  %cmp44.us = icmp slt i32 %inc57.us, %cols
+  br i1 %cmp44.us, label %for.body46.us, label %for.cond.cleanup45.us, !llvm.loop !41
+
+iter.check:                                       ; preds = %iter.check.preheader, %for.cond.cleanup45.us
+  %i38.0105.us = phi i32 [ %inc60.us, %for.cond.cleanup45.us ], [ 0, %iter.check.preheader ]
+  %res.0104.us = phi i32 [ %add55.us.lcssa, %for.cond.cleanup45.us ], [ %vecext115, %iter.check.preheader ]
+  %mul47.us = mul nsw i32 %i38.0105.us, %cols
+  %36 = insertelement <16 x i32> <i32 poison, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0>, i32 %res.0104.us, i64 0
+  br label %vector.body
+
+vector.body:                                      ; preds = %vector.body, %iter.check
+  %index = phi i32 [ 0, %iter.check ], [ %index.next, %vector.body ]
+  %vec.phi = phi <16 x i32> [ %36, %iter.check ], [ %54, %vector.body ]
+  %vec.phi120 = phi <16 x i32> [ zeroinitializer, %iter.check ], [ %55, %vector.body ]
+  %vec.phi121 = phi <16 x i32> [ zeroinitializer, %iter.check ], [ %56, %vector.body ]
+  %vec.phi122 = phi <16 x i32> [ zeroinitializer, %iter.check ], [ %57, %vector.body ]
+  %offset.idx = add i32 %mul, %index
+  %37 = add nsw i32 %offset.idx, %mul47.us
+  %38 = getelementptr inbounds i32, ptr addrspace(4) %input1, i32 %37
+  %wide.load = load <16 x i32>, ptr addrspace(4) %38, align 4, !tbaa !3
+  %39 = getelementptr inbounds i32, ptr addrspace(4) %38, i32 16
+  %wide.load123 = load <16 x i32>, ptr addrspace(4) %39, align 4, !tbaa !3
+  %40 = getelementptr inbounds i32, ptr addrspace(4) %38, i32 32
+  %wide.load124 = load <16 x i32>, ptr addrspace(4) %40, align 4, !tbaa !3
+  %41 = getelementptr inbounds i32, ptr addrspace(4) %38, i32 48
+  %wide.load125 = load <16 x i32>, ptr addrspace(4) %41, align 4, !tbaa !3
+  %42 = getelementptr inbounds i32, ptr addrspace(4) %input2, i32 %37
+  %wide.load126 = load <16 x i32>, ptr addrspace(4) %42, align 4, !tbaa !3
+  %43 = getelementptr inbounds i32, ptr addrspace(4) %42, i32 16
+  %wide.load127 = load <16 x i32>, ptr addrspace(4) %43, align 4, !tbaa !3
+  %44 = getelementptr inbounds i32, ptr addrspace(4) %42, i32 32
+  %wide.load128 = load <16 x i32>, ptr addrspace(4) %44, align 4, !tbaa !3
+  %45 = getelementptr inbounds i32, ptr addrspace(4) %42, i32 48
+  %wide.load129 = load <16 x i32>, ptr addrspace(4) %45, align 4, !tbaa !3
+  %46 = sub nsw <16 x i32> %wide.load, %wide.load126
+  %47 = sub nsw <16 x i32> %wide.load123, %wide.load127
+  %48 = sub nsw <16 x i32> %wide.load124, %wide.load128
+  %49 = sub nsw <16 x i32> %wide.load125, %wide.load129
+  %50 = tail call <16 x i32> @llvm.abs.v16i32(<16 x i32> %46, i1 true)
+  %51 = tail call <16 x i32> @llvm.abs.v16i32(<16 x i32> %47, i1 true)
+  %52 = tail call <16 x i32> @llvm.abs.v16i32(<16 x i32> %48, i1 true)
+  %53 = tail call <16 x i32> @llvm.abs.v16i32(<16 x i32> %49, i1 true)
+  %54 = add <16 x i32> %50, %vec.phi
+  %55 = add <16 x i32> %51, %vec.phi120
+  %56 = add <16 x i32> %52, %vec.phi121
+  %57 = add <16 x i32> %53, %vec.phi122
+  %index.next = add nuw i32 %index, 64
+  %58 = icmp eq i32 %index.next, %n.vec
+  br i1 %58, label %middle.block, label %vector.body, !llvm.loop !44
+
+middle.block:                                     ; preds = %vector.body
+  %bin.rdx = add <16 x i32> %55, %54
+  %bin.rdx130 = add <16 x i32> %56, %bin.rdx
+  %bin.rdx131 = add <16 x i32> %57, %bin.rdx130
+  %59 = tail call i32 @llvm.vector.reduce.add.v16i32(<16 x i32> %bin.rdx131)
+  br i1 %cmp.n, label %for.cond.cleanup45.us, label %vec.epilog.iter.check
+
+vec.epilog.iter.check:                            ; preds = %middle.block
+  br i1 %min.epilog.iters.check, label %for.body46.us.preheader, label %vec.epilog.ph
+
+vec.epilog.ph:                                    ; preds = %vec.epilog.iter.check
+  %60 = insertelement <8 x i32> <i32 poison, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0>, i32 %59, i64 0
+  br label %vec.epilog.vector.body
+
+vec.epilog.vector.body:                           ; preds = %vec.epilog.vector.body, %vec.epilog.ph
+  %index136 = phi i32 [ %n.vec, %vec.epilog.ph ], [ %index.next141, %vec.epilog.vector.body ]
+  %vec.phi137 = phi <8 x i32> [ %60, %vec.epilog.ph ], [ %66, %vec.epilog.vector.body ]
+  %offset.idx138 = add i32 %mul, %index136
+  %61 = add nsw i32 %offset.idx138, %mul47.us
+  %62 = getelementptr inbounds i32, ptr addrspace(4) %input1, i32 %61
+  %wide.load139 = load <8 x i32>, ptr addrspace(4) %62, align 4, !tbaa !3
+  %63 = getelementptr inbounds i32, ptr addrspace(4) %input2, i32 %61
+  %wide.load140 = load <8 x i32>, ptr addrspace(4) %63, align 4, !tbaa !3
+  %64 = sub nsw <8 x i32> %wide.load139, %wide.load140
+  %65 = tail call <8 x i32> @llvm.abs.v8i32(<8 x i32> %64, i1 true)
+  %66 = add <8 x i32> %65, %vec.phi137
+  %index.next141 = add nuw i32 %index136, 8
+  %67 = icmp eq i32 %index.next141, %n.vec133
+  br i1 %67, label %vec.epilog.middle.block, label %vec.epilog.vector.body, !llvm.loop !43
+
+vec.epilog.middle.block:                          ; preds = %vec.epilog.vector.body
+  %68 = tail call i32 @llvm.vector.reduce.add.v8i32(<8 x i32> %66)
+  br i1 %cmp.n135, label %for.cond.cleanup45.us, label %for.body46.us.preheader
+
+for.body46.us.preheader:                          ; preds = %vec.epilog.iter.check, %vec.epilog.middle.block
+  %j.0102.us.ph = phi i32 [ %ind.end134, %vec.epilog.iter.check ], [ %ind.end, %vec.epilog.middle.block ]
+  %res.1101.us.ph = phi i32 [ %59, %vec.epilog.iter.check ], [ %68, %vec.epilog.middle.block ]
+  br label %for.body46.us
+
+for.cond.cleanup41:                               ; preds = %for.cond.cleanup45.us, %for.cond.cleanup45.us.us169, %for.cond.cleanup45.us.us, %for.body42.lr.ph, %for.cond.cleanup.thread116
+  %res.0.lcssa = phi i32 [ %vecext118, %for.cond.cleanup.thread116 ], [ %vecext115, %for.body42.lr.ph ], [ %add55.us.us, %for.cond.cleanup45.us.us ], [ %add55.us.lcssa.us170, %for.cond.cleanup45.us.us169 ], [ %add55.us.lcssa, %for.cond.cleanup45.us ]
+  ret i32 %res.0.lcssa
 }
 
 ; Function Attrs: mustprogress nofree nosync nounwind willreturn memory(argmem: read)
@@ -658,12 +942,12 @@ for.body4.us.us:                                  ; preds = %iter.check.us, %for
   %add10.us.us = add nsw i32 %cond.us.us, %res.126.us.us
   %inc.us.us = add nuw nsw i32 %j.025.us.us, 1
   %cmp2.us.us = icmp slt i32 %inc.us.us, %cols
-  br i1 %cmp2.us.us, label %for.body4.us.us, label %for.cond.cleanup3.us.loopexit.us, !llvm.loop !39
+  br i1 %cmp2.us.us, label %for.body4.us.us, label %for.cond.cleanup3.us.loopexit.us, !llvm.loop !45
 
 for.cond.cleanup3.us.loopexit.us:                 ; preds = %for.body4.us.us
   %inc12.us.us = add nuw nsw i32 %i.028.us.us, 1
   %cmp.us.us = icmp slt i32 %inc12.us.us, %rows
-  br i1 %cmp.us.us, label %iter.check.us, label %for.cond.cleanup, !llvm.loop !40
+  br i1 %cmp.us.us, label %iter.check.us, label %for.cond.cleanup, !llvm.loop !46
 
 for.body.lr.ph.split.us.split:                    ; preds = %for.body.lr.ph.split.us
   %min.iters.check33 = icmp ult i32 %cols, 64
@@ -692,13 +976,13 @@ for.body4.us.us64:                                ; preds = %for.body4.us.us64.p
   %add10.us.us72 = add nsw i32 %cond.us.us71, %res.126.us.us65
   %inc.us.us73 = add nuw nsw i32 %j.025.us.us66, 1
   %cmp2.us.us74 = icmp slt i32 %inc.us.us73, %cols
-  br i1 %cmp2.us.us74, label %for.body4.us.us64, label %for.cond.cleanup3.us.us75, !llvm.loop !39
+  br i1 %cmp2.us.us74, label %for.body4.us.us64, label %for.cond.cleanup3.us.us75, !llvm.loop !45
 
 for.cond.cleanup3.us.us75:                        ; preds = %for.body4.us.us64, %vec.epilog.middle.block.us
   %add10.us.lcssa.us76 = phi i32 [ %5, %vec.epilog.middle.block.us ], [ %add10.us.us72, %for.body4.us.us64 ]
   %inc12.us.us77 = add nuw nsw i32 %i.028.us.us62, 1
   %cmp.us.us78 = icmp slt i32 %inc12.us.us77, %rows
-  br i1 %cmp.us.us78, label %iter.check.us60, label %for.cond.cleanup, !llvm.loop !40
+  br i1 %cmp.us.us78, label %iter.check.us60, label %for.cond.cleanup, !llvm.loop !46
 
 vec.epilog.middle.block.us:                       ; preds = %vec.epilog.vector.body.us
   %5 = tail call i32 @llvm.vector.reduce.add.v8i32(<8 x i32> %11)
@@ -720,7 +1004,7 @@ vec.epilog.vector.body.us:                        ; preds = %vec.epilog.vector.b
   %11 = add <8 x i32> %10, %vec.phi50.us
   %index.next53.us = add nuw i32 %index49.us, 8
   %12 = icmp eq i32 %index.next53.us, %n.vec47
-  br i1 %12, label %vec.epilog.middle.block.us, label %vec.epilog.vector.body.us, !llvm.loop !41
+  br i1 %12, label %vec.epilog.middle.block.us, label %vec.epilog.vector.body.us, !llvm.loop !47
 
 for.body.lr.ph.split.us.split.split:              ; preds = %for.body.lr.ph.split.us.split
   br i1 %cmp.n, label %iter.check.us86.preheader, label %iter.check.preheader
@@ -745,7 +1029,7 @@ middle.block.us:                                  ; preds = %vector.body.us
   %14 = tail call i32 @llvm.vector.reduce.add.v16i32(<16 x i32> %bin.rdx45.us)
   %inc12.us.us92 = add nuw nsw i32 %i.028.us.us88, 1
   %cmp.us.us93 = icmp slt i32 %inc12.us.us92, %rows
-  br i1 %cmp.us.us93, label %iter.check.us86, label %for.cond.cleanup, !llvm.loop !40
+  br i1 %cmp.us.us93, label %iter.check.us86, label %for.cond.cleanup, !llvm.loop !46
 
 vector.body.us:                                   ; preds = %vector.body.us, %iter.check.us86
   %index.us = phi i32 [ 0, %iter.check.us86 ], [ %index.next.us, %vector.body.us ]
@@ -784,13 +1068,13 @@ vector.body.us:                                   ; preds = %vector.body.us, %it
   %35 = add <16 x i32> %31, %vec.phi36.us
   %index.next.us = add nuw i32 %index.us, 64
   %36 = icmp eq i32 %index.next.us, %cols
-  br i1 %36, label %middle.block.us, label %vector.body.us, !llvm.loop !42
+  br i1 %36, label %middle.block.us, label %vector.body.us, !llvm.loop !48
 
 for.cond.cleanup3.us:                             ; preds = %for.body4.us, %vec.epilog.middle.block
   %add10.us.lcssa = phi i32 [ %71, %vec.epilog.middle.block ], [ %add10.us, %for.body4.us ]
   %inc12.us = add nuw nsw i32 %i.028.us, 1
   %cmp.us = icmp slt i32 %inc12.us, %rows
-  br i1 %cmp.us, label %iter.check, label %for.cond.cleanup, !llvm.loop !40
+  br i1 %cmp.us, label %iter.check, label %for.cond.cleanup, !llvm.loop !46
 
 for.body4.us:                                     ; preds = %for.body4.us.preheader, %for.body4.us
   %res.126.us = phi i32 [ %add10.us, %for.body4.us ], [ %res.126.us.ph, %for.body4.us.preheader ]
@@ -805,7 +1089,7 @@ for.body4.us:                                     ; preds = %for.body4.us.prehea
   %add10.us = add nsw i32 %cond.us, %res.126.us
   %inc.us = add nuw nsw i32 %j.025.us, 1
   %cmp2.us = icmp slt i32 %inc.us, %cols
-  br i1 %cmp2.us, label %for.body4.us, label %for.cond.cleanup3.us, !llvm.loop !39
+  br i1 %cmp2.us, label %for.body4.us, label %for.cond.cleanup3.us, !llvm.loop !45
 
 iter.check:                                       ; preds = %iter.check.preheader, %for.cond.cleanup3.us
   %res.029.us = phi i32 [ %add10.us.lcssa, %for.cond.cleanup3.us ], [ 0, %iter.check.preheader ]
@@ -851,7 +1135,7 @@ vector.body:                                      ; preds = %vector.body, %iter.
   %60 = add <16 x i32> %56, %vec.phi36
   %index.next = add nuw i32 %index, 64
   %61 = icmp eq i32 %index.next, %n.vec
-  br i1 %61, label %middle.block, label %vector.body, !llvm.loop !42
+  br i1 %61, label %middle.block, label %vector.body, !llvm.loop !48
 
 middle.block:                                     ; preds = %vector.body
   %bin.rdx = add <16 x i32> %58, %57
@@ -877,7 +1161,7 @@ vec.epilog.vector.body:                           ; preds = %vec.epilog.vector.b
   %69 = add <8 x i32> %68, %vec.phi50
   %index.next53 = add nuw i32 %index49, 8
   %70 = icmp eq i32 %index.next53, %n.vec47
-  br i1 %70, label %vec.epilog.middle.block, label %vec.epilog.vector.body, !llvm.loop !41
+  br i1 %70, label %vec.epilog.middle.block, label %vec.epilog.vector.body, !llvm.loop !47
 
 vec.epilog.middle.block:                          ; preds = %vec.epilog.vector.body
   %71 = tail call i32 @llvm.vector.reduce.add.v8i32(<8 x i32> %69)
@@ -894,36 +1178,60 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup3.u
 }
 
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind willreturn memory(none)
-define dso_local i32 @vekt_sad2d_wrapper(i32 noundef %rows, i32 noundef %cols, ptr nocapture noundef readnone %input1, ptr nocapture noundef readnone %input2) local_unnamed_addr #4 {
+define dso_local i32 @vekt_sad2d_wrapper(i32 noundef %rows, i32 noundef %cols, ptr nocapture noundef readnone %input1, ptr nocapture noundef readnone %input2) local_unnamed_addr #5 {
 entry:
   ret i32 -1
 }
 
+; Function Attrs: mustprogress nocallback nofree nosync nounwind willreturn memory(none)
+declare <16 x i32> @llvm.arc.vvcadd.init.acc.w.v512(<16 x i32>, <16 x i32>) #6
+
+; Function Attrs: mustprogress nocallback nofree nosync nounwind willreturn memory(read)
+declare <16 x i32> @llvm.arc.vvld.w.v512(ptr addrspace(4)) #7
+
+; Function Attrs: mustprogress nocallback nofree nosync nounwind willreturn memory(none)
+declare <16 x i32> @llvm.arc.vvabs.w.v512(<16 x i32>) #6
+
+; Function Attrs: mustprogress nocallback nofree nosync nounwind willreturn memory(none)
+declare <16 x i32> @llvm.arc.vvcadd.acc.w.v512(<16 x i32>, <16 x i32>, <16 x i32>) #6
+
+; Function Attrs: mustprogress nocallback nofree nosync nounwind willreturn memory(none)
+declare <16 x i32> @llvm.arc.vvc4add.acc.w.v512(<16 x i32>) #6
+
+; Function Attrs: mustprogress nocallback nofree nosync nounwind willreturn memory(none)
+declare <16 x i32> @llvm.arc.vvc4pack.acc.w.v512(<16 x i32>) #6
+
+; Function Attrs: mustprogress nocallback nofree nosync nounwind willreturn memory(none)
+declare <16 x i32> @llvm.arc.acc.to.vec.w.v512(<16 x i32>) #6
+
 ; Function Attrs: nofree nounwind
-declare noundef i32 @puts(ptr nocapture noundef readonly) local_unnamed_addr #5
+declare noundef i32 @puts(ptr nocapture noundef readonly) local_unnamed_addr #8
 
 ; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
-declare i32 @llvm.abs.i32(i32, i1 immarg) #6
+declare i32 @llvm.abs.i32(i32, i1 immarg) #9
 
 ; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
-declare <16 x i32> @llvm.abs.v16i32(<16 x i32>, i1 immarg) #6
+declare <16 x i32> @llvm.abs.v16i32(<16 x i32>, i1 immarg) #9
 
 ; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
-declare i32 @llvm.vector.reduce.add.v16i32(<16 x i32>) #6
+declare i32 @llvm.vector.reduce.add.v16i32(<16 x i32>) #9
 
 ; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
-declare <8 x i32> @llvm.abs.v8i32(<8 x i32>, i1 immarg) #6
+declare <8 x i32> @llvm.abs.v8i32(<8 x i32>, i1 immarg) #9
 
 ; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
-declare i32 @llvm.vector.reduce.add.v8i32(<8 x i32>) #6
+declare i32 @llvm.vector.reduce.add.v8i32(<8 x i32>) #9
 
 attributes #0 = { mustprogress nofree norecurse nosync nounwind willreturn memory(argmem: write) "approx-func-fp-math"="true" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="av2hs" "target-features"="+av2hs,+bs,+cd,+divrem,+fpu-mac,+fpud,+fpud-div,+fpus-div,+ll64,+mpy,+mpy16,+norm,+sa,+swap,+vdsp,+vdsp512gb0,+vdsp_vector_c,+vfpu2" "unsafe-fp-math"="true" }
 attributes #1 = { nofree nounwind "approx-func-fp-math"="true" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="av2hs" "target-features"="+av2hs,+bs,+cd,+divrem,+fpu-mac,+fpud,+fpud-div,+fpus-div,+ll64,+mpy,+mpy16,+norm,+sa,+swap,+vdsp,+vdsp512gb0,+vdsp_vector_c,+vfpu2" "unsafe-fp-math"="true" }
 attributes #2 = { mustprogress nofree norecurse nosync nounwind willreturn memory(argmem: readwrite) "approx-func-fp-math"="true" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="av2hs" "target-features"="+av2hs,+bs,+cd,+divrem,+fpu-mac,+fpud,+fpud-div,+fpus-div,+ll64,+mpy,+mpy16,+norm,+sa,+swap,+vdsp,+vdsp512gb0,+vdsp_vector_c,+vfpu2" "unsafe-fp-math"="true" }
 attributes #3 = { mustprogress nofree nosync nounwind willreturn memory(argmem: read) "approx-func-fp-math"="true" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="av2hs" "target-features"="+av2hs,+bs,+cd,+divrem,+fpu-mac,+fpud,+fpud-div,+fpus-div,+ll64,+mpy,+mpy16,+norm,+sa,+swap,+vdsp,+vdsp512gb0,+vdsp_vector_c,+vfpu2" "unsafe-fp-math"="true" }
-attributes #4 = { mustprogress nofree norecurse nosync nounwind willreturn memory(none) "approx-func-fp-math"="true" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="av2hs" "target-features"="+av2hs,+bs,+cd,+divrem,+fpu-mac,+fpud,+fpud-div,+fpus-div,+ll64,+mpy,+mpy16,+norm,+sa,+swap,+vdsp,+vdsp512gb0,+vdsp_vector_c,+vfpu2" "unsafe-fp-math"="true" }
-attributes #5 = { nofree nounwind }
-attributes #6 = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
+attributes #4 = { mustprogress nofree nosync nounwind willreturn memory(read) "approx-func-fp-math"="true" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="av2hs" "target-features"="+av2hs,+bs,+cd,+divrem,+fpu-mac,+fpud,+fpud-div,+fpus-div,+ll64,+mpy,+mpy16,+norm,+sa,+swap,+vdsp,+vdsp512gb0,+vdsp_vector_c,+vfpu2" "unsafe-fp-math"="true" }
+attributes #5 = { mustprogress nofree norecurse nosync nounwind willreturn memory(none) "approx-func-fp-math"="true" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="av2hs" "target-features"="+av2hs,+bs,+cd,+divrem,+fpu-mac,+fpud,+fpud-div,+fpus-div,+ll64,+mpy,+mpy16,+norm,+sa,+swap,+vdsp,+vdsp512gb0,+vdsp_vector_c,+vfpu2" "unsafe-fp-math"="true" }
+attributes #6 = { mustprogress nocallback nofree nosync nounwind willreturn memory(none) }
+attributes #7 = { mustprogress nocallback nofree nosync nounwind willreturn memory(read) }
+attributes #8 = { nofree nounwind }
+attributes #9 = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
 
 !llvm.module.flags = !{!0, !1}
 !llvm.ident = !{!2}
@@ -967,7 +1275,13 @@ attributes #6 = { nocallback nofree nosync nounwind speculatable willreturn memo
 !36 = !{!"llvm.loop.vectorize.followup_all", !37}
 !37 = distinct !{!37, !8, !33}
 !38 = distinct !{!38, !32, !10}
-!39 = distinct !{!39, !8, !10, !9}
+!39 = distinct !{!39, !8}
 !40 = distinct !{!40, !8}
-!41 = distinct !{!41, !8, !9, !10}
-!42 = distinct !{!42, !8, !9, !10}
+!41 = distinct !{!41, !8, !10, !9}
+!42 = distinct !{!42, !8}
+!43 = distinct !{!43, !8, !9, !10}
+!44 = distinct !{!44, !8, !9, !10}
+!45 = distinct !{!45, !8, !10, !9}
+!46 = distinct !{!46, !8}
+!47 = distinct !{!47, !8, !9, !10}
+!48 = distinct !{!48, !8, !9, !10}

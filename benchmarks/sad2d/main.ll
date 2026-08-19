@@ -3,8 +3,8 @@ source_filename = "main.c"
 target datalayout = "e-m:e-p:32:32-p1:32:32-p3:32:32-p5:32:32-i64:32-f64:32-v64:32-v128:32-a:0:32-v256:32-v512:32-n8:16:32"
 target triple = "arc-pc-unknown-gnu"
 
-@input1 = addrspace(4) global [16384 x i32] zeroinitializer, align 4
-@input2 = addrspace(4) global [16384 x i32] zeroinitializer, align 4
+@input1 = addrspace(4) global [12544 x i32] zeroinitializer, align 4
+@input2 = addrspace(4) global [12544 x i32] zeroinitializer, align 4
 @.str = private unnamed_addr constant [29 x i8] c"Tempo di esecuzione: %.2fms\0A\00", align 1
 @.str.1 = private unnamed_addr constant [9 x i8] c"res: %d\0A\00", align 1
 @.str.3 = private unnamed_addr constant [23 x i8] c"Vettorizzo su %d lane\0A\00", align 1
@@ -18,10 +18,10 @@ target triple = "arc-pc-unknown-gnu"
 ; Function Attrs: nounwind
 define dso_local i32 @main() local_unnamed_addr #0 {
 entry:
-  tail call void @init_matrix(ptr noundef addrspacecast (ptr addrspace(4) @input1 to ptr), i32 noundef 128, i32 noundef 128, i32 noundef 1) #4
-  tail call void @init_matrix(ptr noundef addrspacecast (ptr addrspace(4) @input2 to ptr), i32 noundef 128, i32 noundef 128, i32 noundef 2) #4
+  tail call void @init_matrix(ptr noundef addrspacecast (ptr addrspace(4) @input1 to ptr), i32 noundef 112, i32 noundef 112, i32 noundef 1) #4
+  tail call void @init_matrix(ptr noundef addrspacecast (ptr addrspace(4) @input2 to ptr), i32 noundef 112, i32 noundef 112, i32 noundef 2) #4
   %call = tail call i32 @clock() #4
-  %call1 = tail call i32 @sad2d(i32 noundef 128, i32 noundef 128, ptr noundef addrspacecast (ptr addrspace(4) @input1 to ptr), ptr noundef addrspacecast (ptr addrspace(4) @input2 to ptr)) #4
+  %call1 = tail call i32 @sad2d(i32 noundef 112, i32 noundef 112, ptr noundef addrspacecast (ptr addrspace(4) @input1 to ptr), ptr noundef addrspacecast (ptr addrspace(4) @input2 to ptr)) #4
   %call2 = tail call i32 @clock() #4
   %sub = sub nsw i32 %call2, %call
   %conv = sitofp i32 %sub to double
@@ -34,7 +34,7 @@ entry:
   %putchar = tail call i32 @putchar(i32 10)
   %call8 = tail call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.3, i32 noundef 16)
   %call9 = tail call i32 @clock() #4
-  %call10 = tail call i32 @vectorized_sad2d(i32 noundef 128, i32 noundef 128, ptr addrspace(4) noundef @input1, ptr addrspace(4) noundef @input2) #4
+  %call10 = tail call i32 @vectorized_sad2d(i32 noundef 112, i32 noundef 112, ptr addrspace(4) noundef @input1, ptr addrspace(4) noundef @input2) #4
   %call11 = tail call i32 @clock() #4
   %sub12 = sub nsw i32 %call11, %call9
   %conv13 = sitofp i32 %sub12 to double
@@ -49,7 +49,7 @@ entry:
   %putchar68 = tail call i32 @putchar(i32 10)
   %puts = tail call i32 @puts(ptr nonnull dereferenceable(1) @str)
   %call24 = tail call i32 @clock() #4
-  %call25 = tail call i32 @autovectorized_sad2d(i32 noundef 128, i32 noundef 128, ptr addrspace(4) noundef @input1, ptr addrspace(4) noundef @input2) #4
+  %call25 = tail call i32 @autovectorized_sad2d(i32 noundef 112, i32 noundef 112, ptr addrspace(4) noundef @input1, ptr addrspace(4) noundef @input2) #4
   %call26 = tail call i32 @clock() #4
   %sub27 = sub nsw i32 %call26, %call24
   %conv28 = sitofp i32 %sub27 to double
@@ -64,7 +64,7 @@ entry:
   %putchar69 = tail call i32 @putchar(i32 10)
   %puts70 = tail call i32 @puts(ptr nonnull dereferenceable(1) @str.10)
   %call39 = tail call i32 @clock() #4
-  %call40 = tail call i32 @vekt_sad2d_wrapper(i32 noundef 128, i32 noundef 128, ptr noundef addrspacecast (ptr addrspace(4) @input1 to ptr), ptr noundef addrspacecast (ptr addrspace(4) @input2 to ptr)) #4
+  %call40 = tail call i32 @vekt_sad2d_wrapper(i32 noundef 112, i32 noundef 112, ptr noundef addrspacecast (ptr addrspace(4) @input1 to ptr), ptr noundef addrspacecast (ptr addrspace(4) @input2 to ptr)) #4
   %call41 = tail call i32 @clock() #4
   %sub42 = sub nsw i32 %call41, %call39
   %conv43 = sitofp i32 %sub42 to double

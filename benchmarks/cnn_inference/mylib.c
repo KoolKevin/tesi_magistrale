@@ -46,8 +46,42 @@ void print_matrix(int* A, int M, int N) {
     printf("]\n");
 }
 
+
+void elementwise_sum(int M, int N, __vccm int* restrict A, __vccm int* restrict B) {
+    for (int i = 0; i < M; i++) {
+        for (int j = 0; j < N; j++) {
+            A[i*N + j] = A[i*N + j] + B[i*N + j];
+        }
+    }
+}
+
+void elementwise_sum_scalar(int M, int N, __vccm int* restrict A, int B) {
+    for (int i = 0; i < M; i++) {
+        for (int j = 0; j < N; j++) {
+            A[i*N + j] = A[i*N + j] + B;
+        }
+    }
+}
+
+int reduce_vector_max(int N, __vccm int* restrict A) {
+    int acc = -1;
+    for (int i = 0; i < N; i++) {
+        acc = max(acc, A[i]);
+    }
+
+    return acc;
+}
+
+void elementwise_max_scalar(int M, int N, __vccm int* restrict A, int B) {
+    for (int i = 0; i < M; i++) {
+        for (int j = 0; j < N; j++) {
+            A[i*N + j] = max(A[i*N + j], B);
+        }
+    }
+}
+
 void conv2d(int rows_out, int cols_out, int rows_in, int cols_in, int K,
-           int* output, int* input, int* kernel) {
+           __vccm int* restrict output, __vccm int* restrict input, __vccm int* restrict kernel) {
 
     for (int i = 0; i < rows_out; i++) {
         for (int j = 0; j < cols_out; j++) {
@@ -73,7 +107,7 @@ void vekt_conv2d_wrapper(int rows_out, int cols_out, int rows_in, int cols_in, i
     return;
 }
 
-void matmul(int M, int N, int K, int *A, int *B, int *C) {
+void matmul(int M, int N, int K, __vccm int* restrict A, __vccm int* restrict B, __vccm int* restrict C) {
     for (int i = 0; i < M; i++) {
         for (int j = 0; j < N; j++) {
             for (int k = 0; k < K; k++) {
@@ -93,7 +127,7 @@ void vekt_matmul_wrapper(int M, int N, int K, int* a, int* b, int* c) {
 }
 
 void max_pooling(int rows_out, int cols_out, int rows_in, int cols_in, int W,
-                 int *output, int *input) {
+                 __vccm int* restrict output, __vccm int* restrict input) {
 
   for (int i = 0; i < rows_out; i++) {
     for (int j = 0; j < cols_out; j++) {
