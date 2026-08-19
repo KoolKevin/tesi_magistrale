@@ -954,7 +954,12 @@ struct ConvertAffineLoopNestToLinalgGeneric
   LogicalResult matchAndRewrite(affine::AffineForOp op,
                                 PatternRewriter &rewriter) const override {
 
-    // voglio matchare solo con top-level loops
+    // TODO: per semplicità matcho solo outer-most loops. Questo è limitante
+    // se un pattern si trova a sua volta dentro a dei loop (e.g. calcolo della
+    // disparità da una coppia di immagini stereo tramite un for che scorre una
+    // riga di pixel e applica una SAD (pattern) ad ogni posizione).
+    // Dovrei poter matchare anche loop interni per trovare più pattern
+    // possibile, magari iterando
     if (op->getParentOfType<affine::AffineForOp>())
       return failure();
 
