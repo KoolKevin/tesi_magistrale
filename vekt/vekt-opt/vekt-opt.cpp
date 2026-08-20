@@ -136,7 +136,6 @@ int main(int argc, char **argv) {
         pm.addPass(mlir::createMem2Reg());
         pm.addPass(mlir::createSCCPPass());
         pm.addPass(mlir::createCSEPass());
-        pm.addPass(mlir::createSymbolDCEPass());
       });
 
   // NB: Qua sotto aggiungiamo dei dialetti ad un DialectRegistry in maniera
