@@ -124,13 +124,13 @@ omp_loop.body:                                    ; preds = %omp_loop.cond
   br label %omp.wsloop.region
 
 omp.wsloop.region:                                ; preds = %omp_loop.body
-  %20 = getelementptr double, ptr %loadgep_, i64 %19
-  %21 = getelementptr double, ptr %loadgep_2, i64 %19
-  %22 = getelementptr double, ptr %loadgep_4, i64 %19
-  %23 = load double, ptr %20, align 8
-  %24 = load double, ptr %21, align 8
-  %25 = fadd double %23, %24
-  store double %25, ptr %22, align 8
+  %20 = getelementptr i8, ptr %loadgep_, i64 %19
+  %21 = getelementptr i8, ptr %loadgep_2, i64 %19
+  %22 = getelementptr i8, ptr %loadgep_4, i64 %19
+  %23 = load i8, ptr %20, align 1
+  %24 = load i8, ptr %21, align 1
+  %25 = add i8 %23, %24
+  store i8 %25, ptr %22, align 1
   br label %omp.region.cont3
 
 omp.region.cont3:                                 ; preds = %omp.wsloop.region

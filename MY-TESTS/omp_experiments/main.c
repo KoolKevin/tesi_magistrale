@@ -2,16 +2,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define N 1024 * 1024 * 16
-#define NUM_THREADS 1
+#include <immintrin.h>
+#include <x86intrin.h>
 
-extern void vec_sum_omp(double *a, double *b, double *c, long n,
+#define N 1024 * 1024 * 16
+#define NUM_THREADS 8
+
+extern void vec_sum_omp(int8_t *a, int8_t *b, int8_t *c, long n,
                         int num_threads);
 
 int main() {
-  double *a = (double *)malloc(N * sizeof(double));
-  double *b = (double *)malloc(N * sizeof(double));
-  double *c = (double *)malloc(N * sizeof(double));
+  int8_t *a = (int8_t *)malloc(N * sizeof(int8_t));
+  int8_t *b = (int8_t *)malloc(N * sizeof(int8_t));
+  int8_t *c = (int8_t *)malloc(N * sizeof(int8_t));
 
   // Inizializzazione degli array con valori casuali
   for (int i = 0; i < N; i++) {
@@ -35,9 +38,12 @@ int main() {
   }
 
   start = __rdtsc();
-#pragma omp parallel for num_threads(NUM_THREADS)
-  for (int i = 0; i < N; i++) {
-    c[i] = a[i] + b[i];
+#pragma omp parallel for simd num_threads(NUM_THREADS)
+  for (int i = 0; i < N; i += 16) {
+    __m128i veca = _mm_load_si128((__m128i *)&a[i]);
+    __m128i vecb = _mm_load_si128((__m128i *)&b[i]);
+    __m128i vec_sum = _mm_add_epi8(veca, vecb);
+    _mm_store_si128((__m128i *)&c[i], vec_sum);
   }
   end = __rdtsc();
   uint64_t time_omp = end - start;
@@ -45,7 +51,7 @@ int main() {
   printf("speedup: %.2fx\n", (double)time_scalar / time_omp);
   printf("Primi 5 elementi della somma:\n");
   for (int i = 0; i < 5; i++) {
-    printf("a[%d]=%f, b[%d]=%f, c[%d]=%f\n", i, a[i], i, b[i], i, c[i]);
+    printf("a[%d]=%d, b[%d]=%d, c[%d]=%d\n", i, a[i], i, b[i], i, c[i]);
   }
   printf("\n");
 
@@ -62,7 +68,7 @@ int main() {
   printf("speedup: %.2fx\n", (double)time_scalar / time_omp_mlir);
   printf("Primi 5 elementi della somma:\n");
   for (int i = 0; i < 5; i++) {
-    printf("a[%d]=%f, b[%d]=%f, c[%d]=%f\n", i, a[i], i, b[i], i, c[i]);
+    printf("a[%d]=%d, b[%d]=%d, c[%d]=%d\n", i, a[i], i, b[i], i, c[i]);
   }
   printf("\n");
 
