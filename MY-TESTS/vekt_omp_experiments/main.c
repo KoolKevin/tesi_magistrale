@@ -1,12 +1,12 @@
+#include </usr/lib/llvm-21/lib/clang/21/include/omp.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
 
 #include <immintrin.h>
 #include <x86intrin.h>
 
 #define N 1024 * 1024 * 16
-// #define NUM_THREADS 8
+#define NUM_THREADS 8
 
 extern void vekt_vec_sum(int *a_alloc, int *a_align, int64_t a_offset,
                          int64_t a_size, int a_stride, int *b_alloc,
@@ -20,6 +20,8 @@ void vekt_vec_sum_wrapper(int *a, int *b, int *c, int n) {
 }
 
 int main() {
+  omp_set_num_threads(NUM_THREADS);
+
   int *a = (int *)_mm_malloc(N * sizeof(int), 16);
   int *b = (int *)_mm_malloc(N * sizeof(int), 16);
   int *c = (int *)_mm_malloc(N * sizeof(int), 16);
