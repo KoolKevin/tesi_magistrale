@@ -1,4 +1,4 @@
-// RUN: vekt-opt -vekt16 %s | FileCheck %s
+// RUN: vekt-opt -vekt-codegen %s | FileCheck %s
 
 func.func @test_index_lowering(%arg0: index, %arg1: index) -> index {
     %res = index.add %arg0, %arg1
