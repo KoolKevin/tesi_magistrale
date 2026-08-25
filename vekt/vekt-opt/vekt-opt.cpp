@@ -19,14 +19,17 @@
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 
+// my stuff
 #include "ppu/PPUDialect.h"
 #include "ppu/PPUPasses.h"
+#include "vector-omp/VectorOMPPasses.h"
 
 int main(int argc, char **argv) {
   // Registra i passi nel pass-registry globale in maniera tale da renderli
   // disponibili al tool
   mlir::registerAllPasses();
   mlir::ppu::registerPasses();
+  mlir::vector_omp::registerPasses();
 
   mlir::PassPipelineRegistration<>(
       "vekt", "naive vectorization", [](mlir::OpPassManager &pm) {
