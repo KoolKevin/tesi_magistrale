@@ -56,14 +56,14 @@ struct ConvertLinalgAdd : public OpRewritePattern<mlir::linalg::AddOp> {
     mlir::Value rhs = op.getInputs()[1];
     mlir::Value out = op.getOutputs()[0];
 
-    // // recuperiamo vari tipi e il numero di lane considerando il tipo degli
-    // // operandi
-    // Type elemTy = mlir::cast<MemRefType>(lhs.getType()).getElementType();
-    // if (!elemTy.isIntOrFloat())
-    //   return rewriter.notifyMatchFailure(
-    //       op, "tipo elemento non supportato per vettorizzazione");
-    // unsigned bitWidth = elemTy.getIntOrFloatBitWidth();
-    // int numLanes = vectorRegisterBits / bitWidth;
+    // recuperiamo vari tipi e il numero di lane considerando il tipo degli
+    // operandi
+    Type elemTy = mlir::cast<MemRefType>(lhs.getType()).getElementType();
+    if (!elemTy.isIntOrFloat())
+      return rewriter.notifyMatchFailure(
+          op, "tipo elemento non supportato per vettorizzazione");
+    unsigned bitWidth = elemTy.getIntOrFloatBitWidth();
+    int numLanes = vectorRegisterBits / bitWidth;
     // auto vecTy = mlir::VectorType::get({numLanes}, elemTy);
 
     // Estrazione dei limiti del ciclo dal range
@@ -86,7 +86,7 @@ struct ConvertLinalgAdd : public OpRewritePattern<mlir::linalg::AddOp> {
     rewriter.createBlock(&wsloopOp.getRegion());
 
     omp::SimdOperands clauses;
-    // clauses.simdlen = numLanes; // vuole un IntegerAttr
+    clauses.simdlen = rewriter.getI64IntegerAttr(numLanes);
     auto simdOp = rewriter.create<mlir::omp::SimdOp>(loc, clauses);
     simdOp.setComposite(true);
     rewriter.createBlock(&simdOp.getRegion());
@@ -107,8 +107,6 @@ struct ConvertLinalgAdd : public OpRewritePattern<mlir::linalg::AddOp> {
     mlir::Value valB = rewriter.create<mlir::memref::LoadOp>(loc, rhs, iv);
     // Gestione tipo di somma (Float vs Int)
     mlir::Value sum;
-    mlir::Type elemTy =
-        mlir::cast<mlir::MemRefType>(lhs.getType()).getElementType();
     if (mlir::isa<mlir::FloatType>(elemTy)) {
       sum = rewriter.create<mlir::arith::AddFOp>(loc, valA, valB);
     } else {
