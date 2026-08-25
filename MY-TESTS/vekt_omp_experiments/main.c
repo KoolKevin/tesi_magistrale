@@ -7,6 +7,8 @@
 
 #define N 1024 * 1024 * 16
 #define NUM_THREADS 8
+#define NUM_LANES_INT 8
+#define VECTOR_SIZE_BYTES 32 // 256bit
 
 extern void vekt_vec_sum(int *a_alloc, int *a_align, int64_t a_offset,
                          int64_t a_size, int a_stride, int *b_alloc,
@@ -19,12 +21,17 @@ void vekt_vec_sum_wrapper(int *a, int *b, int *c, int n) {
   vekt_vec_sum(a, a, 0, n, 1, b, b, 0, n, 1, c, c, 0, n, 1, n);
 }
 
-int main() {
+int main(int argc, char **argv) {
+  if (argc != 2) {
+    return -1;
+  }
+  int scelta = atoi(argv[1]);
+
   omp_set_num_threads(NUM_THREADS);
 
-  int *a = (int *)_mm_malloc(N * sizeof(int), 16);
-  int *b = (int *)_mm_malloc(N * sizeof(int), 16);
-  int *c = (int *)_mm_malloc(N * sizeof(int), 16);
+  int *a = (int *)_mm_malloc(N * sizeof(int), VECTOR_SIZE_BYTES);
+  int *b = (int *)_mm_malloc(N * sizeof(int), VECTOR_SIZE_BYTES);
+  int *c = (int *)_mm_malloc(N * sizeof(int), VECTOR_SIZE_BYTES);
 
   // Inizializzazione degli array con valori casuali
   for (int i = 0; i < N; i++) {
@@ -33,54 +40,117 @@ int main() {
     c[i] = -1;
   }
 
-  uint64_t start = __rdtsc();
+  uint64_t start;
+  uint64_t end;
+
+  //   /***** versione sequenziale *****/
+
+  start = __rdtsc();
+#pragma clang loop vectorize(disable)
   for (int i = 0; i < N; i++) {
     c[i] = a[i] + b[i];
   }
-  uint64_t end = __rdtsc();
+  end = __rdtsc();
   uint64_t time_scalar = end - start;
   printf("Tempo di esecuzione di vec_sum: %lu clock\n", time_scalar);
   printf("\n");
 
-  // versione omp
-  for (int i = 0; i < N; i++) {
-    c[i] = -1;
-  }
+  switch (scelta) {
 
-  start = __rdtsc();
-#pragma omp parallel for simd // num_threads(NUM_THREADS)
-  for (int i = 0; i < N; i += 4) {
-    __m128i veca = _mm_load_si128((__m128i *)&a[i]);
-    __m128i vecb = _mm_load_si128((__m128i *)&b[i]);
-    __m128i vec_sum = _mm_add_epi32(veca, vecb);
-    _mm_store_si128((__m128i *)&c[i], vec_sum);
-  }
-  end = __rdtsc();
-  uint64_t time_omp = end - start;
-  printf("Tempo di esecuzione di vec_sum_omp: %lu clock\n", time_omp);
-  printf("speedup: %.2fx\n", (double)time_scalar / time_omp);
-  printf("Primi 5 elementi della somma:\n");
-  for (int i = 0; i < 5; i++) {
-    printf("a[%d]=%d, b[%d]=%d, c[%d]=%d\n", i, a[i], i, b[i], i, c[i]);
-  }
-  printf("\n");
+  case 1: {
+    /***** versione AVX *****/
 
-  // versione omp-mlir
-  for (int i = 0; i < N; i++) {
-    c[i] = -1;
-  }
+    for (int i = 0; i < N; i++) {
+      c[i] = -1;
+    }
 
-  start = __rdtsc();
-  vekt_vec_sum_wrapper(a, b, c, N);
-  end = __rdtsc();
-  uint64_t time_omp_mlir = end - start;
-  printf("Tempo di esecuzione di vec_sum_omp_mlir: %lu clock\n", time_omp_mlir);
-  printf("speedup: %.2fx\n", (double)time_scalar / time_omp_mlir);
-  printf("Primi 5 elementi della somma:\n");
-  for (int i = 0; i < 5; i++) {
-    printf("a[%d]=%d, b[%d]=%d, c[%d]=%d\n", i, a[i], i, b[i], i, c[i]);
+    start = __rdtsc();
+    for (int i = 0; i < N; i += NUM_LANES_INT) {
+      __m256i veca = _mm256_load_si256((__m256i *)&a[i]);
+      __m256i vecb = _mm256_load_si256((__m256i *)&b[i]);
+      __m256i vec_sum = _mm256_add_epi32(veca, vecb);
+      _mm256_store_si256((__m256i *)&c[i], vec_sum);
+    }
+    end = __rdtsc();
+    uint64_t time_avx = end - start;
+    printf("clock avx: %lu clock\n", time_avx);
+    printf("speedup: %.2fx\n", (double)time_scalar / time_avx);
+    printf("Primi 5 elementi della somma:\n");
+    for (int i = 0; i < 5; i++) {
+      printf("a[%d]=%d, b[%d]=%d, c[%d]=%d\n", i, a[i], i, b[i], i, c[i]);
+    }
+    printf("\n");
+  } // break;
+
+  case 2: {
+    /***** versione omp *****/
+
+    for (int i = 0; i < N; i++) {
+      c[i] = -1;
+    }
+
+    start = __rdtsc();
+#pragma omp parallel for
+    for (int i = 0; i < N; i++) {
+      c[i] = a[i] + b[i];
+    }
+    end = __rdtsc();
+    uint64_t time_omp = end - start;
+    printf("clock omp: %lu clock\n", time_omp);
+    printf("speedup: %.2fx\n", (double)time_scalar / time_omp);
+    printf("Primi 5 elementi della somma:\n");
+    for (int i = 0; i < 5; i++) {
+      printf("a[%d]=%d, b[%d]=%d, c[%d]=%d\n", i, a[i], i, b[i], i, c[i]);
+    }
+    printf("\n");
+  } // break;
+
+  case 3: {
+    /***** versione AVX + omp *****/
+
+    for (int i = 0; i < N; i++) {
+      c[i] = -1;
+    }
+
+    start = __rdtsc();
+#pragma omp parallel for
+    for (int i = 0; i < N; i += NUM_LANES_INT) {
+      __m256i veca = _mm256_load_si256((__m256i *)&a[i]);
+      __m256i vecb = _mm256_load_si256((__m256i *)&b[i]);
+      __m256i vec_sum = _mm256_add_epi32(veca, vecb);
+      _mm256_store_si256((__m256i *)&c[i], vec_sum);
+    }
+    end = __rdtsc();
+    uint64_t time_avx_omp = end - start;
+    printf("clock avx-omp: %lu clock\n", time_avx_omp);
+    printf("speedup: %.2fx\n", (double)time_scalar / time_avx_omp);
+    printf("Primi 5 elementi della somma:\n");
+    for (int i = 0; i < 5; i++) {
+      printf("a[%d]=%d, b[%d]=%d, c[%d]=%d\n", i, a[i], i, b[i], i, c[i]);
+    }
+    printf("\n");
+  } // break;
+
+  case 4: {
+    /***** versione vekt *****/
+
+    for (int i = 0; i < N; i++) {
+      c[i] = -1;
+    }
+
+    start = __rdtsc();
+    vekt_vec_sum_wrapper(a, b, c, N);
+    end = __rdtsc();
+    uint64_t time_vekt = end - start;
+    printf("clock vekt: %lu clock\n", time_vekt);
+    printf("speedup: %.2fx\n", (double)time_scalar / time_vekt);
+    printf("Primi 5 elementi della somma:\n");
+    for (int i = 0; i < 5; i++) {
+      printf("a[%d]=%d, b[%d]=%d, c[%d]=%d\n", i, a[i], i, b[i], i, c[i]);
+    }
+    printf("\n");
+  } // break;
   }
-  printf("\n");
 
   return 0;
 }
