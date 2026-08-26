@@ -63,8 +63,8 @@
 **NB**: autovettorizzatore vettorizza solo se N==1, altrimenti esegue in maniera scalare
 
 **NB**: la versione autovettorizzata è leggermente più veloce rispetto alla versione sequenziale a causa del qualificatore restrict
-    - in particolare grazie a quel restrict riesce a spostare la store di C dentro al loop K fuori da quest'ultimo
-    - senza restrict la versione autovettorizzata ha uno speedup di 0.96x
+    - in particolare grazie a quel restrict riesce a spostare la store di C fuori dal loop k
+    - **senza restrict la versione autovettorizzata ha uno speedup di 0.96x**
     - più lenta dato che deve fare i runtime check che governano i percorsi vettorizzati
 - con -O1 la store non viene spostata e la versione autovettorizzata ha uno speedup di 0.99
 - se aggiungo restrict alla versione sequenziale, le performance paradossalmente peggiorano. Viene applicato dell'unrolling che complica l'ir e conseguenze varie ...
@@ -93,6 +93,7 @@
 | Autovettorizzata    | 209.31ms |   1.30× |
 | Vekt-vettorizzata   |  52.93ms |   5.14× |
 
+nota: come nel caso senza remainder iterations anche qui lo speedup della versione autovettorizzata è dovuto a restrict
 
 # Conv1d
 
