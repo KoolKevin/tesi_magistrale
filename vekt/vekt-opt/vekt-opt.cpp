@@ -1,3 +1,4 @@
+#include "mlir/Conversion/OpenMPToLLVM/ConvertOpenMPToLLVM.h"
 #include "mlir/Dialect/Affine/Passes.h"
 #include "mlir/Dialect/Linalg/Passes.h"
 #include "mlir/IR/MLIRContext.h"
@@ -19,14 +20,17 @@
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 
+// my stuff
 #include "ppu/PPUDialect.h"
 #include "ppu/PPUPasses.h"
+#include "vector-omp/VectorOMPPasses.h"
 
 int main(int argc, char **argv) {
   // Registra i passi nel pass-registry globale in maniera tale da renderli
   // disponibili al tool
   mlir::registerAllPasses();
   mlir::ppu::registerPasses();
+  mlir::vector_omp::registerPasses();
 
   mlir::PassPipelineRegistration<>(
       "vekt", "naive vectorization", [](mlir::OpPassManager &pm) {
@@ -136,7 +140,65 @@ int main(int argc, char **argv) {
         pm.addPass(mlir::createMem2Reg());
         pm.addPass(mlir::createSCCPPass());
         pm.addPass(mlir::createCSEPass());
-        pm.addPass(mlir::createSymbolDCEPass());
+      });
+
+  mlir::PassPipelineRegistration<>(
+      "vekt-omp", "omp parallelization and vectorization of patterns",
+      [](mlir::OpPassManager &pm) {
+        pm.addPass(mlir::createCanonicalizerPass());
+
+        pm.addPass(mlir::ppu::createPPUNormalizeIterargsReductions());
+        pm.addPass(mlir::ppu::createPPURaiseAffineToLinalgGeneric());
+        // NB: questo fa schifo e quindi lo devo complementare con il mio passo
+        pm.addPass(mlir::createLinalgSpecializeGenericOpsPass());
+        pm.addPass(mlir::ppu::createPPUSpecializeLinalgGeneric());
+        pm.addPass(mlir::ppu::createPPUSpecializeAffineNests());
+
+        // TODO: evetuali ottimizzazioni al livello di linalg
+        // pm.addPass(mlir::createCanonicalizerPass());
+
+        pm.addPass(mlir::vector_omp::createConvertLinalgToVectorOMPAlgorithm());
+        // cleanup intermedio importante dato che introduco costanti e
+        // load/store ridondanti sopra
+        pm.addPass(mlir::createCanonicalizerPass());
+      });
+
+  mlir::PassPipelineRegistration<>(
+      "vekt-omp-codegen", "omp parallelization and vectorization of patterns",
+      [](mlir::OpPassManager &pm) {
+        pm.addPass(mlir::createCanonicalizerPass());
+
+        pm.addPass(mlir::ppu::createPPUNormalizeIterargsReductions());
+        pm.addPass(mlir::ppu::createPPURaiseAffineToLinalgGeneric());
+        // NB: questo fa schifo e quindi lo devo complementare con il mio passo
+        pm.addPass(mlir::createLinalgSpecializeGenericOpsPass());
+        pm.addPass(mlir::ppu::createPPUSpecializeLinalgGeneric());
+        pm.addPass(mlir::ppu::createPPUSpecializeAffineNests());
+
+        // TODO: evetuali ottimizzazioni al livello di linalg
+        // pm.addPass(mlir::createCanonicalizerPass());
+
+        pm.addPass(mlir::vector_omp::createConvertLinalgToVectorOMPAlgorithm());
+        // cleanup intermedio importante dato che introduco costanti e
+        // load/store ridondanti sopra
+        pm.addPass(mlir::createCanonicalizerPass());
+
+        // TODO: eventuali ottimizzazioin al livello di omp+vector
+
+        // loweriamo ad llvm: sembra che basti convert-openmp-to-llvm
+        // -> "Convert the OpenMP ops to OpenMP ops with LLVM dialect"
+        //
+        // pm.addPass(
+        //     mlir::createConvertVectorToLLVMPass()); // serve per broadcast
+        // pm.addPass(mlir::ppu::createPPULowerToLLVM());
+        pm.addPass(mlir::createConvertOpenMPToLLVMPass());
+
+        // cleanup finale
+        pm.addPass(mlir::createCanonicalizerPass());
+        pm.addPass(mlir::createLoopInvariantCodeMotionPass());
+        pm.addPass(mlir::createMem2Reg());
+        pm.addPass(mlir::createSCCPPass());
+        pm.addPass(mlir::createCSEPass());
       });
 
   // NB: Qua sotto aggiungiamo dei dialetti ad un DialectRegistry in maniera
