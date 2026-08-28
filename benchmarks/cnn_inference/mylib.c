@@ -7,127 +7,122 @@ void init_matrix(int *a, int M, int N, int value) {
   }
 }
 
-void check_result(int* A, int* B, int M, int N) {
-    for(int i = 0; i < M; i++) {
-        for(int j = 0; j < N; j++) {
-            if (A[i*N + j] != B[i*N + j]) {
-                printf("ERRORE! Le matrici non corrispondono!\n");
-                printf("\tElemento (%d, %d) di A = %d mentre B = %d\n", 
-                    i, j, A[i*N + j], B[i*N + j]);
-                return;
-            }
-        }
+void check_result(int *A, int *B, int M, int N) {
+  for (int i = 0; i < M; i++) {
+    for (int j = 0; j < N; j++) {
+      if (A[i * N + j] != B[i * N + j]) {
+        printf("ERRORE! Le matrici non corrispondono!\n");
+        printf("\tElemento (%d, %d) di A = %d mentre B = %d\n", i, j,
+               A[i * N + j], B[i * N + j]);
+        return;
+      }
     }
+  }
 
-    printf("SUCCESSO! Le matrici sono uguali\n");
+  printf("SUCCESSO! Le matrici sono uguali\n");
 }
 
-int* copy_matrix(int* dst, int* src, int M, int N) {
-    for(int i = 0; i < M; i++) {
-        for(int j = 0; j < N; j++) {
-            dst[i*N + j] = src[i*N + j];
-        }
+int *copy_matrix(int *dst, int *src, int M, int N) {
+  for (int i = 0; i < M; i++) {
+    for (int j = 0; j < N; j++) {
+      dst[i * N + j] = src[i * N + j];
     }
-    return dst;
+  }
+  return dst;
 }
 
-void print_matrix(int* A, int M, int N) {
-    printf("[\n");
-    for(int i = 0; i < M; i++) {
-        printf("\t[");
-        for(int j = 0; j < N; j++) {
-            if (j == N-1)
-                printf("%d", A[i*N + j]); 
-            else
-                printf("%d,", A[i*N + j]); 
-        }
-        printf("],\n");
+void print_matrix(int *A, int M, int N) {
+  printf("[\n");
+  for (int i = 0; i < M; i++) {
+    printf("\t[");
+    for (int j = 0; j < N; j++) {
+      if (j == N - 1)
+        printf("%d", A[i * N + j]);
+      else
+        printf("%d,", A[i * N + j]);
     }
-    printf("]\n");
+    printf("],\n");
+  }
+  printf("]\n");
 }
 
-
-void elementwise_sum(int M, int N, __vccm int* restrict A, __vccm int* restrict B) {
-    for (int i = 0; i < M; i++) {
-        for (int j = 0; j < N; j++) {
-            A[i*N + j] = A[i*N + j] + B[i*N + j];
-        }
+void elementwise_sum(int M, int N, __vccm int *restrict A,
+                     __vccm int *restrict B) {
+  for (int i = 0; i < M; i++) {
+    for (int j = 0; j < N; j++) {
+      A[i * N + j] = A[i * N + j] + B[i * N + j];
     }
+  }
 }
 
-void elementwise_sum_scalar(int M, int N, __vccm int* restrict A, int B) {
-    for (int i = 0; i < M; i++) {
-        for (int j = 0; j < N; j++) {
-            A[i*N + j] = A[i*N + j] + B;
-        }
+void elementwise_sum_scalar(int M, int N, __vccm int *restrict A, int B) {
+  for (int i = 0; i < M; i++) {
+    for (int j = 0; j < N; j++) {
+      A[i * N + j] = A[i * N + j] + B;
     }
+  }
 }
 
-int reduce_vector_max(int N, __vccm int* restrict A) {
-    int acc = -1;
-    for (int i = 0; i < N; i++) {
-        acc = max(acc, A[i]);
-    }
+int reduce_vector_max(int N, __vccm int *restrict A) {
+  int acc = -1;
+  for (int i = 0; i < N; i++) {
+    acc = max(acc, A[i]);
+  }
 
-    return acc;
+  return acc;
 }
 
-void elementwise_max_scalar(int M, int N, __vccm int* restrict A, int B) {
-    for (int i = 0; i < M; i++) {
-        for (int j = 0; j < N; j++) {
-            A[i*N + j] = max(A[i*N + j], B);
-        }
+void elementwise_max_scalar(int M, int N, __vccm int *restrict A, int B) {
+  for (int i = 0; i < M; i++) {
+    for (int j = 0; j < N; j++) {
+      A[i * N + j] = max(A[i * N + j], B);
     }
+  }
 }
 
 void conv2d(int rows_out, int cols_out, int rows_in, int cols_in, int K,
-           __vccm int* restrict output, __vccm int* restrict input, __vccm int* restrict kernel) {
+            __vccm int *restrict output, __vccm int *restrict input,
+            __vccm int *restrict kernel) {
 
-    for (int i = 0; i < rows_out; i++) {
-        for (int j = 0; j < cols_out; j++) {
-            for (int k_i = 0; k_i < K; k_i++) {
-                for (int k_j = 0; k_j < K; k_j++) {
-                    output[i*cols_out + j] +=
-                        input[(i+k_i)*cols_in + (j+k_j)] * kernel[k_i*K + k_j];
-                }
-            }
+  for (int i = 0; i < rows_out; i++) {
+    for (int j = 0; j < cols_out; j++) {
+      for (int k_i = 0; k_i < K; k_i++) {
+        for (int k_j = 0; k_j < K; k_j++) {
+          output[i * cols_out + j] +=
+              input[(i + k_i) * cols_in + (j + k_j)] * kernel[k_i * K + k_j];
         }
+      }
     }
+  }
 }
 
-void vekt_conv2d_wrapper(int rows_out, int cols_out, int rows_in, int cols_in, int K,
-           int* output, int* input, int* kernel) {
-    vekt_conv2d(
-        rows_out, cols_out, rows_in, cols_in, K,
-        output, output, 0, rows_out, cols_out, cols_out, 1,
-        input, input, 0, rows_in, cols_in, cols_in, 1,
-        kernel, kernel, 0, K, K, K, 1
-    );
+void vekt_conv2d_wrapper(int rows_out, int cols_out, int rows_in, int cols_in,
+                         int K, int *output, int *input, int *kernel) {
+  vekt_conv2d(rows_out, cols_out, rows_in, cols_in, K, output, output, 0,
+              rows_out, cols_out, cols_out, 1, input, input, 0, rows_in,
+              cols_in, cols_in, 1, kernel, kernel, 0, K, K, K, 1);
 
-    return;
+  return;
 }
 
-void matmul(int M, int N, int K, __vccm int* restrict A, __vccm int* restrict B, __vccm int* restrict C) {
-    for (int i = 0; i < M; i++) {
-        for (int j = 0; j < N; j++) {
-            for (int k = 0; k < K; k++) {
-                C[i * N + j] += A[i * K + k] * B[k * N + j];
-            }
-        }
+void matmul(int M, int N, int K, __vccm int *restrict A, __vccm int *restrict B,
+            __vccm int *restrict C) {
+  for (int i = 0; i < M; i++) {
+    for (int j = 0; j < N; j++) {
+      for (int k = 0; k < K; k++) {
+        C[i * N + j] += A[i * K + k] * B[k * N + j];
+      }
     }
+  }
 }
 
-void vekt_matmul_wrapper(int M, int N, int K, int* a, int* b, int* c) {
-    vekt_matmul(
-        M, N, K,
-        a, a, 0, M, K, K, 1,
-        b, b, 0, K, N, N, 1,
-        c, c, 0, M, N, N, 1
-    );
+void vekt_matmul_wrapper(int M, int N, int K, int *a, int *b, int *c) {
+  vekt_matmul(M, N, K, a, a, 0, M, K, K, 1, b, b, 0, K, N, N, 1, c, c, 0, M, N,
+              N, 1);
 }
 
 void max_pooling(int rows_out, int cols_out, int rows_in, int cols_in, int W,
-                 __vccm int* restrict output, __vccm int* restrict input) {
+                 __vccm int *restrict output, __vccm int *restrict input) {
 
   for (int i = 0; i < rows_out; i++) {
     for (int j = 0; j < cols_out; j++) {
@@ -146,11 +141,124 @@ void max_pooling(int rows_out, int cols_out, int rows_in, int cols_in, int W,
 
 void vekt_max_pooling_wrapper(int rows_out, int cols_out, int rows_in,
                               int cols_in, int W, int *output, int *input) {
-  
-  vekt_max_pooling(
-      rows_out, cols_out, rows_in, cols_in, W,
-      output, output, 0, rows_out, cols_out, cols_out, 1,
-      input, input, 0, rows_in, cols_in, cols_in, 1
-  );
+
+  vekt_max_pooling(rows_out, cols_out, rows_in, cols_in, W, output, output, 0,
+                   rows_out, cols_out, cols_out, 1, input, input, 0, rows_in,
+                   cols_in, cols_in, 1);
 }
 
+/***** cnn espansa *****/
+
+// vekt_conv2d_wrapper(32, 32, 34, 34, 3, out_conv, in, conv_weights);
+// elementwise_sum_scalar(32, 32, out_conv, conv_bias[0]);
+// elementwise_max_scalar(32, 32, out_conv, 0); // ReLU
+
+// vekt_max_pooling_wrapper(16, 16, 32, 32, 2, out_pool, out_conv);
+
+// // fc layer
+// vekt_matmul_wrapper(1, 16, 256, out_pool, fc_weights, out_fc);
+// elementwise_sum(1, 16, out_fc, fc_bias);
+// elementwise_max_scalar(1, 16, out_fc, 0); // ReLU
+
+// classifier_result = reduce_vector_max(16, out_fc); // argmax
+
+// /* --------------------------------------------------------- */
+// /* vekt_conv2d(32, 32, 34, 34, 3, out_conv, in, conv_weights) */
+// /* --------------------------------------------------------- */
+
+// for (int i = 0; i < 32; i++) {
+//   for (int j = 0; j < 32; j++) {
+//     for (int k_i = 0; k_i < 3; k_i++) {
+//       for (int k_j = 0; k_j < 3; k_j++) {
+//         out_conv[i * 32 + j] +=
+//             in[(i + k_i) * 34 + (j + k_j)] * conv_weights[k_i * 3 + k_j];
+//       }
+//     }
+//   }
+// }
+
+// /* --------------------------------------------------------- */
+// /* elementwise_sum_scalar(32, 32, out_conv, conv_bias[0])    */
+// /* --------------------------------------------------------- */
+
+// for (int i = 0; i < 32; i++) {
+//   for (int j = 0; j < 32; j++) {
+//     out_conv[i * 32 + j] = out_conv[i * 32 + j] + conv_bias;
+//   }
+// }
+
+// /* --------------------------------------------------------- */
+// /* elementwise_max_scalar(32, 32, out_conv, 0)               */
+// /* ReLU                                                        */
+// /* --------------------------------------------------------- */
+
+// for (int i = 0; i < 32; i++) {
+//   for (int j = 0; j < 32; j++) {
+//     out_conv[i * 32 + j] = max(out_conv[i * 32 + j], 0);
+//   }
+// }
+
+// /* --------------------------------------------------------- */
+// /* vekt_max_pooling(16, 16, 32, 32, 2, out_pool, out_conv)   */
+// /* --------------------------------------------------------- */
+
+// for (int i = 0; i < 16; i++) {
+//   for (int j = 0; j < 16; j++) {
+
+//     int max_value = out_conv[(i * 2) * 32 + (j * 2)];
+//     for (int w_i = 0; w_i < 2; w_i++) {
+//       for (int w_j = 0; w_j < 2; w_j++) {
+//         max_value = max(out_conv[(i * 2 + w_i) * 32 + (j * 2 + w_j)],
+//         max_value))
+//       }
+//     }
+
+//     out_pool[i * 16 + j] = max_value;
+//   }
+// }
+
+// /* --------------------------------------------------------- */
+// /* vekt_matmul(1, 16, 256, out_pool, fc_weights, out_fc)     */
+// /* --------------------------------------------------------- */
+
+// for (int i = 0; i < 1; i++) {
+//   for (int j = 0; j < 16; j++) {
+//     for (int k = 0; k < 256; k++) {
+
+//       out_fc[i * 16 + j] += out_pool[i * 256 + k] * fc_weights[k * 16 + j];
+//     }
+//   }
+// }
+
+// /* --------------------------------------------------------- */
+// /* elementwise_sum(1, 16, out_fc, fc_bias)                   */
+// /* --------------------------------------------------------- */
+
+// for (int i = 0; i < 1; i++) {
+//   for (int j = 0; j < 16; j++) {
+//     out_fc[i * 16 + j] = out_fc[i * 16 + j] + fc_bias[i * 16 + j];
+//   }
+// }
+
+// /* --------------------------------------------------------- */
+// /* elementwise_max_scalar(1, 16, out_fc, 0)                  */
+// /* ReLU                                                        */
+// /* --------------------------------------------------------- */
+
+// for (int i = 0; i < 1; i++) {
+//   for (int j = 0; j < 16; j++) {
+//     out_fc[i * 16 + j] = max(out_fc[i * 16 + j], 0);
+//   }
+// }
+
+// /* --------------------------------------------------------- */
+// /* classifier_result = reduce_vector_max(16, out_fc)         */
+// /* --------------------------------------------------------- */
+
+// int acc = -1;
+
+// for (int i = 0; i < 16; i++) {
+//   acc = max(acc, out_fc[i]);
+// }
+
+// classifier_result = acc;
