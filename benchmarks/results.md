@@ -164,12 +164,10 @@ NB: autovettorizzatore vettorizza il loop interno (dotproduct vettorizzata per o
 Vettorizzo su 16 lane
 Tempo di esecuzione di vectorized_sad2d: 4.80ms
 Speedup: 10.69
-res: 12544
 
 Versione autovettorizzata
 Tempo di esecuzione di autovectorized_sad2d: 8.72ms
 Speedup: 5.88
-res: 12544
 
 **NB**: l'autovettorizzatore in questo caso è stupido è inserisce una riduzione orizzontale dopo ogni riga (subito dopo il loop interno come epilogo). In questo modo fa tante riduzioni invece di una sola
 
@@ -184,3 +182,9 @@ Tempo di esecuzione di vekt: 74.89ms
 Versione vekt-vettorizzata
 Tempo di esecuzione di vekt: 6.17ms
 Speedup: 12.14
+
+# Conclusioni
+
+- vecsum, dotp e mat-reduce-rows vengono autovettorizzati bene
+- conv1d, conv2d e maxpooling vengono autovettorizzati male (mostra conv1d con kernel largo)
+- il resto non viene autovettorizzato
