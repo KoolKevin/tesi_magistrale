@@ -82,43 +82,6 @@ public:
 };
 
 //===----------------------------------------------------------------------===//
-// PPUInsertVecLoad
-//===----------------------------------------------------------------------===//
-
-class PPUInsertVecLoad : public impl::PPUInsertVecLoadBase<PPUInsertVecLoad> {
-public:
-  using impl::PPUInsertVecLoadBase<PPUInsertVecLoad>::PPUInsertVecLoadBase;
-
-  void runOnOperation() override {
-    // questo metodo viene implementato dalla base-class OperationPass e
-    // restituisce l'op a cui il passo viene ancorato (moduleOp in questo caso;
-    // guarda la definizione nel file .td)
-    ModuleOp module = getOperation();
-    OpBuilder builder(module.getContext());
-
-    // inserisco una funzione fittizia
-    builder.setInsertionPointToStart(module.getBody());
-    auto i32Type = builder.getI32Type();
-    auto memrefType = MemRefType::get({16}, i32Type);
-    auto vecType = VectorType::get({16}, i32Type);
-    auto funcType = builder.getFunctionType({}, {vecType});
-    auto func = builder.create<func::FuncOp>(module.getLoc(),
-                                             "test_ppu_vec_load", funcType);
-
-    // creo una memref.alloc come argomento per la vec_load
-    Block *entry = func.addEntryBlock();
-    builder.setInsertionPointToStart(entry);
-    Value memref = builder.create<memref::AllocOp>(func.getLoc(), memrefType);
-
-    // creo la ppu.vec_load
-    auto vecLoad = builder.create<VecLoadOp>(func.getLoc(), vecType, memref);
-
-    // aggiungo la return op
-    builder.create<func::ReturnOp>(func.getLoc(), vecLoad.getRes());
-  }
-};
-
-//===----------------------------------------------------------------------===//
 // ConvertLinalgToPPUAlgorithm
 //===----------------------------------------------------------------------===//
 

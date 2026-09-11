@@ -3,22 +3,6 @@
 
 include "mlir/Pass/PassBase.td"
 
-def PPUInsertVecLoad : Pass<"ppu-insert-vec-load", "::mlir::ModuleOp"> {
-  let summary = "Insert a fake ppu.vec_load op for debugging";
-  let description = [{
-    This pass inserts a dummy a ppu.vec_load op and a memref as its argument
-    into the module to validate the op definition.
-  }];
-
-  // Questo dichiara che questo passo dipende da questi dialetti (~= genera ops
-  // di questi dialetti). In questa maniera il costruttore generato del passo si
-  // assicurerà di caricare questi dialetti prima che il passo esegua.
-  let dependentDialects = [
-    "mlir::memref::MemRefDialect",
-    "mlir::func::FuncDialect"
-  ];
-}
-
 def PPUAddDLTIInfo : Pass<"ppu-add-dlti-info", "::mlir::ModuleOp"> {
   let summary = "aggiunge le informazioni di data-layout per la ppu al modulo mlir";
   let description = [{
