@@ -22,6 +22,7 @@ namespace mlir::ppu {
 #define GEN_PASS_DEF_PPUNORMALIZEITERARGSREDUCTIONS
 #define GEN_PASS_DEF_PPUSPECIALIZELINALGGENERIC
 #define GEN_PASS_DEF_PPUSPECIALIZEAFFINENESTS
+#define GEN_PASS_DEF_PPUDELINEARIZEACCESSES
 #include "ppu/PPUPasses.h.inc"
 
 namespace {
@@ -1297,6 +1298,45 @@ struct PPUSpecializeAffineNests
     walkAndApplyPatterns(module, std::move(patterns));
   }
 };
+
+//===----------------------------------------------------------------------===//
+// PPUDelinearizeAccesses
+//===----------------------------------------------------------------------===//
+
+class PPUDelinearizeAccesses
+    : public impl::PPUDelinearizeAccessesBase<PPUDelinearizeAccesses> {
+public:
+  using impl::PPUDelinearizeAccessesBase<
+      PPUDelinearizeAccesses>::PPUDelinearizeAccessesBase;
+
+  void runOnOperation() override {
+    // TODO: pensa meglio a come vuoi approcciare la delinearizzazione.
+    //
+    // L'approccio descritto in "Optimistic Delinearization of Parametrically
+    // Sized Arrays" è complesso e richiede l'aggiunta di runtime checks per
+    // assicurarsi della correttezza della delinearizzazione.
+    //
+    // Invece di aggiungere questi runtime checks, io potrei provare a
+    // controllare se dopo la delinearizzazione ottimistica riesco a matchare
+    // un pattern, questa sarebbe la conferma che la mia delinearizzazione
+    // è corretta. Tuttavia, questo complica l'architettura dato che in questo
+    // modo dovrei fondere delinearizzazione e raising nello stesso passo,
+    // altrimenti non riuscirei a fare un rollback.
+  }
+};
+
+//===----------------------------------------------------------------------===//
+// PPUDistributeLoops
+//===----------------------------------------------------------------------===//
+
+// class PPUDistributeLoops
+//     : public impl::PPUDistributeLoopsBase<PPUDistributeLoops> {
+// public:
+//   using impl::PPUDistributeLoopsBase<
+//       PPUDistributeLoops>::PPUDistributeLoopsBase;
+
+//   void runOnOperation() override { llvm::outs() << "ciao\n"; }
+// };
 
 } // namespace
 } // namespace mlir::ppu

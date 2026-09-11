@@ -185,6 +185,21 @@ def PPUNormalizeIterargsReductions: Pass<"ppu-normalize-iterargs-reductions", ":
   ];
 }
 
+def PPUDelinearizeAccesses: Pass<"ppu-delinearize-accesses", "::mlir::ModuleOp"> {
+  let summary = "Delinearizza accessi linearizzati a strutture multidimensionali";
+  // TODO: scrivi una descrizione completa
+  let description = [{
+    il rango originale delle strutture multidimensionali viene recuperato
+    e gli accessi utilizzano un numero di subscript appropriato
+  }];
+
+  let dependentDialects = [
+    "mlir::affine::AffineDialect"
+  ];
+}
+
+
+
 def PPUSpecializeLinalgGeneric: Pass<"ppu-specialize-linalg-generic", "::mlir::ModuleOp"> {
   let summary = "Passo che specializza le linalg.generic ops in una versione"
                 "named. Gestisce i casi che mi interessano non gestiti dal"
