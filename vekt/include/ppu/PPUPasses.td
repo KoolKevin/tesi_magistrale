@@ -198,6 +198,21 @@ def PPUDelinearizeAccesses: Pass<"ppu-delinearize-accesses", "::mlir::ModuleOp">
   ];
 }
 
+def PPUDistributeLoops: Pass<"ppu-distribute-loops", "::mlir::ModuleOp"> {
+  let summary = "Spezza operazioni indipendenti fuse assieme all'interno di un nido di loop in nidi distinti";
+  // TODO: scrivi una descrizione completa
+  let description = [{
+    ...
+  }];
+
+  let dependentDialects = [
+    "mlir::memref::MemRefDialect",
+    "mlir::affine::AffineDialect",
+    "mlir::ppu::PPUDialect",
+    "mlir::arith::ArithDialect"
+  ];
+}
+
 
 
 def PPUSpecializeLinalgGeneric: Pass<"ppu-specialize-linalg-generic", "::mlir::ModuleOp"> {
